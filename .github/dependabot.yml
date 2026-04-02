@@ -1,0 +1,81 @@
+# Dependabot configuration
+#
+# Keeps three dependency ecosystems up to date automatically:
+#   - Maven  (root pom.xml + greener-spring-boot-core + greener-spring-boot-maven-plugin)
+#   - Gradle (greener-spring-boot-gradle-plugin)
+#   - GitHub Actions (all workflows in .github/workflows/)
+#
+# PRs are opened on a weekly schedule (Monday mornings) and grouped by ecosystem
+# so the reviewer sees one PR per ecosystem rather than one per dependency.
+#
+# Commit-message convention follows the Conventional Commits spec so that any
+# automated changelog or release tooling picks them up cleanly.
+#
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+version: 2
+
+updates:
+
+  # ── Maven (root + all sub-modules) ──────────────────────────────────────────
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 10
+    groups:
+      jackson:
+        patterns: ["com.fasterxml.jackson*"]
+      junit:
+        patterns: ["org.junit*"]
+      mockito:
+        patterns: ["org.mockito*"]
+      maven-plugin-tooling:
+        patterns: ["org.apache.maven*"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels:
+      - dependencies
+      - maven
+
+  # ── Gradle (greener-spring-boot-gradle-plugin) ───────────────────────────────
+  - package-ecosystem: gradle
+    directory: /greener-spring-boot-gradle-plugin
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 10
+    groups:
+      jackson:
+        patterns: ["com.fasterxml.jackson*"]
+      junit:
+        patterns: ["org.junit*"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels:
+      - dependencies
+      - gradle
+
+  # ── GitHub Actions ───────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        patterns: ["actions/*", "github/*"]
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+      - github-actions
