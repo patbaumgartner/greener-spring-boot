@@ -20,7 +20,7 @@ import javax.inject.Inject;
  * 
  * <pre>{@code
  * greener {
- *     // Required
+ *     // Optional — auto-detected from build/libs/ when omitted
  *     springBootJar = file("build/libs/myapp.jar")
  *
  *     // Joular Core
@@ -74,11 +74,13 @@ public abstract class GreenerExtension {
     }
 
     /**
-     * Path to the executable Spring Boot fat-jar.
+     * Path to the executable Spring Boot fat-jar. When omitted the plugin
+     * auto-detects a single jar in {@code build/libs/}.
      * 
      * @return the Spring Boot jar property
      */
     @InputFile
+    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getSpringBootJar();
 
     /**

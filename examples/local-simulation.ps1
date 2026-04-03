@@ -296,6 +296,9 @@ if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
 # -- Run 1: Baseline measurement ----------------------------------------------
 Banner "RUN 1 - BASELINE"
 
+# Remove any stale baseline so Run 1 reports "No baseline"
+if (Test-Path $BaselineFile) { Remove-Item $BaselineFile -Force }
+
 Push-Location $PetclinicDir
 try {
     $OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"

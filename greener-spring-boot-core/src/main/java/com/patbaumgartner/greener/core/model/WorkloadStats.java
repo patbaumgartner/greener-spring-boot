@@ -1,5 +1,7 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.util.Set;
+
 /**
  * Statistics captured during the training workload (the "use case") execution.
  *
@@ -89,4 +91,16 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 			return Double.NaN;
 		return ((double) Math.max(0, failedRequests) / totalRequests) * 100.0;
 	}
+
+	private static final Set<String> SCENARIO_TOOLS = Set.of("gatling", "k6", "locust");
+
+	/**
+	 * Returns the appropriate throughput unit label for this tool. Scenario-based
+	 * tools (Gatling, k6, Locust) return {@code "scenarios/s"}; all others return
+	 * {@code "req/s"}.
+	 */
+	public String throughputUnit() {
+		return SCENARIO_TOOLS.contains(tool.toLowerCase()) ? "scenarios/s" : "req/s";
+	}
+
 }
