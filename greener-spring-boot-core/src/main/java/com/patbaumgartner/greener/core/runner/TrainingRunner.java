@@ -168,7 +168,7 @@ public class TrainingRunner {
 			script.toFile().setExecutable(true);
 		}
 		catch (SecurityException ignored) {
-			// may fail on some systems; /bin/sh invocation below will still work
+			// may fail on some systems; shell invocation below will still work
 		}
 
 		String toolName = deriveToolName(script.getFileName().toString(),
@@ -176,7 +176,8 @@ public class TrainingRunner {
 
 		LOG.info("Running external training script [" + toolName + "]: " + script);
 
-		ProcessBuilder pb = new ProcessBuilder("/bin/sh", script.toAbsolutePath().toString());
+		String[] shellCommand = resolveShellCommand(script.toAbsolutePath().toString());
+		ProcessBuilder pb = new ProcessBuilder(shellCommand);
 		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
@@ -198,7 +199,8 @@ public class TrainingRunner {
 
 		LOG.info("Running external training command: " + command);
 
-		ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command);
+		String[] shellCommand = resolveShellCommand("-c", command);
+		ProcessBuilder pb = new ProcessBuilder(shellCommand);
 		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
@@ -217,6 +219,57 @@ public class TrainingRunner {
 	}
 
 	// -------------------------------------------------------------------------
+
+	private static final boolean IS_WINDOWS = System.getProperty("os.name", "").toLowerCase().startsWith("win");
+
+	/**
+	 * Builds a shell command array appropriate for the current OS.
+	 * <p>
+	 * On Linux/macOS, scripts are invoked via {@code /bin/sh}. On Windows, the method
+	 * locates {@code sh.exe} from Git for Windows (which is required by the project) so
+	 * that POSIX shell scripts can be executed unchanged.
+	 * @param args the arguments to pass after the shell executable
+	 * @return a command array suitable for {@link ProcessBuilder}
+	 */
+	private String[] resolveShellCommand(String... args) throws IOException {
+		String shell = IS_WINDOWS ? findWindowsShell() : "/bin/sh";
+		String[] command = new String[args.length + 1];
+		command[0] = shell;
+		System.arraycopy(args, 0, command, 1, args.length);
+		return command;
+	}
+
+	/**
+	 * Locates {@code sh.exe} on Windows. Checks {@code PATH} first, then well-known Git
+	 * for Windows installation directories.
+	 */
+	private String findWindowsShell() throws IOException {
+		// 1. Check if sh is already on PATH
+		try {
+			Process probe = new ProcessBuilder("sh", "--version").redirectErrorStream(true).start();
+			probe.getInputStream().readAllBytes();
+			if (probe.waitFor() == 0) {
+				return "sh";
+			}
+		}
+		catch (IOException | InterruptedException ignored) {
+			// sh not on PATH — continue searching
+		}
+
+		// 2. Check well-known Git for Windows locations
+		String[] candidates = { System.getenv("ProgramFiles") + "\\Git\\bin\\sh.exe",
+				System.getenv("ProgramFiles(x86)") + "\\Git\\bin\\sh.exe",
+				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
+		for (String candidate : candidates) {
+			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
+				LOG.info("Using Git Bash shell: " + candidate);
+				return candidate;
+			}
+		}
+
+		throw new IOException("Cannot find sh.exe on Windows. Git for Windows must be installed "
+				+ "and on PATH, or installed in the default location.");
+	}
 
 	private void populateEnvironment(ProcessBuilder pb, TrainingConfig config) {
 		String baseUrl = config.getBaseUrl();
