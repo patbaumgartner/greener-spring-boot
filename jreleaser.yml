@@ -1,0 +1,18 @@
+signing:
+  active: ALWAYS
+  armored: true
+
+release:
+  github:
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://central.sonatype.com/api/v1/publisher
+        stagingRepositories:
+          - target/staging-deploy

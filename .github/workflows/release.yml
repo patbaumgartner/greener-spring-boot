@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0). Leave empty for snapshot deploy."
+        required: false
+        type: string
+
+env:
+  JAVA_VERSION: "17"
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      JRELEASER_MAVENCENTRAL_SONATYPE_TOKEN: ${{ secrets.SONATYPE_PASSWORD }}
+      JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+      JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # ── 2. Set up Java ───────────────────────────────────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: central-snapshots
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+
+      # ── 3. Set release version (if provided) ─────────────────────────────────
+      - name: Set release version
+        if: inputs.version != ''
+        run: mvn -B versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+
+      # ── Snapshot deploy (direct to Central Portal snapshot repo) ──────────────
+      - name: Deploy Maven snapshot
+        if: inputs.version == ''
+        env:
+          CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: mvn -B -Ppublication
+
+      - name: Deploy Gradle snapshot
+        if: inputs.version == ''
+        working-directory: greener-spring-boot-gradle-plugin
+        env:
+          CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: ./gradlew publishAllPublicationsToCentralSnapshotsRepository
+
+      # ── Release (stage locally, then JReleaser bundles + uploads) ─────────────
+      - name: Stage Maven artifacts
+        if: inputs.version != ''
+        run: mvn -B -Ppublication -DaltDeploymentRepository=local::file:./target/staging-deploy
+
+      - name: Stage Gradle plugin artifacts
+        if: inputs.version != ''
+        working-directory: greener-spring-boot-gradle-plugin
+        run: |
+          sed -i "s/0.1.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
+          ./gradlew publishAllPublicationsToStagingRepository
+
+      - name: Release
+        if: inputs.version != ''
+        run: mvn -B jreleaser:full-release -N -Djreleaser.config.file=jreleaser.yml
+
+      - name: Publish Gradle Plugin
+        if: inputs.version != ''
+        working-directory: greener-spring-boot-gradle-plugin
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+        run: ./gradlew publishPlugins
+
+      # ── Logs ─────────────────────────────────────────────────────────────────
+      - name: JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jreleaser-release
+          path: |
+            target/jreleaser/trace.log
+            target/jreleaser/output.properties
