@@ -46,7 +46,7 @@ public class ConsoleReporter {
 			PowerSource powerSource) {
 		System.out.println();
 		System.out.println(LINE);
-		System.out.println(" greener-spring-boot — Energy Consumption Report");
+		System.out.println(" greener-spring-boot - Energy Consumption Report");
 		System.out.println(LINE);
 		System.out.printf(" Run ID      : %s%n", current.runId());
 		System.out.printf(" Timestamp   : %s%n", current.timestamp());
@@ -102,7 +102,7 @@ public class ConsoleReporter {
 			System.out.printf("   Throughput   : %.1f req/s%n", stats.requestsPerSecond());
 		}
 		else {
-			System.out.println("   Requests     : N/A (external tool — counts not captured)");
+			System.out.println("   Requests     : N/A (external tool - counts not captured)");
 		}
 
 		double mjPerReq = stats.energyPerRequestMillijoules(totalEnergyJoules);
@@ -111,7 +111,7 @@ public class ConsoleReporter {
 		}
 		else if (stats.durationSeconds() > 0) {
 			double wattsAvg = totalEnergyJoules / stats.durationSeconds();
-			System.out.printf("   Avg Power    : %.2f W  (energy/req unavailable — no request count)%n", wattsAvg);
+			System.out.printf("   Avg Power    : %.2f W  (energy/req unavailable - no request count)%n", wattsAvg);
 		}
 	}
 
@@ -119,7 +119,7 @@ public class ConsoleReporter {
 		ComparisonStatus status = comparison.overallStatus();
 
 		if (status == ComparisonStatus.NO_BASELINE) {
-			System.out.println(" Baseline: No baseline found — this run will be saved as the new baseline.");
+			System.out.println(" Baseline: No baseline found - this run will be saved as the new baseline.");
 			System.out.println(THIN_LINE);
 			return;
 		}
@@ -127,18 +127,18 @@ public class ConsoleReporter {
 		String arrow = switch (status) {
 			case IMPROVED -> "▼ IMPROVED  ✓";
 			case REGRESSED -> "▲ REGRESSED ✗";
-			default -> "→ UNCHANGED ≈";
+			default -> "~ UNCHANGED";
 		};
 
 		System.out.printf(" Baseline comparison:%n");
 		System.out.printf("   Baseline Total : %.4f J%n", comparison.baselineTotalJoules());
 		System.out.printf("   Current Total  : %.4f J%n", comparison.currentTotalJoules());
 		System.out.printf("   Delta          : %+.2f%%%n", comparison.totalDeltaPercent());
-		System.out.printf("   Threshold      : ±%.1f%%%n", comparison.threshold());
+		System.out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
 		System.out.printf("   Status         : %s%n", arrow);
 
 		if (comparison.isFailed()) {
-			System.out.printf("%n   ⚠  Energy consumption increased by %.2f%% (threshold: ±%.1f%%)%n",
+			System.out.printf("%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
 					comparison.totalDeltaPercent(), comparison.threshold());
 		}
 
@@ -165,7 +165,7 @@ public class ConsoleReporter {
 	private String truncate(String s, int maxLen) {
 		if (s.length() <= maxLen)
 			return s;
-		return "…" + s.substring(s.length() - (maxLen - 1));
+		return ".." + s.substring(s.length() - (maxLen - 1));
 	}
 
 }

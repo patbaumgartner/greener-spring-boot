@@ -103,7 +103,7 @@ public class JoularCoreResultReader {
 		double avgCpuPowerW = samples.stream().mapToDouble(s -> s.cpuPower).average().orElse(0);
 		double avgAppPowerW = samples.stream().mapToDouble(s -> s.pidOrAppPower).average().orElse(0);
 
-		LOG.info(String.format("Energy summary — total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)",
+		LOG.info(String.format("Energy summary - total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)",
 				totalCpuEnergyJ, avgCpuPowerW, totalAppEnergyJ, avgAppPowerW));
 
 		List<EnergyMeasurement> measurements = new ArrayList<>();

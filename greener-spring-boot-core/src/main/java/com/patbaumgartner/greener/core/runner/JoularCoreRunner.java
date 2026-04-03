@@ -44,7 +44,7 @@ public class JoularCoreRunner {
 	public void start(JoularCoreConfig config) throws IOException {
 		if (config.getBinaryPath() == null || !Files.exists(config.getBinaryPath())) {
 			throw new IOException("Joular Core binary not found at: " + config.getBinaryPath()
-					+ " — please set joularCoreBinaryPath or enable auto-download.");
+					+ " - please set joularCoreBinaryPath or enable auto-download.");
 		}
 
 		if (config.getOutputCsvPath() == null) {
@@ -63,7 +63,7 @@ public class JoularCoreRunner {
 		Map<String, String> vmEnv = config.buildVmEnvironment();
 		if (!vmEnv.isEmpty()) {
 			pb.environment().putAll(vmEnv);
-			LOG.info("Joular Core VM mode — environment: " + vmEnv);
+			LOG.info("Joular Core VM mode - environment: " + vmEnv);
 		}
 
 		if (config.isSilent()) {
@@ -89,12 +89,12 @@ public class JoularCoreRunner {
 			return;
 		}
 
-		LOG.info("Stopping Joular Core (PID " + joularCoreProcess.pid() + ") …");
+		LOG.info("Stopping Joular Core (PID " + joularCoreProcess.pid() + ") ...");
 		joularCoreProcess.destroy();
 
 		boolean exited = joularCoreProcess.waitFor(15, TimeUnit.SECONDS);
 		if (!exited) {
-			LOG.warning("Joular Core did not stop in 15 s — force-killing");
+			LOG.warning("Joular Core did not stop in 15 s - force-killing");
 			joularCoreProcess.destroyForcibly();
 		}
 		else {
