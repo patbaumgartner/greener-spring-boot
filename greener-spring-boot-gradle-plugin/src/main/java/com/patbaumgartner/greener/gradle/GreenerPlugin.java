@@ -18,7 +18,7 @@ import org.gradle.api.Project;
  * <h2>Minimal {@code build.gradle.kts} configuration</h2>
  * <pre>{@code
  * plugins {
- *     id("com.patbaumgartner.greener-spring-boot") version "0.1.0-SNAPSHOT"
+ *     id("com.patbaumgartner.greener-spring-boot") version "0.1.0"
  * }
  *
  * greener {
