@@ -16,7 +16,7 @@
 #   3. CPU × TDP     — software estimation via /proc/stat
 #
 # Prerequisites:
-#   - Java 25+ (temurin recommended)
+#   - Java 17+ (temurin recommended)
 #   - Maven
 #   - git, curl, python3 — installed automatically if missing
 #   - Rust toolchain (cargo) — installed automatically if missing
@@ -63,14 +63,14 @@ JOULAR_CACHE_DIR="${HOME}/.greener/cache/joularcore"
 CI_ESTIMATOR_PID=""
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-info()  { echo "ℹ️  $*"; }
-ok()    { echo "✅ $*"; }
-warn()  { echo "⚠️  $*"; }
+info()  { echo "i  $*"; }
+ok()    { echo "[OK] $*"; }
+warn()  { echo "[!!] $*"; }
 banner() {
     echo ""
-    echo "════════════════════════════════════════════════════════════"
+    echo "============================================================"
     echo "  $*"
-    echo "════════════════════════════════════════════════════════════"
+    echo "============================================================"
 }
 
 cleanup() {
@@ -84,8 +84,8 @@ trap cleanup EXIT
 # ── Preflight checks ─────────────────────────────────────────────────────────
 banner "Preflight checks"
 
-command -v java  >/dev/null 2>&1 || { echo "❌ java not found. Install JDK 25+."; exit 1; }
-command -v mvn   >/dev/null 2>&1 || { echo "❌ mvn not found. Install Maven."; exit 1; }
+command -v java  >/dev/null 2>&1 || { echo "[ERR] java not found. Install JDK 17+."; exit 1; }
+command -v mvn   >/dev/null 2>&1 || { echo "[ERR] mvn not found. Install Maven."; exit 1; }
 
 # Auto-install lightweight tools if missing
 for tool in git curl python3; do
@@ -100,7 +100,7 @@ for tool in git curl python3; do
         elif command -v brew >/dev/null 2>&1; then
             brew install "${tool}"
         else
-            echo "❌ ${tool} not found and no supported package manager detected."; exit 1
+            echo "[ERR] ${tool} not found and no supported package manager detected."; exit 1
         fi
         ok "${tool} installed"
     fi
@@ -144,7 +144,7 @@ else
     case "${ARCH}" in
         x86_64)  OHA_ARCH="amd64" ;;
         aarch64) OHA_ARCH="arm64" ;;
-        *)       echo "❌ Unsupported architecture: ${ARCH}"; exit 1 ;;
+        *)       echo "[ERR] Unsupported architecture: ${ARCH}"; exit 1 ;;
     esac
     OHA_URL="https://github.com/hatoo/oha/releases/download/v${OHA_VERSION}/oha-linux-${OHA_ARCH}"
     curl -fsSL -o "${WORK_DIR}/oha" "${OHA_URL}"
@@ -198,7 +198,7 @@ ARCH="$(uname -m)"
 case "${ARCH}" in
     x86_64)  JOULAR_ARCH="x86_64" ;;
     aarch64) JOULAR_ARCH="aarch64" ;;
-    *)       echo "❌ Unsupported architecture: ${ARCH}"; exit 1 ;;
+    *)       echo "[ERR] Unsupported architecture: ${ARCH}"; exit 1 ;;
 esac
 JOULAR_CORE_BINARY="${JOULAR_CACHE_DIR}/joularcore-linux-${JOULAR_ARCH}"
 
@@ -251,7 +251,7 @@ if [ "${POWER_SOURCE}" = "vm-file" ] || [ "${POWER_SOURCE}" = "ci-estimated" ]; 
 fi
 
 # ── Run 1: Baseline measurement ──────────────────────────────────────────────
-banner "RUN 1 — BASELINE"
+banner "RUN 1 - BASELINE"
 
 cd "${PETCLINIC_DIR}"
 JAR="$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)"
@@ -282,7 +282,7 @@ mvn --batch-mode --no-transfer-progress \
     -Dgreener.branch="${BRANCH}"
 
 echo ""
-echo "📊 Baseline created:"
+echo "Baseline created:"
 python3 -c "
 import json
 b = json.load(open('${BASELINE_FILE}'))
@@ -292,7 +292,7 @@ print(f'  Commit : ${COMMIT_SHA}')
 "
 
 # ── Run 2: Comparison measurement ────────────────────────────────────────────
-banner "RUN 2 — COMPARISON (vs baseline from Run 1)"
+banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
 
 mvn --batch-mode --no-transfer-progress \
     com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
@@ -311,7 +311,7 @@ mvn --batch-mode --no-transfer-progress \
     ${VM_FLAGS}
 
 # ── Summary ──────────────────────────────────────────────────────────────────
-banner "RESULTS — Baseline vs Comparison"
+banner "RESULTS - Baseline vs Comparison"
 
 python3 - <<PYEOF
 import json, os
@@ -328,13 +328,13 @@ pct = (delta / b_energy * 100) if b_energy > 0 else 0
 print(f"  Baseline energy  : {b_energy:.4f} J")
 print(f"  Comparison energy: {c_energy:.4f} J")
 print(f"  Delta            : {delta:+.4f} J ({pct:+.2f} %)")
-print(f"  Threshold        : ±${THRESHOLD} %")
+print(f'  Threshold        : +/-${THRESHOLD} %')
 print()
 
 if abs(pct) <= float("${THRESHOLD}"):
-    print("  ✅ Within threshold — results are reproducible.")
+    print("  [OK] Within threshold - results are reproducible.")
 else:
-    print("  ⚠️  Outside threshold — noisy environment or real regression.")
+    print("  [!!] Outside threshold - noisy environment or real regression.")
 PYEOF
 
 echo ""
