@@ -124,6 +124,7 @@ jobs:
       - name: Install k6
         if: matrix.tool == 'k6'
         run: |
+          sudo gpg -k
           sudo gpg --no-default-keyring \
             --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
             --keyserver hkp://keyserver.ubuntu.com:80 \
