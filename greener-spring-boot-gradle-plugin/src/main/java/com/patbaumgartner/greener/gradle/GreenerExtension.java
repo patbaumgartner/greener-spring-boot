@@ -41,7 +41,7 @@ import javax.inject.Inject;
  *     warmupDurationSeconds      = 30
  *     measureDurationSeconds     = 60
  *     startupTimeoutSeconds      = 120
- *     healthCheckPath            = "/actuator/health"
+ *     healthCheckPath            = "/actuator/health/readiness"
  *
  *     // Baseline & reporting
  *     baselineFile     = file("energy-baseline.json")
@@ -102,7 +102,9 @@ public abstract class GreenerExtension {
 
     /**
      * Joular Core release version to download when
-     * {@link #getJoularCoreBinaryPath()} is unset.
+     * {@link #getJoularCoreBinaryPath()} is unset. See
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * for available versions.
      * 
      * @return the Joular Core version property
      */
@@ -142,7 +144,9 @@ public abstract class GreenerExtension {
     public abstract Property<Integer> getRequestsPerSecond();
 
     /**
-     * Optional external training command (e.g. {@code k6 run script.js}).
+     * Optional external command used as the training workload instead of the
+     * built-in HTTP loader (e.g. {@code k6 run script.js}). The {@code APP_URL}
+     * environment variable is set to {@link #getBaseUrl()}.
      * 
      * @return the external training command property
      */
@@ -152,7 +156,14 @@ public abstract class GreenerExtension {
 
     /**
      * Path to an external shell script file used as the training workload.
-     * Takes precedence over {@link #getExternalTrainingCommand()}.
+     * Takes precedence over {@link #getExternalTrainingCommand()} when set.
+     *
+     * <p>
+     * Available environment variables in the script: {@code APP_URL},
+     * {@code APP_HOST}, {@code APP_PORT}, {@code WARMUP_SECONDS},
+     * {@code MEASURE_SECONDS}, {@code TOTAL_SECONDS}, {@code RPS}.
+     *
+     * <p>
      * See {@code examples/workloads/} for wrk, wrk2, oha, and Gatling examples.
      * 
      * @return the external training script file property
@@ -182,7 +193,8 @@ public abstract class GreenerExtension {
     public abstract RegularFileProperty getVmPowerFilePath();
 
     /**
-     * Warmup duration in seconds (energy from this phase is discarded).
+     * Warmup duration in seconds. The application runs under load during warmup
+     * so the JIT compiler warms up, but energy data from this phase is discarded.
      * 
      * @return the warmup duration property
      */
@@ -190,7 +202,7 @@ public abstract class GreenerExtension {
     public abstract Property<Integer> getWarmupDurationSeconds();
 
     /**
-     * Measurement duration in seconds.
+     * Duration in seconds of the actual measurement window after warmup.
      * 
      * @return the measure duration property
      */
@@ -223,7 +235,8 @@ public abstract class GreenerExtension {
     public abstract RegularFileProperty getBaselineFile();
 
     /**
-     * Maximum percentage energy increase before the build is failed.
+     * Maximum allowed percentage increase in total energy before the build is
+     * failed. For example {@code 10} means a 10 % regression is tolerated.
      * 
      * @return the threshold property
      */

@@ -65,123 +65,124 @@ public class HtmlReporter {
 	private String buildHtml(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("""
-				<!DOCTYPE html>
-				<html lang="en" data-theme="dark">
-				<head>
-				  <meta charset="UTF-8">
-				  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-				  <title>Greener Spring Boot — Energy Report</title>
-				  <style>
-				    :root,[data-theme="dark"]{
-				      --cyan:#00e5ff;--magenta:#ff00e5;--green:#39ff14;--yellow:#ffe600;
-				      --red:#ff3366;--bg:#0a0a0a;--card:#141414;--card-alt:#181820;
-				      --border:#222;--border-glow:#00e5ff18;--text:#d4d4d4;--muted:#777;
-				      --white:#f0f0f0;
-				      --badge-green-bg:#39ff1412;--badge-green-border:#39ff1430;
-				      --badge-red-bg:#ff336612;--badge-red-border:#ff336630;
-				      --badge-yellow-bg:#ffe60012;--badge-yellow-border:#ffe60030;
-				      --code-bg:#0e0e12;--row-hover:#ffffff06;
-				      --hero-bg:linear-gradient(135deg,#0a0a14 0%,#0d0d1a 50%,#0a0a14 100%);
-				      --alert-danger-bg:#ff336612;--alert-danger-border:#ff336630}
-				    [data-theme="light"]{
-				      --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
-				      --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
-				      --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
-				      --white:#111;
-				      --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
-				      --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
-				      --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
-				      --code-bg:#f0f0f0;--row-hover:#00000006;
-				      --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
-				      --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}
-				    @media(prefers-color-scheme:light){
-				      html:not([data-theme="dark"]){
-				        --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
-				        --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
-				        --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
-				        --white:#111;
-				        --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
-				        --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
-				        --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
-				        --code-bg:#f0f0f0;--row-hover:#00000006;
-				        --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
-				        --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}}
-				    *{box-sizing:border-box}
-				    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-				         margin:0;background:var(--bg);color:var(--text);line-height:1.6;
-				         transition:background .3s,color .3s}
-				    .container{max-width:960px;margin:0 auto;padding:32px 24px}
-				    .hero{text-align:center;padding:48px 24px 36px;
-				          background:var(--hero-bg);
-				          border-bottom:1px solid var(--border);margin-bottom:32px;position:relative}
-				    .hero h1{font-size:32px;color:var(--white);margin:0 0 6px;font-weight:700;
-				             letter-spacing:-0.5px}
-				    .hero h1 span{color:var(--cyan);text-shadow:0 0 20px color-mix(in srgb,var(--cyan) 40%,transparent)}
-				    .hero .tagline{color:var(--muted);font-size:15px;margin:0}
-				    .hero .tagline a{color:var(--magenta);text-decoration:none;
-				                     border-bottom:1px solid transparent;transition:border-color .2s}
-				    .hero .tagline a:hover{border-bottom-color:var(--magenta)}
-				    .theme-toggle{position:absolute;top:16px;right:24px;background:var(--card);
-				                  border:1px solid var(--border);border-radius:20px;padding:6px 14px;
-				                  cursor:pointer;color:var(--muted);font-size:13px;
-				                  transition:all .2s}
-				    .theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
-				    h2{font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;
-				       color:var(--magenta);margin:0 0 16px;padding-bottom:10px;
-				       border-bottom:1px solid var(--border)}
-				    h3{color:var(--red);font-size:14px;text-transform:uppercase;letter-spacing:1px;
-				       margin:20px 0 12px}
-				    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
-				          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s}
-				    .card:hover{border-color:var(--cyan)}
-				    .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
-				    .metric{flex:1;min-width:130px;padding:14px 18px;
-				            background:var(--bg);border:1px solid var(--border);border-radius:8px;
-				            transition:background .3s}
-				    .metric .label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;
-				                   color:var(--muted);margin-bottom:6px}
-				    .metric .value{font-size:22px;font-weight:700;color:var(--white);
-				                   letter-spacing:-0.3px}
-				    .improved{color:var(--green)!important;text-shadow:0 0 10px color-mix(in srgb,var(--green) 30%,transparent)}
-				    .regressed{color:var(--red)!important;text-shadow:0 0 10px color-mix(in srgb,var(--red) 30%,transparent)}
-				    .unchanged{color:var(--yellow)!important;text-shadow:0 0 10px color-mix(in srgb,var(--yellow) 30%,transparent)}
-				    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
-				    th{background:var(--bg);text-align:left;padding:10px 14px;
-				       border-bottom:2px solid var(--border);color:var(--cyan);
-				       font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
-				    td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
-				    tr:last-child td{border-bottom:none}
-				    tr:hover td{background:var(--row-hover)}
-				    .badge{display:inline-block;padding:3px 10px;border-radius:20px;
-				           font-size:12px;font-weight:600;letter-spacing:0.3px}
-				    .badge-green{background:var(--badge-green-bg);color:var(--green);border:1px solid var(--badge-green-border)}
-				    .badge-red{background:var(--badge-red-bg);color:var(--red);border:1px solid var(--badge-red-border)}
-				    .badge-yellow{background:var(--badge-yellow-bg);color:var(--yellow);border:1px solid var(--badge-yellow-border)}
-				    .note{padding:14px 18px;border-radius:8px;margin-top:16px;font-size:13px;
-				          color:var(--muted);background:var(--bg);border:1px solid var(--border);
-				          line-height:1.5}
-				    .alert{padding:14px 18px;border-radius:8px;margin-top:16px;font-weight:500;
-				           line-height:1.5}
-				    .alert-danger{background:var(--alert-danger-bg);border:1px solid var(--alert-danger-border);color:var(--red)}
-				    code{background:var(--code-bg);padding:2px 7px;border-radius:4px;font-size:12px;
-				         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}
-				    .footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0 12px;
-				            border-top:1px solid var(--border);margin-top:36px}
-				    .footer a{color:var(--cyan);text-decoration:none}
-				    .footer a:hover{text-decoration:underline}
-				  </style>
-				</head>
-				<body>
-				<div class="hero">
-				  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
-				  <h1><span>&#9889;</span> Greener Spring Boot</h1>
-				  <p class="tagline">Energy Report — powered by
-				    <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
-				  </p>
-				</div>
-				<div class="container">
-				""");
+		sb.append(
+				"""
+						<!DOCTYPE html>
+						<html lang="en" data-theme="dark">
+						<head>
+						  <meta charset="UTF-8">
+						  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+						  <title>Greener Spring Boot — Energy Report</title>
+						  <style>
+						    :root,[data-theme="dark"]{
+						      --cyan:#00e5ff;--magenta:#ff00e5;--green:#39ff14;--yellow:#ffe600;
+						      --red:#ff3366;--bg:#0a0a0a;--card:#141414;--card-alt:#181820;
+						      --border:#222;--border-glow:#00e5ff18;--text:#d4d4d4;--muted:#777;
+						      --white:#f0f0f0;
+						      --badge-green-bg:#39ff1412;--badge-green-border:#39ff1430;
+						      --badge-red-bg:#ff336612;--badge-red-border:#ff336630;
+						      --badge-yellow-bg:#ffe60012;--badge-yellow-border:#ffe60030;
+						      --code-bg:#0e0e12;--row-hover:#ffffff06;
+						      --hero-bg:linear-gradient(135deg,#0a0a14 0%,#0d0d1a 50%,#0a0a14 100%);
+						      --alert-danger-bg:#ff336612;--alert-danger-border:#ff336630}
+						    [data-theme="light"]{
+						      --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
+						      --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
+						      --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
+						      --white:#111;
+						      --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
+						      --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
+						      --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
+						      --code-bg:#f0f0f0;--row-hover:#00000006;
+						      --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
+						      --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}
+						    @media(prefers-color-scheme:light){
+						      html:not([data-theme="dark"]){
+						        --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
+						        --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
+						        --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
+						        --white:#111;
+						        --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
+						        --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
+						        --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
+						        --code-bg:#f0f0f0;--row-hover:#00000006;
+						        --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
+						        --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}}
+						    *{box-sizing:border-box}
+						    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+						         margin:0;background:var(--bg);color:var(--text);line-height:1.6;
+						         transition:background .3s,color .3s}
+						    .container{max-width:960px;margin:0 auto;padding:32px 24px}
+						    .hero{text-align:center;padding:48px 24px 36px;
+						          background:var(--hero-bg);
+						          border-bottom:1px solid var(--border);margin-bottom:32px;position:relative}
+						    .hero h1{font-size:32px;color:var(--white);margin:0 0 6px;font-weight:700;
+						             letter-spacing:-0.5px}
+						    .hero h1 span{color:var(--cyan);text-shadow:0 0 20px color-mix(in srgb,var(--cyan) 40%,transparent)}
+						    .hero .tagline{color:var(--muted);font-size:15px;margin:0}
+						    .hero .tagline a{color:var(--magenta);text-decoration:none;
+						                     border-bottom:1px solid transparent;transition:border-color .2s}
+						    .hero .tagline a:hover{border-bottom-color:var(--magenta)}
+						    .theme-toggle{position:absolute;top:16px;right:24px;background:var(--card);
+						                  border:1px solid var(--border);border-radius:20px;padding:6px 14px;
+						                  cursor:pointer;color:var(--muted);font-size:13px;
+						                  transition:all .2s}
+						    .theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+						    h2{font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;
+						       color:var(--magenta);margin:0 0 16px;padding-bottom:10px;
+						       border-bottom:1px solid var(--border)}
+						    h3{color:var(--red);font-size:14px;text-transform:uppercase;letter-spacing:1px;
+						       margin:20px 0 12px}
+						    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+						          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s}
+						    .card:hover{border-color:var(--cyan)}
+						    .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
+						    .metric{flex:1;min-width:130px;padding:14px 18px;
+						            background:var(--bg);border:1px solid var(--border);border-radius:8px;
+						            transition:background .3s}
+						    .metric .label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;
+						                   color:var(--muted);margin-bottom:6px}
+						    .metric .value{font-size:22px;font-weight:700;color:var(--white);
+						                   letter-spacing:-0.3px}
+						    .improved{color:var(--green)!important;text-shadow:0 0 10px color-mix(in srgb,var(--green) 30%,transparent)}
+						    .regressed{color:var(--red)!important;text-shadow:0 0 10px color-mix(in srgb,var(--red) 30%,transparent)}
+						    .unchanged{color:var(--yellow)!important;text-shadow:0 0 10px color-mix(in srgb,var(--yellow) 30%,transparent)}
+						    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+						    th{background:var(--bg);text-align:left;padding:10px 14px;
+						       border-bottom:2px solid var(--border);color:var(--cyan);
+						       font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+						    td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+						    tr:last-child td{border-bottom:none}
+						    tr:hover td{background:var(--row-hover)}
+						    .badge{display:inline-block;padding:3px 10px;border-radius:20px;
+						           font-size:12px;font-weight:600;letter-spacing:0.3px}
+						    .badge-green{background:var(--badge-green-bg);color:var(--green);border:1px solid var(--badge-green-border)}
+						    .badge-red{background:var(--badge-red-bg);color:var(--red);border:1px solid var(--badge-red-border)}
+						    .badge-yellow{background:var(--badge-yellow-bg);color:var(--yellow);border:1px solid var(--badge-yellow-border)}
+						    .note{padding:14px 18px;border-radius:8px;margin-top:16px;font-size:13px;
+						          color:var(--muted);background:var(--bg);border:1px solid var(--border);
+						          line-height:1.5}
+						    .alert{padding:14px 18px;border-radius:8px;margin-top:16px;font-weight:500;
+						           line-height:1.5}
+						    .alert-danger{background:var(--alert-danger-bg);border:1px solid var(--alert-danger-border);color:var(--red)}
+						    code{background:var(--code-bg);padding:2px 7px;border-radius:4px;font-size:12px;
+						         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}
+						    .footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0 12px;
+						            border-top:1px solid var(--border);margin-top:36px}
+						    .footer a{color:var(--cyan);text-decoration:none}
+						    .footer a:hover{text-decoration:underline}
+						  </style>
+						</head>
+						<body>
+						<div class="hero">
+						  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
+						  <h1><span>&#9889;</span> Greener Spring Boot</h1>
+						  <p class="tagline">Energy Report — powered by
+						    <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
+						  </p>
+						</div>
+						<div class="container">
+						""");
 
 		// Run summary card
 		sb.append("  <div class=\"card\">\n    <h2>Measurement Summary</h2>\n    <div class=\"metrics\">\n");

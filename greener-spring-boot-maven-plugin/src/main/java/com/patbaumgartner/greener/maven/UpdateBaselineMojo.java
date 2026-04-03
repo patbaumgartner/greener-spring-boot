@@ -98,7 +98,7 @@ public class UpdateBaselineMojo extends AbstractMojo {
 			getLog().info("Energy baseline updated: " + baselineFile);
 			getLog().info("  commit : " + normalise(commitSha));
 			getLog().info("  branch : " + normalise(branch));
-			getLog().info("  energy : " + String.format("%.4f J", report.totalEnergyJoules()));
+			getLog().info("  energy : " + String.format("%.2f J", report.totalEnergyJoules()));
 
 		}
 		catch (IOException e) {

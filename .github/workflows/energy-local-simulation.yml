@@ -54,16 +54,16 @@ jobs:
         run: |
           if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
             echo "POWER_SOURCE=rapl"         >> "$GITHUB_OUTPUT"
-            echo "✅ RAPL readable — hardware energy measurement."
+            echo "[OK] RAPL readable - hardware energy measurement."
           elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
             echo "POWER_SOURCE=vm-file"      >> "$GITHUB_OUTPUT"
-            echo "✅ Scaphandre VM power file found."
+            echo "[OK] Scaphandre VM power file found."
           elif [ -f /proc/stat ]; then
             echo "POWER_SOURCE=ci-estimated" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Using CPU-time × TDP software estimation."
+            echo "i  Using CPU-time x TDP software estimation."
           else
             echo "POWER_SOURCE=none"         >> "$GITHUB_OUTPUT"
-            echo "⚠️  No power source — measurement skipped."
+            echo "[!!] No power source - measurement skipped."
           fi
 
       # ── Build greener-spring-boot plugins ─────────────────────────────────────
@@ -134,7 +134,7 @@ jobs:
           echo "CI_ESTIMATOR_PID=$!"                 >> "$GITHUB_ENV"
           echo "VM_POWER_FILE=/tmp/ci-power.txt"     >> "$GITHUB_ENV"
           sleep 2
-          echo "ℹ️  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
+          echo "i  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
 
       # ── Run 1: Baseline measurement ───────────────────────────────────────────
       - name: "Run 1 — Baseline measurement"
@@ -144,6 +144,9 @@ jobs:
           echo "════════════════════════════════════════════════════════════"
           echo "  RUN 1 — BASELINE"
           echo "════════════════════════════════════════════════════════════"
+
+          # Remove any stale baseline so Run 1 reports "No baseline"
+          rm -f /tmp/energy-baseline.json
 
           VM_FLAGS=""
           if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
@@ -179,12 +182,12 @@ jobs:
             -Dgreener.branch=${{ github.ref_name }}
 
           echo ""
-          echo "📊 Baseline created:"
+          echo "Baseline created:"
           python3 -c "
           import json
           b = json.load(open('/tmp/energy-baseline.json'))
           e = b['report']['totalEnergyJoules']
-          print(f'  Energy : {e:.4f} J')
+          print(f'  Energy : {e:.2f} J')
           print(f'  Commit : ${{ github.sha }}')
           "
 
@@ -242,16 +245,16 @@ jobs:
           delta = c_energy - b_energy
           pct = (delta / b_energy * 100) if b_energy > 0 else 0
 
-          print(f"  Baseline energy  : {b_energy:.4f} J")
-          print(f"  Comparison energy: {c_energy:.4f} J")
-          print(f"  Delta            : {delta:+.4f} J ({pct:+.2f} %)")
-          print(f"  Threshold        : ±{os.environ.get('THRESHOLD', '10')} %")
+          print(f"  Baseline energy  : {b_energy:.2f} J")
+          print(f"  Comparison energy: {c_energy:.2f} J")
+          print(f"  Delta            : {delta:+.2f} J ({pct:+.2f} %)")
+          print(f"  Threshold        : +/-{os.environ.get('THRESHOLD', '10')} %")
           print()
 
           if abs(pct) <= float(os.environ.get("THRESHOLD", "10")):
-              print("  ✅ Within threshold — results are reproducible.")
+              print("  [OK] Within threshold - results are reproducible.")
           else:
-              print("  ⚠️  Outside threshold — noisy runner or real regression.")
+              print("  [!!] Outside threshold - noisy runner or real regression.")
           PYEOF
 
       # ── Cleanup ───────────────────────────────────────────────────────────────
