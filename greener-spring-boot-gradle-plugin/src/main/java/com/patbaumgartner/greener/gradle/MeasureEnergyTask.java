@@ -3,6 +3,7 @@ package com.patbaumgartner.greener.gradle;
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.comparator.EnergyComparator;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
@@ -300,15 +301,16 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         }
         String appId = springBootJarFile.getName().replace(".jar", "");
         JoularCoreResultReader resultReader = new JoularCoreResultReader();
-        EnergyReport report = resultReader.readResults(outputCsv, buildRunId(), measure, appId);
+        EnergyReport report = resultReader.readResults(outputCsv, PluginDefaults.buildRunId(), measure, appId);
 
         BaselineManager baselineManager = new BaselineManager();
         Optional<EnergyBaseline> baseline = loadBaseline(baselineManager);
         ComparisonResult comparison = new EnergyComparator().compare(report, baseline,
                 getThreshold().get());
 
-        new ConsoleReporter().report(report, comparison, workloadStats, resolvePowerSource());
-        Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, resolvePowerSource(),
+        PowerSource powerSource = PluginDefaults.resolvePowerSource(getVmMode().get());
+        new ConsoleReporter().report(report, comparison, workloadStats, powerSource);
+        Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, powerSource,
                 reportDir);
         getLogger().lifecycle("HTML report: " + htmlReport);
 
@@ -381,22 +383,4 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         return getProject().getLayout().getBuildDirectory().getAsFile().get().toPath().resolve("greener-reports");
     }
 
-    private String buildRunId() {
-        String sha = System.getenv("GITHUB_SHA");
-        return sha != null && !sha.isBlank()
-                ? sha.substring(0, Math.min(sha.length(), 8))
-                : String.valueOf(System.currentTimeMillis());
-    }
-
-    private PowerSource resolvePowerSource() {
-        String override = System.getProperty("greener.powerSource");
-        if (override != null && !override.isBlank()) {
-            return PowerSource.fromString(override);
-        }
-        String envOverride = System.getenv("POWER_SOURCE");
-        if (envOverride != null && !envOverride.isBlank()) {
-            return PowerSource.fromString(envOverride);
-        }
-        return PowerSource.detect(getVmMode().get());
-    }
 }
