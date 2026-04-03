@@ -1,0 +1,84 @@
+name: Bug Report
+description: Report a bug in greener-spring-boot
+title: "[Bug] "
+labels: ["bug"]
+assignees:
+  - patbaumgartner
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe the bug…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behaviour.
+      placeholder: |
+        1. Configure plugin with …
+        2. Run `mvn greener:measure`
+        3. See error …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include any stack traces or error output.
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin Version
+      description: Which version of greener-spring-boot are you using?
+      placeholder: e.g. 0.1.0-SNAPSHOT
+    validations:
+      required: true
+  - type: dropdown
+    id: java-version
+    attributes:
+      label: Java Version
+      options:
+        - "17"
+        - "21"
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: build-tool
+    attributes:
+      label: Build Tool
+      options:
+        - Maven
+        - Gradle
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, configuration snippets, or screenshots.

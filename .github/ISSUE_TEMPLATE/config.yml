@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/patbaumgartner/greener-spring-boot/discussions
+    about: Ask questions or discuss ideas in Discussions rather than Issues.

@@ -1,0 +1,127 @@
+{
+  // Renovate configuration for greener-spring-boot
+  // Documentation: https://docs.renovatebot.com/configuration-options/
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // ── Base presets ────────────────────────────────────────────────────────────
+  // config:recommended  — sensible defaults (onboardingPR, labels, assignees, etc.)
+  // :semanticCommits    — "chore(deps): update …" commit messages
+  // :dependencyDashboard — single dashboard issue tracking all pending updates
+  extends: [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard",
+  ],
+
+  // ── Schedule ────────────────────────────────────────────────────────────────
+  // Batch all updates into Monday morning so the reviewer sees one set of PRs
+  // per week rather than a continuous stream.
+  schedule: ["before 7am on monday"],
+  timezone: "Europe/Zurich",
+
+  // ── PR limits ───────────────────────────────────────────────────────────────
+  prConcurrentLimit: 10,
+  prHourlyLimit: 4,
+
+  // ── Labels ──────────────────────────────────────────────────────────────────
+  labels: ["dependencies"],
+
+  // ── Maven (root pom.xml and all sub-modules) ─────────────────────────────────
+  // Renovate detects multi-module Maven projects automatically.
+  // The "maven" manager handles <version> properties and <dependency> versions.
+  packageRules: [
+
+    // Group Jackson updates (databind + datatype modules always move together)
+    {
+      matchManagers: ["maven", "gradle"],
+      matchPackagePrefixes: ["com.fasterxml.jackson"],
+      groupName: "Jackson",
+      labels: ["dependencies", "jackson"],
+    },
+
+    // Group JUnit 5 updates
+    {
+      matchManagers: ["maven", "gradle"],
+      matchPackagePrefixes: ["org.junit"],
+      groupName: "JUnit 5",
+      labels: ["dependencies", "junit"],
+    },
+
+    // Group Mockito updates
+    {
+      matchManagers: ["maven"],
+      matchPackagePrefixes: ["org.mockito"],
+      groupName: "Mockito",
+      labels: ["dependencies", "mockito"],
+    },
+
+    // Group AssertJ updates
+    {
+      matchManagers: ["maven", "gradle"],
+      matchPackagePrefixes: ["org.assertj"],
+      groupName: "AssertJ",
+      labels: ["dependencies", "assertj"],
+    },
+
+    // Group Maven tooling (compiler, surefire, plugin-plugin, plugin-api)
+    {
+      matchManagers: ["maven"],
+      matchPackagePrefixes: ["org.apache.maven"],
+      groupName: "Maven tooling",
+      labels: ["dependencies", "maven"],
+    },
+
+    // Group GitHub Actions updates together
+    {
+      matchManagers: ["github-actions"],
+      groupName: "GitHub Actions",
+      labels: ["dependencies", "github-actions"],
+    },
+
+    // Automerge non-breaking patch and minor updates for test/CI dependencies
+    // (e.g. JUnit, AssertJ, Mockito) once all checks pass.
+    {
+      matchManagers: ["maven", "gradle"],
+      matchDepTypes: ["test", "testImplementation"],
+      matchUpdateTypes: ["minor", "patch"],
+      automerge: true,
+      automergeType: "pr",
+    },
+
+    // Automerge GitHub Actions patch/minor bumps (e.g. actions/checkout@v4.x)
+    {
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch"],
+      automerge: true,
+      automergeType: "pr",
+    },
+
+    // Pin digest for GitHub Actions to ensure reproducible workflows
+    {
+      matchManagers: ["github-actions"],
+      pinDigests: true,
+    },
+
+    // Major version bumps always require manual review — never automerge
+    {
+      matchUpdateTypes: ["major"],
+      automerge: false,
+      labels: ["dependencies", "major-update"],
+    },
+  ],
+
+  // ── Gradle ──────────────────────────────────────────────────────────────────
+  // Renovate's gradle manager handles the standalone gradle plugin sub-project.
+  gradle: {
+    enabled: true,
+  },
+
+  // ── Vulnerability alerts ────────────────────────────────────────────────────
+  // Open a PR immediately (outside the normal schedule) when a vulnerability
+  // is detected in a direct dependency.
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: ["security", "dependencies"],
+    schedule: ["at any time"],
+  },
+}

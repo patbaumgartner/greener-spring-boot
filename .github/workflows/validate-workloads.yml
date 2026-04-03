@@ -1,0 +1,358 @@
+name: Validate Workload Examples
+
+# Installs every supported load-testing tool, runs its run.sh script against a
+# live Spring Petclinic instance, and publishes a per-tool Markdown report as a
+# GitHub Actions job summary and a downloadable workflow artifact.
+#
+# Tools covered: oha | wrk | wrk2 | k6 | ab | bombardier | locust | gatling
+#
+# Durations are short by default (WARMUP=5s, MEASURE=15s) so the whole workflow
+# finishes in a few minutes.  Use workflow_dispatch inputs to run longer tests.
+#
+# ── Trigger ───────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+    inputs:
+      warmup_seconds:
+        description: "Warmup duration (seconds)"
+        default: "5"
+        required: false
+      measure_seconds:
+        description: "Measurement duration (seconds)"
+        default: "15"
+        required: false
+      rps:
+        description: "Target requests per second"
+        default: "10"
+        required: false
+  push:
+    branches: ["**"]
+    paths:
+      - "examples/workloads/**"
+      - ".github/workflows/validate-workloads.yml"
+
+concurrency:
+  group: validate-workloads-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "25"
+  PETCLINIC_VERSION: "main"
+  OHA_VERSION: "1.4.5"
+  BOMBARDIER_VERSION: "1.2.6"
+  GATLING_VERSION: "3.11.5"
+
+# ── Matrix job: one runner per tool ───────────────────────────────────────────
+jobs:
+  validate:
+    name: ${{ matrix.tool }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false   # test every tool independently even if one fails
+      matrix:
+        tool: [oha, wrk, wrk2, k6, ab, bombardier, locust, gatling]
+
+    steps:
+
+      # ── 1. Source checkout ───────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Java (needed for Petclinic and Gatling) ───────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      # ── 3. Build Spring Petclinic ────────────────────────────────────────────
+      - name: Clone Spring Petclinic ${{ env.PETCLINIC_VERSION }}
+        run: |
+          git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
+            https://github.com/spring-projects/spring-petclinic.git \
+            /tmp/spring-petclinic
+
+      - name: Build Spring Petclinic (skip tests)
+        working-directory: /tmp/spring-petclinic
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+      # ── 4. Install the tool under test ───────────────────────────────────────
+
+      - name: Install oha ${{ env.OHA_VERSION }}
+        if: matrix.tool == 'oha'
+        run: |
+          curl -fsSL -o /usr/local/bin/oha \
+            "https://github.com/hatoo/oha/releases/download/v${{ env.OHA_VERSION }}/oha-linux-amd64"
+          chmod +x /usr/local/bin/oha
+          echo "TOOL_VERSION=$(oha --version 2>&1 | head -1)" >> "$GITHUB_ENV"
+
+      - name: Install wrk
+        if: matrix.tool == 'wrk'
+        run: |
+          sudo apt-get install -y -q wrk
+          # wrk --version exits non-zero but still prints the version line
+          echo "TOOL_VERSION=$(wrk --version 2>&1 | head -1 || true)" >> "$GITHUB_ENV"
+
+      # wrk2 has no pre-built binaries; build from source and cache the result.
+      - name: Restore cached wrk2 binary
+        if: matrix.tool == 'wrk2'
+        id: cache-wrk2
+        uses: actions/cache@v4
+        with:
+          path: /tmp/wrk2-bin
+          key: wrk2-build-${{ runner.os }}-v1
+
+      - name: Build wrk2 from source
+        if: matrix.tool == 'wrk2' && steps.cache-wrk2.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y -q build-essential libssl-dev
+          git clone --depth 1 https://github.com/giltene/wrk2.git /tmp/wrk2-src
+          make -C /tmp/wrk2-src -j$(nproc)
+          mkdir -p /tmp/wrk2-bin
+          # wrk2's Makefile produces a binary named 'wrk'; we install it as 'wrk2'
+          cp /tmp/wrk2-src/wrk /tmp/wrk2-bin/wrk2
+
+      - name: Install wrk2 binary
+        if: matrix.tool == 'wrk2'
+        run: |
+          sudo install -m 755 /tmp/wrk2-bin/wrk2 /usr/local/bin/wrk2
+          echo "TOOL_VERSION=wrk2 (built from source — giltene/wrk2)" >> "$GITHUB_ENV"
+
+      - name: Install k6
+        if: matrix.tool == 'k6'
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] \
+            https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -q
+          sudo apt-get install -y -q k6
+          echo "TOOL_VERSION=$(k6 version 2>&1 | head -1)" >> "$GITHUB_ENV"
+
+      - name: Install ab (Apache Bench)
+        if: matrix.tool == 'ab'
+        run: |
+          sudo apt-get install -y -q apache2-utils
+          # ab -V prints to stderr with a non-zero exit; capture both streams
+          echo "TOOL_VERSION=$(ab -V 2>&1 | grep -i 'version\|ApacheBench' | head -1 || echo 'ab (apache2-utils)')" >> "$GITHUB_ENV"
+
+      - name: Install bombardier ${{ env.BOMBARDIER_VERSION }}
+        if: matrix.tool == 'bombardier'
+        run: |
+          curl -fsSL -o /usr/local/bin/bombardier \
+            "https://github.com/codesenberg/bombardier/releases/download/v${{ env.BOMBARDIER_VERSION }}/bombardier-linux-amd64"
+          chmod +x /usr/local/bin/bombardier
+          echo "TOOL_VERSION=$(bombardier --version 2>&1 | head -1)" >> "$GITHUB_ENV"
+
+      - name: Install Locust
+        if: matrix.tool == 'locust'
+        run: |
+          pip install -q locust
+          echo "TOOL_VERSION=$(locust --version 2>&1 | head -1)" >> "$GITHUB_ENV"
+
+      # Gatling is auto-downloaded by run.sh on first use; cache the bundle.
+      - name: Restore cached Gatling bundle
+        if: matrix.tool == 'gatling'
+        uses: actions/cache@v4
+        with:
+          path: ~/.greener/cache/gatling
+          key: gatling-bundle-${{ env.GATLING_VERSION }}
+
+      - name: Set Gatling version label
+        if: matrix.tool == 'gatling'
+        run: echo "TOOL_VERSION=Gatling ${{ env.GATLING_VERSION }} (auto-downloaded)" >> "$GITHUB_ENV"
+
+      # ── 5. Start Spring Petclinic ────────────────────────────────────────────
+      - name: Start Spring Petclinic
+        run: |
+          JAR=$(find /tmp/spring-petclinic/target -name "*.jar" ! -name "*-sources.jar" | head -1)
+          echo "JAR: $JAR"
+          java -jar "$JAR" \
+            --server.port=8080 \
+            --logging.level.root=WARN \
+            --spring.jpa.show-sql=false \
+            --management.endpoint.health.probes.enabled=true \
+            > /tmp/petclinic-${{ matrix.tool }}.log 2>&1 &
+          echo "PETCLINIC_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for Petclinic readiness
+        run: |
+          echo "Waiting for http://localhost:8080/actuator/health/readiness …"
+          ATTEMPTS=0
+          until curl -sf http://localhost:8080/actuator/health/readiness \
+                | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('status')=='UP' else 1)" \
+                2>/dev/null; do
+            ATTEMPTS=$((ATTEMPTS + 1))
+            if [ "${ATTEMPTS}" -ge 60 ]; then
+              echo "❌ Petclinic did not start within 120 s" >&2
+              cat /tmp/petclinic-${{ matrix.tool }}.log >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "✅ Petclinic is ready (after $((ATTEMPTS * 2)) s)"
+
+      # ── 6. Run the workload script ───────────────────────────────────────────
+      #
+      # continue-on-error: true — a failing tool does not abort the job; the
+      # outcome is captured via steps.run-tool.outcome and included in the report.
+      - name: Run ${{ matrix.tool }} workload
+        id: run-tool
+        continue-on-error: true
+        env:
+          APP_URL: "http://localhost:8080"
+          APP_HOST: "localhost"
+          APP_PORT: "8080"
+          WARMUP_SECONDS: ${{ inputs.warmup_seconds || '5' }}
+          MEASURE_SECONDS: ${{ inputs.measure_seconds || '15' }}
+          RPS: ${{ inputs.rps || '10' }}
+        run: |
+          # Compute TOTAL_SECONDS inside the shell (GitHub Actions has no arithmetic in env)
+          export TOTAL_SECONDS=$((WARMUP_SECONDS + MEASURE_SECONDS))
+
+          SCRIPT="examples/workloads/${{ matrix.tool }}/run.sh"
+          chmod +x "${SCRIPT}"
+          echo "▶ Running: ${SCRIPT}"
+          echo "  APP_URL=${APP_URL}  WARMUP=${WARMUP_SECONDS}s  MEASURE=${MEASURE_SECONDS}s  RPS=${RPS}"
+          echo ""
+
+          # pipefail: if the script exits non-zero, this step is also non-zero
+          set -o pipefail
+          bash "${SCRIPT}" 2>&1 | tee /tmp/tool-output-${{ matrix.tool }}.txt
+
+      # ── 7. Cleanup ───────────────────────────────────────────────────────────
+      - name: Stop Spring Petclinic
+        if: always()
+        run: kill "${PETCLINIC_PID}" 2>/dev/null || true
+
+      # ── 8. Generate per-tool Markdown report ─────────────────────────────────
+      - name: Generate report
+        if: always()
+        run: |
+          OUTCOME="${{ steps.run-tool.outcome }}"
+          WARMUP="${{ inputs.warmup_seconds || '5' }}"
+          MEASURE="${{ inputs.measure_seconds || '15' }}"
+          RPS="${{ inputs.rps || '10' }}"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            STATUS_ICON="✅"
+            STATUS_TEXT="passed"
+          else
+            STATUS_ICON="❌"
+            STATUS_TEXT="failed"
+          fi
+
+          REPORT="/tmp/workload-report-${{ matrix.tool }}.md"
+
+          {
+            echo "# ${STATUS_ICON} \`${{ matrix.tool }}\` — Workload Validation Report"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Tool** | \`${{ matrix.tool }}\` |"
+            echo "| **Version** | \`${TOOL_VERSION:-unknown}\` |"
+            echo "| **Script** | \`examples/workloads/${{ matrix.tool }}/run.sh\` |"
+            echo "| **Result** | ${STATUS_ICON} ${STATUS_TEXT} |"
+            echo "| **Target** | Spring Petclinic \`${{ env.PETCLINIC_VERSION }}\` — \`http://localhost:8080\` |"
+            echo "| **Warmup** | ${WARMUP} s |"
+            echo "| **Measure** | ${MEASURE} s |"
+            echo "| **Rate** | ${RPS} req/s |"
+            echo "| **Commit** | [\`${GITHUB_SHA:0:8}\`](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+            echo "| **Runner** | \`${{ runner.os }}\` / \`${{ runner.arch }}\` |"
+            echo ""
+            echo "## Tool Output"
+            echo ""
+            echo '```'
+            cat "/tmp/tool-output-${{ matrix.tool }}.txt" 2>/dev/null \
+              || echo "(no output captured — tool may have failed during install)"
+            echo '```'
+          } > "${REPORT}"
+
+          # Preview in the Actions log
+          cat "${REPORT}"
+
+      # ── 9. Publish results ───────────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: cat "/tmp/workload-report-${{ matrix.tool }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workload-report-${{ matrix.tool }}
+          path: /tmp/workload-report-${{ matrix.tool }}.md
+          retention-days: 30
+
+      # Upload the Petclinic startup log only on failure — useful for debugging
+      # "did not start within 120 s" failures.
+      - name: Upload Petclinic startup log (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petclinic-log-${{ matrix.tool }}
+          path: /tmp/petclinic-${{ matrix.tool }}.log
+          retention-days: 7
+
+  # ── Dashboard: aggregate all per-tool reports into one workflow summary ──────
+  dashboard:
+    name: Dashboard
+    needs: validate
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download all workload reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: workload-report-*
+          merge-multiple: true
+          path: /tmp/reports
+
+      - name: Build consolidated dashboard
+        run: |
+          {
+            echo "# Workload Examples — Validation Dashboard"
+            echo ""
+            echo "| Tool | Result | Version |"
+            echo "|---|---|---|"
+
+            for tool in oha wrk wrk2 k6 ab bombardier locust gatling; do
+              REPORT="/tmp/reports/workload-report-${tool}.md"
+              if [ -f "${REPORT}" ]; then
+                FIRST=$(head -1 "${REPORT}")
+                if echo "${FIRST}" | grep -q "✅"; then
+                  ICON="✅"
+                else
+                  ICON="❌"
+                fi
+                # Extract version from the table row "| **Version** | `…` |"
+                VERSION=$(grep '\*\*Version\*\*' "${REPORT}" \
+                  | sed "s/.*\`\(.*\)\`.*/\1/" | head -1)
+              else
+                ICON="⚠️"
+                VERSION="—"
+              fi
+              echo "| ${ICON} \`${tool}\` | ${FIRST#\# } | ${VERSION} |"
+            done
+
+            echo ""
+            echo "> Commit [\`${GITHUB_SHA:0:8}\`]"
+            echo "> Run [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo ""
+            echo "---"
+            echo ""
+            echo "_Individual step summaries are available in each tool's job tab._"
+            echo "_Full tool output is attached as \`workload-report-{tool}\` artifacts._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat "$GITHUB_STEP_SUMMARY"
