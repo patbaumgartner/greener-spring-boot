@@ -184,16 +184,22 @@ public class JoularCoreConfig {
 		List<String> cmd = new ArrayList<>();
 		cmd.add(resolvedBinaryPath.toAbsolutePath().toString());
 
+		// When monitoring a specific PID or app, do NOT pass -c (component filter)
+		// because it causes Joular Core to emit a simplified 2-column CSV that
+		// omits the per-process/app power column needed by the result reader.
+		boolean isProcessMonitoring = false;
 		if (pid != null) {
 			cmd.add("-p");
 			cmd.add(String.valueOf(pid));
+			isProcessMonitoring = true;
 		}
 		else if (appName != null && !appName.isBlank()) {
 			cmd.add("-a");
 			cmd.add(appName);
+			isProcessMonitoring = true;
 		}
 
-		if (component != null && !component.isBlank()) {
+		if (!isProcessMonitoring && component != null && !component.isBlank()) {
 			cmd.add("-c");
 			cmd.add(component);
 		}

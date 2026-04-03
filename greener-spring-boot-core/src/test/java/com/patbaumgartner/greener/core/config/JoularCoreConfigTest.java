@@ -23,7 +23,8 @@ class JoularCoreConfigTest {
 		List<String> cmd = config.buildCommand(Path.of("/usr/local/bin/joularcore"));
 
 		assertThat(cmd).contains("-p", "12345");
-		assertThat(cmd).contains("-c", "cpu");
+		// -c is omitted when monitoring a PID (avoids losing per-process power)
+		assertThat(cmd).doesNotContain("-c");
 		assertThat(cmd).contains("-f", "/tmp/joularcore.csv");
 		assertThat(cmd).contains("-s");
 		assertThat(cmd.get(0)).endsWith("joularcore");
