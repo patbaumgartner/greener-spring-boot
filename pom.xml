@@ -33,7 +33,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Dependency versions -->
-        <jackson.version>2.18.2</jackson.version>
+        <jackson.version>2.21.2</jackson.version>
         <junit.version>5.11.4</junit.version>
         <mockito.version>5.14.2</mockito.version>
         <assertj.version>3.27.7</assertj.version>
