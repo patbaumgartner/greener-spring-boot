@@ -33,12 +33,12 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Dependency versions -->
-        <jackson.version>2.18.2</jackson.version>
-        <junit.version>5.11.4</junit.version>
-        <mockito.version>5.14.2</mockito.version>
+        <jackson.version>2.21.2</jackson.version>
+        <junit.version>6.0.3</junit.version>
+        <mockito.version>5.23.0</mockito.version>
         <assertj.version>3.27.7</assertj.version>
-        <maven-plugin-api.version>3.9.9</maven-plugin-api.version>
-        <maven-plugin-annotations.version>3.15.1</maven-plugin-annotations.version>
+        <maven-plugin-api.version>3.9.14</maven-plugin-api.version>
+        <maven-plugin-annotations.version>3.15.2</maven-plugin-annotations.version>
         <maven-plugin-plugin.version>3.15.2</maven-plugin-plugin.version>
     </properties>
 
@@ -105,7 +105,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.13.0</version>
+                    <version>3.15.0</version>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
@@ -115,7 +115,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.2</version>
+                    <version>3.5.5</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
