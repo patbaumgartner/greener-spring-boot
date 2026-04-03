@@ -31,11 +31,14 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Gradle task that measures the energy consumption of a Spring Boot application
@@ -49,12 +52,14 @@ import java.util.Optional;
 public abstract class MeasureEnergyTask extends DefaultTask {
 
     /**
-     * Path to the executable Spring Boot fat-jar.
+     * Path to the executable Spring Boot fat-jar. When omitted the task
+     * auto-detects a single jar in {@code build/libs/}.
      * 
      * @return the Spring Boot jar property
      */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
+    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getSpringBootJar();
 
     /**
@@ -227,7 +232,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      */
     @TaskAction
     public void measureEnergy() throws Exception {
-        File springBootJarFile = getSpringBootJar().get().getAsFile();
+        File springBootJarFile;
+        if (getSpringBootJar().isPresent()) {
+            springBootJarFile = getSpringBootJar().get().getAsFile();
+        }
+        else {
+            springBootJarFile = autoDetectSpringBootJar();
+        }
         if (!springBootJarFile.exists()) {
             throw new GradleException("Spring Boot jar not found: " + springBootJarFile
                     + ". Build the jar first (e.g. with 'bootJar').");
@@ -381,6 +392,38 @@ public abstract class MeasureEnergyTask extends DefaultTask {
             return getReportOutputDir().get().getAsFile().toPath();
         }
         return getProject().getLayout().getBuildDirectory().getAsFile().get().toPath().resolve("greener-reports");
+    }
+
+    /**
+     * Auto-detects the Spring Boot fat-jar in {@code build/libs/}. Looks for a
+     * single executable jar, excluding sources, javadoc, and test jars.
+     */
+    private File autoDetectSpringBootJar() {
+        File libsDir = getProject().getLayout().getBuildDirectory().getAsFile().get().toPath()
+                .resolve("libs").toFile();
+
+        if (!libsDir.isDirectory()) {
+            throw new GradleException("springBootJar not configured and build/libs/ not found: "
+                    + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
+        }
+
+        File[] jars = libsDir.listFiles((dir, name) -> name.endsWith(".jar")
+                && !name.endsWith("-sources.jar") && !name.endsWith("-javadoc.jar")
+                && !name.endsWith("-tests.jar") && !name.endsWith("-plain.jar")
+                && !name.contains(".original"));
+
+        if (jars == null || jars.length == 0) {
+            throw new GradleException("No jar found in " + libsDir
+                    + ". Run 'bootJar' first or set springBootJar explicitly.");
+        }
+        if (jars.length > 1) {
+            throw new GradleException("Multiple jars found in " + libsDir + ": "
+                    + Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
+                    + ". Set springBootJar explicitly to select one.");
+        }
+
+        getLogger().lifecycle("Auto-detected Spring Boot jar: " + jars[0]);
+        return jars[0];
     }
 
 }

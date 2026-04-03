@@ -262,6 +262,9 @@ fi
 # ── Run 1: Baseline measurement ──────────────────────────────────────────────
 banner "RUN 1 - BASELINE"
 
+# Remove any stale baseline so Run 1 reports "No baseline"
+rm -f "${BASELINE_FILE}"
+
 cd "${PETCLINIC_DIR}"
 
 mvn --batch-mode --no-transfer-progress \
