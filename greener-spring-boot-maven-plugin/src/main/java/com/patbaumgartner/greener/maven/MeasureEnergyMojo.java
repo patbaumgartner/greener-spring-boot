@@ -264,7 +264,6 @@ public class MeasureEnergyMojo extends AbstractMojo {
         Path joularCoreBinary = resolveJoularCoreBinary();
 
         // 2. Build configs
-        TrainingConfig trainingConfig = buildTrainingConfig();
         Path workingDir = reportOutputDir.toPath().resolve("work");
 
         // 3. Start application

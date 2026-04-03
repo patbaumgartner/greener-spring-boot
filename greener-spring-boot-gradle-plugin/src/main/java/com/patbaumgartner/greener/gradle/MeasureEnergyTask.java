@@ -266,7 +266,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         if (getReportOutputDir().isPresent()) {
             return getReportOutputDir().get().getAsFile().toPath();
         }
-        return getProject().getBuildDir().toPath().resolve("greener-reports");
+        return getProject().getLayout().getBuildDirectory().getAsFile().get().toPath().resolve("greener-reports");
     }
 
     private String buildRunId() {
