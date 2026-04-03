@@ -1,6 +1,6 @@
 # Dependabot configuration
 #
-# Keeps three dependency ecosystems up to date automatically:
+# Keeps three dependency ecosystems up to date:
 #   - Maven  (root pom.xml + greener-spring-boot-core + greener-spring-boot-maven-plugin)
 #   - Gradle (greener-spring-boot-gradle-plugin)
 #   - GitHub Actions (all workflows in .github/workflows/)
