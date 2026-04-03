@@ -1,0 +1,222 @@
+name: Energy Baseline (Spring Petclinic)
+
+# Creates (or refreshes) the energy baseline for Spring Petclinic.
+#
+# ── Power source auto-detection ─────────────────────────────────────────────
+# The workflow detects the best available power source at runtime:
+#
+#   1. RAPL (bare-metal Linux, Intel/AMD with readable powercap counters)
+#      Joular Core reads hardware power directly — most accurate.
+#
+#   2. Scaphandre VM file  (KVM guest + Scaphandre on the host)
+#      Set the VM_POWER_FILE environment variable on a self-hosted runner.
+#      See examples/vm-setup/README.md for the full KVM/Scaphandre setup.
+#
+#   3. CPU-time × TDP estimation  ← used automatically on GitHub-hosted runners
+#      examples/vm-setup/ci-cpu-energy-estimator.sh reads /proc/stat each
+#      second and writes  cpu_utilisation × TDP  to a file.  Joular Core runs
+#      in VM mode (--vm --vm-power-file) reading that file.
+#      Results are reproducible on the same runner type and valid for
+#      relative comparisons between commits/PRs.
+#
+# ── Trigger ──────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  JAVA_VERSION: "25"
+  PETCLINIC_VERSION: "main"
+  JOULAR_CORE_VERSION: "0.0.1-alpha-11"
+  MEASURE_SECONDS: "60"
+  WARMUP_SECONDS: "30"
+  OHA_VERSION: "1.4.5"
+  # CPU TDP used for software estimation when RAPL is unavailable.
+  # GitHub-hosted ubuntu-latest uses Intel Xeon Platinum 8370C (270 W, 32 cores).
+  # A 2–4 vCPU slice shares roughly 100 W of that budget.
+  TDP_WATTS: "100"
+
+jobs:
+  energy-baseline:
+    name: Measure & Store Energy Baseline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout greener-spring-boot
+        uses: actions/checkout@v4
+
+      # ── 2. Java & Maven cache ─────────────────────────────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      # ── 3. Build greener-spring-boot plugins ──────────────────────────────────
+      - name: Build greener-spring-boot plugins
+        run: mvn --batch-mode --no-transfer-progress clean install -DskipTests
+
+      # ── 4. Clone Spring Petclinic ─────────────────────────────────────────────
+      - name: Clone Spring Petclinic (${{ env.PETCLINIC_VERSION }})
+        run: |
+          git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
+            https://github.com/spring-projects/spring-petclinic.git \
+            /tmp/spring-petclinic
+
+      # ── 5. Build Spring Petclinic ─────────────────────────────────────────────
+      - name: Build Spring Petclinic
+        working-directory: /tmp/spring-petclinic
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+      # ── 6. Install oha (load-test tool) ───────────────────────────────────────
+      - name: Install oha ${{ env.OHA_VERSION }}
+        run: |
+          curl -fsSL -o /usr/local/bin/oha \
+            "https://github.com/hatoo/oha/releases/download/v${{ env.OHA_VERSION }}/oha-linux-amd64"
+          chmod +x /usr/local/bin/oha
+          oha --version
+
+      # ── 7. Detect power source ────────────────────────────────────────────────
+      #
+      # Priority:
+      #   rapl          — energy_uj readable   → hardware measurement
+      #   vm-file       — VM_POWER_FILE set     → Scaphandre VM measurement
+      #   ci-estimated  — /proc/stat available  → CPU-time × TDP estimation
+      - name: Detect power source
+        id: power-check
+        run: |
+          if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
+            echo "POWER_SOURCE=rapl"         >> "$GITHUB_OUTPUT"
+            echo "✅ RAPL readable — hardware energy measurement will run."
+          elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
+            echo "POWER_SOURCE=vm-file"      >> "$GITHUB_OUTPUT"
+            echo "✅ Scaphandre VM power file found at ${VM_POWER_FILE}."
+          elif [ -f /proc/stat ]; then
+            echo "POWER_SOURCE=ci-estimated" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No hardware RAPL access — using CPU-time × TDP software estimation."
+            echo "   Results are reproducible on the same runner type."
+            echo "   See: examples/vm-setup/README.md"
+          else
+            echo "POWER_SOURCE=none"         >> "$GITHUB_OUTPUT"
+            echo "⚠️  No power source available — measurement skipped."
+          fi
+
+      # ── 8. Start CPU power estimator (ci-estimated only) ─────────────────────
+      - name: Start CI CPU power estimator
+        if: steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
+        run: |
+          bash "$GITHUB_WORKSPACE/examples/vm-setup/ci-cpu-energy-estimator.sh" \
+            /tmp/ci-power.txt ${{ env.TDP_WATTS }} &
+          echo "CI_ESTIMATOR_PID=$!"   >> "$GITHUB_ENV"
+          echo "VM_POWER_FILE=/tmp/ci-power.txt" >> "$GITHUB_ENV"
+          # Give the estimator one tick to write its first value
+          sleep 2
+          echo "ℹ️  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
+
+      # ── 9. Build Joular Core from source ────────────────────────────────────
+      - name: Restore cached Joular Core binary
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        id: cache-joularcore
+        uses: actions/cache@v4
+        with:
+          path: ~/.greener/cache/joularcore
+          key: joularcore-${{ env.JOULAR_CORE_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Rust toolchain
+        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Joular Core ${{ env.JOULAR_CORE_VERSION }}
+        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch ${{ env.JOULAR_CORE_VERSION }} \
+            https://github.com/joular/joularcore.git /tmp/joularcore-src
+          cd /tmp/joularcore-src
+          cargo build --release
+          mkdir -p ~/.greener/cache/joularcore
+          cp target/release/joularcore ~/.greener/cache/joularcore/joularcore-linux-x86_64
+          chmod +x ~/.greener/cache/joularcore/joularcore-linux-x86_64
+
+      - name: Set Joular Core binary path
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        run: |
+          echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_ENV"
+
+      # ── 10. Measure energy ────────────────────────────────────────────────────
+      - name: Measure energy consumption
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        working-directory: /tmp/spring-petclinic
+        run: |
+          JAR=$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)
+          cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
+
+          VM_FLAGS=""
+          if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
+             [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "ci-estimated" ]; then
+            VM_FLAGS="-Dgreener.vmMode=true -Dgreener.vmPowerFilePath=${VM_POWER_FILE}"
+          fi
+
+          mvn --batch-mode --no-transfer-progress \
+            com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+            -Dgreener.springBootJar="${JAR}" \
+            -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
+            -Dgreener.joularCoreComponent=cpu \
+            -Dgreener.baseUrl="http://localhost:8080" \
+            -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
+            -Dgreener.warmupDurationSeconds=${{ env.WARMUP_SECONDS }} \
+            -Dgreener.measureDurationSeconds=${{ env.MEASURE_SECONDS }} \
+            -Dgreener.requestsPerSecond=20 \
+            -Dgreener.healthCheckPath=/actuator/health/readiness \
+            -Dgreener.baselineFile=/tmp/energy-baseline.json \
+            -Dgreener.failOnRegression=false \
+            -Dgreener.reportOutputDir=/tmp/greener-reports \
+            ${VM_FLAGS}
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+      # ── 11. Stop CPU power estimator ──────────────────────────────────────────
+      - name: Stop CI power estimator
+        if: always() && steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
+        run: kill "${CI_ESTIMATOR_PID}" 2>/dev/null || true
+
+      # ── 12. Promote measurement to baseline ───────────────────────────────────
+      - name: Update baseline
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        working-directory: /tmp/spring-petclinic
+        run: |
+          mvn --batch-mode --no-transfer-progress \
+            com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline \
+            -Dgreener.baselineFile=/tmp/energy-baseline.json \
+            -Dgreener.commitSha=${{ github.sha }} \
+            -Dgreener.branch=${{ github.ref_name }}
+
+      # ── 13. Upload artifacts ──────────────────────────────────────────────────
+      - name: Upload baseline as artifact
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        uses: actions/upload-artifact@v4
+        with:
+          name: energy-baseline-${{ github.sha }}
+          path: /tmp/energy-baseline.json
+          retention-days: 90
+
+      - name: Upload energy reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: greener-reports-baseline-${{ github.sha }}
+          path: /tmp/greener-reports/
+          retention-days: 30
+
+      # ── 14. Cache baseline for PR comparisons ─────────────────────────────────
+      - name: Cache energy baseline
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/energy-baseline.json
+          key: energy-baseline-${{ github.ref_name }}-latest

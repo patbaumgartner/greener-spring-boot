@@ -1,0 +1,23 @@
+# Build outputs
+target/
+build/
+*.class
+
+# Gradle
+.gradle/
+greener-spring-boot-gradle-plugin/.gradle/
+
+# IDE
+.idea/
+*.iml
+.eclipse/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local cached Joular Core binaries (managed by plugin)
+# Users may keep their own local cache

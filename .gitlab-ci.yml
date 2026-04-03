@@ -1,0 +1,220 @@
+# .gitlab-ci.yml — GitLab CI/CD pipeline for greener-spring-boot
+#
+# Stages:
+#   build   — compile and install all Maven modules + Gradle plugin
+#   test    — run all unit tests
+#   energy  — energy baseline (default branch) or comparison (merge requests)
+#
+# Power source auto-detection (same logic as GitHub Actions):
+#   1. RAPL readable          → hardware measurement
+#   2. $VM_POWER_FILE exists  → Scaphandre VM measurement
+#   3. /proc/stat readable    → CPU-time × TDP estimation  ← default for shared runners
+#
+# Set TDP_WATTS in CI/CD variables to match your runner hardware.
+
+stages:
+  - build
+  - test
+  - energy
+
+variables:
+  JAVA_VERSION: "25"
+  PETCLINIC_VERSION: "main"
+  JOULAR_CORE_VERSION: "0.0.1-alpha-11"
+  OHA_VERSION: "1.4.5"
+  WARMUP_SECONDS: "30"
+  MEASURE_SECONDS: "60"
+  TDP_WATTS: "100"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
+  MAVEN_OPTS: >-
+    -Dmaven.repo.local=${CI_PROJECT_DIR}/.m2/repository
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+
+# ── Shared image & cache ──────────────────────────────────────────────────────
+.java-base:
+  image: eclipse-temurin:${JAVA_VERSION}-jdk-jammy
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq curl bc git
+  cache:
+    key: "maven-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .m2/repository/
+
+# ── build ─────────────────────────────────────────────────────────────────────
+build:
+  extends: .java-base
+  stage: build
+  script:
+    - mvn ${MAVEN_CLI_OPTS} clean install -DskipTests
+    - cd greener-spring-boot-gradle-plugin
+    - ./gradlew build --no-daemon -x test
+    - cd ..
+  artifacts:
+    paths:
+      - "*/target/*.jar"
+      - greener-spring-boot-gradle-plugin/build/libs/
+    expire_in: 2 hours
+
+# ── test ──────────────────────────────────────────────────────────────────────
+test:
+  extends: .java-base
+  stage: test
+  needs: [build]
+  script:
+    - mvn ${MAVEN_CLI_OPTS} verify
+  cache:
+    key: "maven-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .m2/repository/
+    policy: pull
+  artifacts:
+    reports:
+      junit: "*/target/surefire-reports/TEST-*.xml"
+    paths:
+      - "*/target/surefire-reports/"
+    expire_in: 7 days
+
+# ── Shared energy helpers ─────────────────────────────────────────────────────
+.energy-base:
+  extends: .java-base
+  stage: energy
+  cache:
+    key: "maven-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .m2/repository/
+    policy: pull
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq curl bc git
+    # Build greener-spring-boot plugins
+    - mvn ${MAVEN_CLI_OPTS} clean install -DskipTests
+    # Clone and build Spring Petclinic
+    - git clone --depth 1 --branch ${PETCLINIC_VERSION}
+        https://github.com/spring-projects/spring-petclinic.git /tmp/spring-petclinic
+    - cd /tmp/spring-petclinic && mvn ${MAVEN_CLI_OPTS} package -DskipTests && cd -
+    # Install oha
+    - |
+      curl -fsSL -o /usr/local/bin/oha \
+        "https://github.com/hatoo/oha/releases/download/v${OHA_VERSION}/oha-linux-amd64"
+      chmod +x /usr/local/bin/oha
+    # Copy workload examples
+    - cp -r ${CI_PROJECT_DIR}/examples /tmp/spring-petclinic/
+    # ── Detect power source ──────────────────────────────────────────────────
+    - |
+      if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
+        export POWER_SOURCE=rapl
+        echo "✅ RAPL readable — hardware measurement."
+      elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
+        export POWER_SOURCE=vm-file
+        echo "✅ Scaphandre VM power file: ${VM_POWER_FILE}"
+      elif [ -f /proc/stat ]; then
+        export POWER_SOURCE=ci-estimated
+        export VM_POWER_FILE=/tmp/ci-power.txt
+        bash ${CI_PROJECT_DIR}/examples/vm-setup/ci-cpu-energy-estimator.sh \
+          ${VM_POWER_FILE} ${TDP_WATTS} &
+        export CI_ESTIMATOR_PID=$!
+        sleep 2
+        echo "ℹ️  CI estimation: $(cat ${VM_POWER_FILE}) W (TDP=${TDP_WATTS} W)"
+      else
+        export POWER_SOURCE=none
+        echo "⚠️  No power source — measurement will be skipped."
+      fi
+    # ── Download Joular Core ─────────────────────────────────────────────────
+    - |
+      if [ "${POWER_SOURCE}" != "none" ]; then
+        mkdir -p ~/.greener/cache/joularcore
+        BINARY=joularcore-linux-x86_64
+        curl -fsSL \
+          -o ~/.greener/cache/joularcore/${BINARY} \
+          "https://github.com/joular/joularcore/releases/download/v${JOULAR_CORE_VERSION}/${BINARY}"
+        chmod +x ~/.greener/cache/joularcore/${BINARY}
+        export JOULAR_CORE_BINARY="${HOME}/.greener/cache/joularcore/${BINARY}"
+      fi
+  after_script:
+    - |
+      if [ -n "${CI_ESTIMATOR_PID:-}" ]; then
+        kill "${CI_ESTIMATOR_PID}" 2>/dev/null || true
+      fi
+
+# ── energy-baseline ───────────────────────────────────────────────────────────
+energy-baseline:
+  extends: .energy-base
+  only:
+    - main
+    - master
+  script:
+    - |
+      if [ "${POWER_SOURCE}" = "none" ]; then
+        echo "⚠️  No power source — skipping measurement."
+        exit 0
+      fi
+      JAR=$(find /tmp/spring-petclinic/target -name "*.jar" ! -name "*-sources.jar" | head -1)
+      VM_FLAGS=""
+      if [ "${POWER_SOURCE}" = "vm-file" ] || [ "${POWER_SOURCE}" = "ci-estimated" ]; then
+        VM_FLAGS="-Dgreener.vmMode=true -Dgreener.vmPowerFilePath=${VM_POWER_FILE}"
+      fi
+      cd /tmp/spring-petclinic
+      mvn ${MAVEN_CLI_OPTS} \
+        com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+        -Dgreener.springBootJar="${JAR}" \
+        -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
+        -Dgreener.joularCoreComponent=cpu \
+        -Dgreener.baseUrl="http://localhost:8080" \
+        -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
+        -Dgreener.warmupDurationSeconds=${WARMUP_SECONDS} \
+        -Dgreener.measureDurationSeconds=${MEASURE_SECONDS} \
+        -Dgreener.requestsPerSecond=20 \
+        -Dgreener.healthCheckPath=/actuator/health \
+        -Dgreener.baselineFile=/tmp/energy-baseline.json \
+        -Dgreener.failOnRegression=false \
+        -Dgreener.reportOutputDir=/tmp/greener-reports \
+        ${VM_FLAGS}
+      mvn ${MAVEN_CLI_OPTS} \
+        com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline \
+        -Dgreener.baselineFile=/tmp/energy-baseline.json \
+        -Dgreener.commitSha=${CI_COMMIT_SHA} \
+        -Dgreener.branch=${CI_COMMIT_REF_NAME}
+  artifacts:
+    paths:
+      - /tmp/energy-baseline.json
+      - /tmp/greener-reports/
+    expire_in: 90 days
+
+# ── energy-comparison ─────────────────────────────────────────────────────────
+energy-comparison:
+  extends: .energy-base
+  only:
+    - merge_requests
+  script:
+    - |
+      if [ "${POWER_SOURCE}" = "none" ]; then
+        echo "⚠️  No power source — skipping measurement."
+        exit 0
+      fi
+      JAR=$(find /tmp/spring-petclinic/target -name "*.jar" ! -name "*-sources.jar" | head -1)
+      VM_FLAGS=""
+      if [ "${POWER_SOURCE}" = "vm-file" ] || [ "${POWER_SOURCE}" = "ci-estimated" ]; then
+        VM_FLAGS="-Dgreener.vmMode=true -Dgreener.vmPowerFilePath=${VM_POWER_FILE}"
+      fi
+      cd /tmp/spring-petclinic
+      mvn ${MAVEN_CLI_OPTS} \
+        com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+        -Dgreener.springBootJar="${JAR}" \
+        -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
+        -Dgreener.joularCoreComponent=cpu \
+        -Dgreener.baseUrl="http://localhost:8080" \
+        -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
+        -Dgreener.warmupDurationSeconds=${WARMUP_SECONDS} \
+        -Dgreener.measureDurationSeconds=${MEASURE_SECONDS} \
+        -Dgreener.requestsPerSecond=20 \
+        -Dgreener.healthCheckPath=/actuator/health \
+        -Dgreener.baselineFile=/tmp/energy-baseline.json \
+        -Dgreener.threshold=10 \
+        -Dgreener.failOnRegression=false \
+        -Dgreener.reportOutputDir=/tmp/greener-reports \
+        ${VM_FLAGS}
+  artifacts:
+    paths:
+      - /tmp/greener-reports/
+    expire_in: 14 days
