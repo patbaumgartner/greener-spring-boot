@@ -20,11 +20,13 @@ name: Energy Baseline (Spring Petclinic)
 #      relative comparisons between commits/PRs.
 #
 # ── Trigger ──────────────────────────────────────────────────────────────────
+# Runs automatically after CI succeeds on main, or manually via workflow_dispatch.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 env:
   # JDK 25 required by Spring Petclinic (Spring Boot 4.x); plugins target Java 17
@@ -42,6 +44,10 @@ env:
 jobs:
   energy-baseline:
     name: Measure & Store Energy Baseline
+    # Skip if triggered by a failed CI run (workflow_dispatch always runs)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -167,7 +173,6 @@ jobs:
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
             -Dgreener.springBootJar="${JAR}" \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
-            -Dgreener.joularCoreComponent=cpu \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
             -Dgreener.warmupDurationSeconds=${{ env.WARMUP_SECONDS }} \
@@ -194,6 +199,7 @@ jobs:
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline \
             -Dgreener.baselineFile=/tmp/energy-baseline.json \
+            -Dgreener.latestReportFile=/tmp/greener-reports/latest-energy-report.json \
             -Dgreener.commitSha=${{ github.sha }} \
             -Dgreener.branch=${{ github.ref_name }}
 

@@ -19,7 +19,9 @@ import java.util.Optional;
  *
  * <p>
  * Intended to be run manually (or on the main branch in CI) after a run whose energy
- * consumption you accept as the reference: <pre>
+ * consumption you accept as the reference:
+ *
+ * <pre>
  * mvn greener:update-baseline
  * </pre>
  *
@@ -70,15 +72,27 @@ public class UpdateBaselineMojo extends AbstractMojo {
 		BaselineManager manager = new BaselineManager();
 
 		try {
-			Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFile.toPath());
-			if (existing.isEmpty()) {
-				getLog().warn("No existing energy report to promote to baseline at: " + baselineFile
-						+ ". Run 'mvn greener:measure' first, then re-run this goal.");
-				return;
-			}
+			EnergyReport report;
 
-			// Re-save with updated VCS metadata
-			EnergyReport report = existing.get().report();
+			if (latestReportFile != null && latestReportFile.exists()) {
+				// Load the report produced by the most recent greener:measure run
+				Optional<EnergyBaseline> latest = manager.loadBaseline(latestReportFile.toPath());
+				if (latest.isEmpty()) {
+					getLog().warn("No energy report found at: " + latestReportFile);
+					return;
+				}
+				report = latest.get().report();
+			}
+			else {
+				// Fall back to re-saving an existing baseline with updated metadata
+				Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFile.toPath());
+				if (existing.isEmpty()) {
+					getLog().warn("No energy report to promote to baseline. "
+							+ "Run 'mvn greener:measure' first, or set -Dgreener.latestReportFile.");
+					return;
+				}
+				report = existing.get().report();
+			}
 			manager.saveBaseline(report, normalise(commitSha), normalise(branch), baselineFile.toPath());
 
 			getLog().info("Energy baseline updated: " + baselineFile);

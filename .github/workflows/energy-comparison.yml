@@ -164,7 +164,6 @@ jobs:
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
             -Dgreener.springBootJar="${JAR}" \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
-            -Dgreener.joularCoreComponent=cpu \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
             -Dgreener.warmupDurationSeconds=${{ env.WARMUP_SECONDS }} \
@@ -188,41 +187,52 @@ jobs:
       - name: Parse energy report
         if: always()
         run: |
+          # Read baseline energy from cached baseline JSON
           BASELINE_JSON=/tmp/energy-baseline.json
+          BASELINE_ENERGY=""
           if [ -f "${BASELINE_JSON}" ]; then
             BASELINE_ENERGY=$(python3 -c "
           import json
           data = json.load(open('${BASELINE_JSON}'))
           print(f\"{data['report']['totalEnergyJoules']:.2f}\")
-          " 2>/dev/null || echo "N/A")
-          else
-            BASELINE_ENERGY="N/A (no baseline)"
+          " 2>/dev/null || echo "")
           fi
 
-          JOULAR_CSV=/tmp/greener-reports/work/joularcore-output.csv
-          if [ -f "${JOULAR_CSV}" ]; then
+          # Read current energy from the plugin's report JSON
+          REPORT_JSON=/tmp/greener-reports/latest-energy-report.json
+          CURRENT_ENERGY=""
+          if [ -f "${REPORT_JSON}" ]; then
             CURRENT_ENERGY=$(python3 -c "
-          import csv
-          total, rows = 0, 0
-          with open('${JOULAR_CSV}') as f:
-              for row in csv.reader(f):
-                  try:
-                      total += float(row[1]); rows += 1
-                  except (ValueError, IndexError):
-                      pass
-          print(f'{total:.2f} J ({rows} samples)')
-          " 2>/dev/null || echo "N/A")
-          else
-            CURRENT_ENERGY="N/A"
+          import json
+          data = json.load(open('${REPORT_JSON}'))
+          print(f\"{data['report']['totalEnergyJoules']:.2f}\")
+          " 2>/dev/null || echo "")
+          fi
+
+          # Compute delta when both values are available
+          DELTA=""
+          DELTA_PERCENT=""
+          VERDICT=""
+          if [ -n "${BASELINE_ENERGY}" ] && [ -n "${CURRENT_ENERGY}" ]; then
+            read -r DELTA DELTA_PERCENT VERDICT <<< $(python3 -c "
+          b, c, t = ${BASELINE_ENERGY}, ${CURRENT_ENERGY}, ${{ env.THRESHOLD }}
+          delta = c - b
+          pct = (delta / b * 100) if b != 0 else 0
+          verdict = '✅ Within threshold' if abs(pct) <= t else '⚠️ Exceeds threshold'
+          print(f'{delta:+.2f} {pct:+.2f} {verdict}')
+          " 2>/dev/null || echo "")
           fi
 
           REPORT=/tmp/greener-reports/greener-energy-report.html
           [ -f "${REPORT}" ] && echo "REPORT_EXISTS=true"  >> "$GITHUB_ENV" \
                              || echo "REPORT_EXISTS=false" >> "$GITHUB_ENV"
 
-          echo "BASELINE_ENERGY=${BASELINE_ENERGY}"                             >> "$GITHUB_ENV"
-          echo "CURRENT_ENERGY=${CURRENT_ENERGY}"                               >> "$GITHUB_ENV"
-          echo "POWER_SOURCE=${{ steps.power-check.outputs.POWER_SOURCE }}"     >> "$GITHUB_ENV"
+          echo "BASELINE_ENERGY=${BASELINE_ENERGY}"     >> "$GITHUB_ENV"
+          echo "CURRENT_ENERGY=${CURRENT_ENERGY}"       >> "$GITHUB_ENV"
+          echo "DELTA=${DELTA}"                         >> "$GITHUB_ENV"
+          echo "DELTA_PERCENT=${DELTA_PERCENT}"         >> "$GITHUB_ENV"
+          echo "VERDICT=${VERDICT}"                     >> "$GITHUB_ENV"
+          echo "POWER_SOURCE=${{ steps.power-check.outputs.POWER_SOURCE }}" >> "$GITHUB_ENV"
 
       # ── 13. Post PR comment ───────────────────────────────────────────────────
       - name: Post energy report as PR comment
@@ -230,8 +240,11 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const baseline     = process.env.BASELINE_ENERGY  || 'N/A';
-            const current      = process.env.CURRENT_ENERGY   || 'N/A';
+            const baseline     = process.env.BASELINE_ENERGY  || '';
+            const current      = process.env.CURRENT_ENERGY   || '';
+            const delta        = process.env.DELTA            || '';
+            const deltaPct     = process.env.DELTA_PERCENT    || '';
+            const verdict      = process.env.VERDICT          || '';
             const reportExists = process.env.REPORT_EXISTS    === 'true';
             const powerSource  = process.env.POWER_SOURCE     || 'none';
             const sha          = '${{ github.sha }}'.substring(0, 8);
@@ -252,17 +265,25 @@ jobs:
               sourceNote = '\n> ⚠️ **Energy measurement skipped** — no power source detected.';
             }
 
+            // Format energy values
+            const baselineStr = baseline ? `${baseline} J` : '— _no baseline yet_';
+            const currentStr  = isSkipped ? '— skipped' : (current ? `${current} J` : '— _no data_');
+            const deltaStr    = delta ? `${delta} J (${deltaPct}%)` : '—';
+            const verdictStr  = verdict || (baseline ? '—' : '_Run energy-baseline first_');
+
             const body = [
               '## ⚡ Energy Consumption Report — greener-spring-boot',
               '',
-              '| | Value |',
+              '| Metric | Value |',
               '|---|---|',
-              `| **Baseline (main)**  | ${baseline} J |`,
-              `| **Current (PR)**     | ${isSkipped ? '— skipped' : current} |`,
-              `| **Threshold**        | ±${{ env.THRESHOLD }}% |`,
-              `| **Power source**     | \`${powerSource}\` |`,
-              `| **Workload**         | oha (constant-rate HTTP load) |`,
-              `| **Commit**           | \`${sha}\` |`,
+              `| **Baseline (main)** | ${baselineStr} |`,
+              `| **Current (PR)** | ${currentStr} |`,
+              `| **Delta** | ${deltaStr} |`,
+              `| **Verdict** | ${verdictStr} |`,
+              `| **Threshold** | ±${{ env.THRESHOLD }}% |`,
+              `| **Power source** | \`${powerSource}\` |`,
+              `| **Workload** | oha (constant-rate HTTP load) |`,
+              `| **Commit** | \`${sha}\` |`,
               '',
               sourceNote,
               '',

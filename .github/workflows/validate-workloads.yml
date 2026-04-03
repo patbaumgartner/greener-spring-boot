@@ -25,11 +25,11 @@ on:
         description: "Target requests per second"
         default: "10"
         required: false
-  push:
-    branches: ["**"]
-    paths:
-      - "examples/workloads/**"
-      - ".github/workflows/validate-workloads.yml"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  pull_request:
 
 concurrency:
   group: validate-workloads-${{ github.ref }}
@@ -47,6 +47,10 @@ env:
 jobs:
   validate:
     name: ${{ matrix.tool }}
+    # Skip if triggered by a failed CI run (workflow_dispatch and pull_request always run)
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read

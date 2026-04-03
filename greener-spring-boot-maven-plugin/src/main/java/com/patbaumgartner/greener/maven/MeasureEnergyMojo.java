@@ -46,7 +46,9 @@ import java.util.Optional;
  * <li>Optionally fail the build if energy regressed beyond {@code threshold}.</li>
  * </ol>
  *
- * <h2>Minimal configuration example</h2> <pre>{@code
+ * <h2>Minimal configuration example</h2>
+ *
+ * <pre>{@code
  * <plugin>
  *   <groupId>com.patbaumgartner</groupId>
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
@@ -345,6 +347,11 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		Optional<EnergyBaseline> baseline = baselineManager.loadBaseline(baselineFile.toPath());
 		EnergyComparator comparator = new EnergyComparator();
 		ComparisonResult comparison = comparator.compare(report, baseline, threshold);
+
+		// 9b. Save latest report so that update-baseline can promote it
+		Path latestReportPath = reportOutputDir.toPath().resolve("latest-energy-report.json");
+		baselineManager.saveBaseline(report, null, null, latestReportPath);
+		getLog().info("Latest energy report saved to: " + latestReportPath);
 
 		// 10. Report
 		new ConsoleReporter().report(report, comparison, workloadStats);
