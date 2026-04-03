@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "🔧 Running sortpom..."
+mvn --batch-mode --no-transfer-progress sortpom:sort
+
+echo "🔧 Running spring-javaformat:apply..."
+mvn --batch-mode --no-transfer-progress spring-javaformat:apply
+
+# Re-stage any files that were reformatted
+git diff --name-only | xargs -r git add
