@@ -178,14 +178,15 @@ jobs:
             --server.port=8080 \
             --logging.level.root=WARN \
             --spring.jpa.show-sql=false \
+            --management.endpoint.health.probes.enabled=true \
             > /tmp/petclinic-${{ matrix.tool }}.log 2>&1 &
           echo "PETCLINIC_PID=$!" >> "$GITHUB_ENV"
 
-      - name: Wait for Petclinic health check
+      - name: Wait for Petclinic readiness
         run: |
-          echo "Waiting for http://localhost:8080/actuator/health …"
+          echo "Waiting for http://localhost:8080/actuator/health/readiness …"
           ATTEMPTS=0
-          until curl -sf http://localhost:8080/actuator/health \
+          until curl -sf http://localhost:8080/actuator/health/readiness \
                 | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('status')=='UP' else 1)" \
                 2>/dev/null; do
             ATTEMPTS=$((ATTEMPTS + 1))
@@ -196,7 +197,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "✅ Petclinic is UP (after $((ATTEMPTS * 2)) s)"
+          echo "✅ Petclinic is ready (after $((ATTEMPTS * 2)) s)"
 
       # ── 6. Run the workload script ───────────────────────────────────────────
       #

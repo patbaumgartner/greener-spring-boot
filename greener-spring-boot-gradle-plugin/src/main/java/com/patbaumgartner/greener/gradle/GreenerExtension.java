@@ -62,7 +62,7 @@ public abstract class GreenerExtension {
         getWarmupDurationSeconds().convention(30);
         getMeasureDurationSeconds().convention(60);
         getStartupTimeoutSeconds().convention(120);
-        getHealthCheckPath().convention("/actuator/health");
+        getHealthCheckPath().convention("/actuator/health/readiness");
         getThreshold().convention(10.0);
         getFailOnRegression().convention(false);
     }
