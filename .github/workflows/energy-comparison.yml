@@ -116,16 +116,34 @@ jobs:
           sleep 2
           echo "ℹ️  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
 
-      # ── 9. Download Joular Core ───────────────────────────────────────────────
-      - name: Download Joular Core ${{ env.JOULAR_CORE_VERSION }}
+      # ── 9. Build Joular Core from source ────────────────────────────────────
+      - name: Restore cached Joular Core binary
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        id: cache-joularcore
+        uses: actions/cache@v4
+        with:
+          path: ~/.greener/cache/joularcore
+          key: joularcore-${{ env.JOULAR_CORE_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Rust toolchain
+        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Joular Core ${{ env.JOULAR_CORE_VERSION }}
+        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch ${{ env.JOULAR_CORE_VERSION }} \
+            https://github.com/joular/joularcore.git /tmp/joularcore-src
+          cd /tmp/joularcore-src
+          cargo build --release
+          mkdir -p ~/.greener/cache/joularcore
+          cp target/release/joularcore ~/.greener/cache/joularcore/joularcore-linux-x86_64
+          chmod +x ~/.greener/cache/joularcore/joularcore-linux-x86_64
+
+      - name: Set Joular Core binary path
         if: steps.power-check.outputs.POWER_SOURCE != 'none'
         run: |
-          mkdir -p ~/.greener/cache/joularcore
-          BINARY=joularcore-linux-x86_64
-          URL="https://github.com/joular/joularcore/releases/download/v${{ env.JOULAR_CORE_VERSION }}/${BINARY}"
-          curl -fsSL -o ~/.greener/cache/joularcore/${BINARY} "${URL}"
-          chmod +x ~/.greener/cache/joularcore/${BINARY}
-          echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/${BINARY}" >> "$GITHUB_ENV"
+          echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_ENV"
 
       # ── 10. Measure energy ────────────────────────────────────────────────────
       - name: Measure energy consumption
