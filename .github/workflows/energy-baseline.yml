@@ -172,7 +172,7 @@ jobs:
             -Dgreener.warmupDurationSeconds=${{ env.WARMUP_SECONDS }} \
             -Dgreener.measureDurationSeconds=${{ env.MEASURE_SECONDS }} \
             -Dgreener.requestsPerSecond=20 \
-            -Dgreener.healthCheckPath=/actuator/health \
+            -Dgreener.healthCheckPath=/actuator/health/readiness \
             -Dgreener.baselineFile=/tmp/energy-baseline.json \
             -Dgreener.failOnRegression=false \
             -Dgreener.reportOutputDir=/tmp/greener-reports \
