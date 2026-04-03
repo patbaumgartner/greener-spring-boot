@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
  * <plugin>
  *   <groupId>com.patbaumgartner</groupId>
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
- *   <version>0.1.0-SNAPSHOT</version>
+ *   <version>0.1.0</version>
  *   <configuration>
  *     <!-- optional — auto-detected from ${project.build.directory} when omitted -->
  *     <springBootJar>${project.build.directory}/myapp.jar</springBootJar>

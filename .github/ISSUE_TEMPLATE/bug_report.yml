@@ -43,7 +43,7 @@ body:
     attributes:
       label: Plugin Version
       description: Which version of greener-spring-boot are you using?
-      placeholder: e.g. 0.1.0-SNAPSHOT
+      placeholder: e.g. 0.1.0
     validations:
       required: true
   - type: dropdown

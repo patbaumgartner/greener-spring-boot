@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-03
+
 ### Added
 
 - Energy measurement of Spring Boot applications via [Joular Core](https://github.com/joular/joularcore)
@@ -42,4 +44,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Energy measurement workflows no longer skip on GitHub-hosted runners;
   the CPU-time × TDP estimator runs automatically instead
 
-[Unreleased]: https://github.com/patbaumgartner/greener-spring-boot/compare/HEAD...HEAD
+[Unreleased]: https://github.com/patbaumgartner/greener-spring-boot/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/patbaumgartner/greener-spring-boot/releases/tag/v0.1.0
