@@ -38,6 +38,13 @@
         <tag>HEAD</tag>
     </scm>
 
+    <distributionManagement>
+        <snapshotRepository>
+            <id>central-snapshots</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <modules>
         <module>greener-spring-boot-core</module>
         <module>greener-spring-boot-maven-plugin</module>
@@ -162,14 +169,18 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.jreleaser</groupId>
+                <artifactId>jreleaser-maven-plugin</artifactId>
+                <inherited>false</inherited>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>
         <profile>
             <id>publication</id>
-            <properties>
-                <altDeploymentRepository>local::file:./target/staging-deploy</altDeploymentRepository>
-            </properties>
             <build>
                 <defaultGoal>deploy</defaultGoal>
                 <plugins>

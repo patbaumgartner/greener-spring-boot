@@ -40,36 +40,47 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
+          server-id: central-snapshots
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
 
       # ── 3. Set release version (if provided) ─────────────────────────────────
       - name: Set release version
         if: inputs.version != ''
         run: mvn -B versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
 
-      # ── 4. Build & stage Maven artifacts ──────────────────────────────────────
-      - name: Stage Maven artifacts
+      # ── Snapshot deploy (direct to Central Portal snapshot repo) ──────────────
+      - name: Deploy Maven snapshot
+        if: inputs.version == ''
+        env:
+          CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         run: mvn -B -Ppublication
 
-      # ── 5. Stage Gradle plugin artifacts ─────────────────────────────────────
+      - name: Deploy Gradle snapshot
+        if: inputs.version == ''
+        working-directory: greener-spring-boot-gradle-plugin
+        env:
+          CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: ./gradlew publishAllPublicationsToCentralSnapshotsRepository
+
+      # ── Release (stage locally, then JReleaser bundles + uploads) ─────────────
+      - name: Stage Maven artifacts
+        if: inputs.version != ''
+        run: mvn -B -Ppublication -DaltDeploymentRepository=local::file:./target/staging-deploy
+
       - name: Stage Gradle plugin artifacts
+        if: inputs.version != ''
         working-directory: greener-spring-boot-gradle-plugin
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            sed -i "s/0.1.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
-          fi
+          sed -i "s/0.1.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
           ./gradlew publishAllPublicationsToStagingRepository
 
-      # ── 6. Deploy snapshot to Maven Central ──────────────────────────────────
-      - name: Deploy snapshot
-        if: inputs.version == ''
-        run: mvn -B jreleaser:deploy -N
-
-      # ── 7. Release to Maven Central + GitHub Release ─────────────────────────
       - name: Release
         if: inputs.version != ''
-        run: mvn -B jreleaser:full-release -N
+        run: mvn -B jreleaser:full-release -N -Djreleaser.config.file=jreleaser.yml
 
-      # ── 8. Publish Gradle plugin to Gradle Plugin Portal (releases only) ─────
       - name: Publish Gradle Plugin
         if: inputs.version != ''
         working-directory: greener-spring-boot-gradle-plugin
@@ -78,7 +89,7 @@ jobs:
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
         run: ./gradlew publishPlugins
 
-      # ── 9. Persist JReleaser logs ────────────────────────────────────────────
+      # ── Logs ─────────────────────────────────────────────────────────────────
       - name: JReleaser output
         if: always()
         uses: actions/upload-artifact@v4

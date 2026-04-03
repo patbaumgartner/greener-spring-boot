@@ -57,6 +57,14 @@ publishing {
             name = "staging"
             url = uri(layout.projectDirectory.dir("../target/staging-deploy"))
         }
+        maven {
+            name = "centralSnapshots"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+            credentials {
+                username = System.getenv("CENTRAL_USERNAME") ?: ""
+                password = System.getenv("CENTRAL_PASSWORD") ?: ""
+            }
+        }
     }
     publications.withType<MavenPublication> {
         pom {
