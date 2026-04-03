@@ -95,8 +95,8 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 	private static final Set<String> SCENARIO_TOOLS = Set.of("gatling", "k6", "locust");
 
 	/**
-	 * Returns the appropriate throughput unit label for this tool. Scenario-based
-	 * tools (Gatling, k6, Locust) return {@code "scenarios/s"}; all others return
+	 * Returns the appropriate throughput unit label for this tool. Scenario-based tools
+	 * (Gatling, k6, Locust) return {@code "scenarios/s"}; all others return
 	 * {@code "req/s"}.
 	 */
 	public String throughputUnit() {

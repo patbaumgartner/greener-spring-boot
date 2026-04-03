@@ -60,8 +60,8 @@ import java.util.stream.Collectors;
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
  *   <version>0.1.0-SNAPSHOT</version>
  *   <configuration>
+ *     <!-- optional — auto-detected from ${project.build.directory} when omitted -->
  *     <springBootJar>${project.build.directory}/myapp.jar</springBootJar>
- *     <filterMethodNames>com.example.myapp</filterMethodNames>
  *     <measureDurationSeconds>60</measureDurationSeconds>
  *   </configuration>
  *   <executions>

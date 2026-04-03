@@ -106,8 +106,8 @@ foreach ($tool in @("java", "mvn", "git")) {
     }
 }
 
-Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; java -version 2>&1 } | Select-Object -First 1)
-Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&1 } | Select-Object -First 1)
+Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; java -version 2>&1 } | ForEach-Object ToString | Select-Object -First 1)
+Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&1 } | ForEach-Object ToString | Select-Object -First 1)
 
 if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
@@ -340,7 +340,7 @@ Write-Output ""
 Write-Output "Baseline created:"
 $baseline = Get-Content $BaselineFile -Raw | ConvertFrom-Json
 $bEnergy  = $baseline.report.totalEnergyJoules
-Write-Output ("  Energy : {0:F4} J" -f $bEnergy)
+Write-Output ("  Energy : {0:F2} J" -f $bEnergy)
 Write-Output "  Commit : $CommitSha"
 
 # -- Run 2: Comparison measurement --------------------------------------------
@@ -379,9 +379,9 @@ $cEnergy = $comparison.report.totalEnergyJoules
 $delta   = $cEnergy - $bEnergy
 $pct     = if ($bEnergy -gt 0) { $delta / $bEnergy * 100 } else { 0 }
 
-Write-Output ("  Baseline energy  : {0:F4} J" -f $bEnergy)
-Write-Output ("  Comparison energy: {0:F4} J" -f $cEnergy)
-Write-Output ('  Delta            : {0:+0.0000;-0.0000} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
+Write-Output ("  Baseline energy  : {0:F2} J" -f $bEnergy)
+Write-Output ("  Comparison energy: {0:F2} J" -f $cEnergy)
+Write-Output ('  Delta            : {0:+0.00;-0.00} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
 Write-Output "  Threshold        : +/-$Threshold %"
 Write-Output ""
 
