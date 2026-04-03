@@ -12,6 +12,7 @@
 
     <artifactId>greener-spring-boot-core</artifactId>
     <name>greener-spring-boot-core</name>
+    <url>https://github.com/patbaumgartner/greener-spring-boot</url>
     <description>
         Shared library providing Joular Core integration, energy baseline management,
         comparison logic and reporting for the greener-spring-boot plugins.
