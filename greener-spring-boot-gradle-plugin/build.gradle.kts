@@ -8,8 +8,8 @@ group = "com.patbaumgartner"
 version = "0.1.0-SNAPSHOT"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
     withJavadocJar()
 }
@@ -21,11 +21,6 @@ repositories {
 
 dependencies {
     implementation("com.patbaumgartner:greener-spring-boot-core:0.1.0-SNAPSHOT")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.21.2")
-
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
 gradlePlugin {

@@ -9,7 +9,7 @@ on:
         type: string
 
 env:
-  JAVA_VERSION: "25"
+  JAVA_VERSION: "17"
 
 jobs:
   release:

@@ -27,6 +27,7 @@ on:
       - main
 
 env:
+  # JDK 25 required by Spring Petclinic (Spring Boot 4.x); plugins target Java 17
   JAVA_VERSION: "25"
   PETCLINIC_VERSION: "main"
   JOULAR_CORE_VERSION: "0.0.1-alpha-11"

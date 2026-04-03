@@ -36,6 +36,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # JDK 25 required by Spring Petclinic (Spring Boot 4.x); plugins target Java 17
   JAVA_VERSION: "25"
   PETCLINIC_VERSION: "main"
   OHA_VERSION: "1.4.5"
