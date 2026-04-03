@@ -159,7 +159,9 @@ jobs:
       - name: Install Locust
         if: matrix.tool == 'locust'
         run: |
-          pip install -q locust
+          python3 -m venv /tmp/locust-venv
+          /tmp/locust-venv/bin/pip install -q locust
+          sudo ln -sf /tmp/locust-venv/bin/locust /usr/local/bin/locust
           echo "TOOL_VERSION=$(locust --version 2>&1 | head -1)" >> "$GITHUB_ENV"
 
       # Gatling is auto-downloaded by run.sh on first use; cache the bundle.
@@ -168,7 +170,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.greener/cache/gatling
-          key: gatling-bundle-${{ env.GATLING_VERSION }}
+          key: gatling-bundle-${{ env.GATLING_VERSION }}-v2
 
       - name: Set Gatling version label
         if: matrix.tool == 'gatling'
