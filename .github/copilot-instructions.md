@@ -16,6 +16,33 @@ power samples, compare against a stored baseline, and generate console + HTML re
 | `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`) |
 | `examples/` | Workload scripts (wrk, oha, k6, Gatling, …), local simulation, VM setup guides |
 
+### Core Package Layout
+
+```
+com.patbaumgartner.greener.core
+├── baseline/        BaselineManager — load / save energy-baseline.json
+├── comparator/      EnergyComparator — diff report vs baseline
+├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults
+├── downloader/      JoularCoreDownloader — auto-download Joular Core binaries
+├── model/           EnergyReport, EnergyBaseline, EnergyMeasurement,
+│                    ComparisonResult, WorkloadStats, PowerSource (enum)
+├── reader/          JoularCoreResultReader, JoularJxResultReader
+├── reporter/        ConsoleReporter, HtmlReporter
+└── runner/          ApplicationRunner, JoularCoreRunner, TrainingRunner,
+                     ExternalToolOutputParser
+```
+
+### Key Classes
+
+- **`PluginDefaults`** — shared utility used by both Maven and Gradle plugins
+  for `buildRunId()` and `resolvePowerSource(boolean vmMode)`.
+- **`PowerSource`** — enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
+  with `detect(boolean vmMode)` and `fromString(String)`.
+- **`ExternalToolOutputParser`** — extracts request counts from stdout of
+  oha, wrk, wrk2, bombardier, ab, k6, Gatling, and Locust.
+- **`TrainingRunner`** — supports external scripts, inline commands, and a
+  built-in HTTP loader; captures stdout for `ExternalToolOutputParser`.
+
 ## Build & Test
 
 ```bash
@@ -42,10 +69,13 @@ cd greener-spring-boot-gradle-plugin && ./gradlew build --no-daemon
 
 ## Testing
 
-- **JUnit 6** with **AssertJ** assertions and **Mockito** for mocks.
+- **JUnit Jupiter** with **AssertJ** assertions and **Mockito** for mocks.
 - Tests live in `greener-spring-boot-core/src/test/java/`.
 - Test class naming: `{ClassName}Test`.
 - Use `@TempDir` for file-system tests, `assertThat(…)` (AssertJ) over `assertEquals`.
+- Model record tests verify immutability, validation, and factory methods.
+- Reporter tests capture stdout (`ConsoleReporter`) or generate temp files (`HtmlReporter`).
+- Parser tests use real tool output samples (`ExternalToolOutputParserTest`).
 
 ## Commit Messages
 
@@ -62,7 +92,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 ## Dependencies
 
 - **Jackson** for JSON serialization of baselines.
-- **JUnit 6 / JUnit Jupiter** for testing.
+- **JUnit Jupiter / JUnit 6** for testing.
 - Dependency updates are managed via **Renovate** (`renovate.json5`) and **Dependabot** (`.github/dependabot.yml`).
 
 ## CI / GitHub Actions
