@@ -19,7 +19,7 @@ env:
   MEASURE_SECONDS: "60"
   WARMUP_SECONDS: "30"
   THRESHOLD: "10"
-  OHA_VERSION: "1.4.5"
+  OHA_VERSION: "1.14.0"
   TDP_WATTS: "100"
 
 jobs:
@@ -326,3 +326,4 @@ jobs:
           name: greener-reports-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
           path: /tmp/greener-reports/
           retention-days: 14
+          if-no-files-found: ignore

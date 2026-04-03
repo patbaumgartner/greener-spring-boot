@@ -35,11 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Java source/target compatibility upgraded from 17 to 25
-- Gradle wrapper upgraded from 8.7 to 9.4.1 (required for Java 25 support)
-- Jackson upgraded to 2.18.2, JUnit 5 to 5.11.4, Mockito to 5.14.2, AssertJ to 3.27.7
-- Maven plugin tooling upgraded: compiler-plugin 3.13.0, surefire 3.5.2,
-  plugin-plugin 3.15.2, plugin-api 3.9.9
+- Gradle wrapper upgraded from 8.7 to 9.4.1
+- Jackson upgraded to 2.21.2, JUnit to 6.0.3, Mockito to 5.23.0, AssertJ to 3.27.7
+- Maven plugin tooling upgraded: compiler-plugin 3.15.0, surefire 3.5.5,
+  plugin-plugin 3.15.2, plugin-api 3.9.14
 - Fixed RAPL availability check: now tests `energy_uj` file readability
   instead of directory existence (the directory exists on VMs but files are unreadable)
 - Energy measurement workflows no longer skip on GitHub-hosted runners;

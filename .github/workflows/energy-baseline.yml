@@ -35,7 +35,7 @@ env:
   JOULAR_CORE_VERSION: "0.0.1-alpha-11"
   MEASURE_SECONDS: "60"
   WARMUP_SECONDS: "30"
-  OHA_VERSION: "1.4.5"
+  OHA_VERSION: "1.14.0"
   # CPU TDP used for software estimation when RAPL is unavailable.
   # GitHub-hosted ubuntu-latest uses Intel Xeon Platinum 8370C (270 W, 32 cores).
   # A 2–4 vCPU slice shares roughly 100 W of that budget.
@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────────
@@ -211,6 +212,7 @@ jobs:
           name: energy-baseline-${{ github.sha }}
           path: /tmp/energy-baseline.json
           retention-days: 90
+          if-no-files-found: ignore
 
       - name: Upload energy reports
         if: always()
@@ -219,8 +221,16 @@ jobs:
           name: greener-reports-baseline-${{ github.sha }}
           path: /tmp/greener-reports/
           retention-days: 30
+          if-no-files-found: ignore
 
       # ── 14. Cache baseline for PR comparisons ─────────────────────────────────
+      - name: Delete previous baseline cache
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh cache delete "energy-baseline-${{ github.ref_name }}-latest" 2>/dev/null || true
+
       - name: Cache energy baseline
         if: steps.power-check.outputs.POWER_SOURCE != 'none'
         uses: actions/cache/save@v5

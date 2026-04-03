@@ -5,6 +5,8 @@ import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -58,7 +60,7 @@ public class JoularCoreRunner {
 		ProcessBuilder pb = new ProcessBuilder(command).inheritIO();
 
 		// Set VM environment variables (VM_CPU_POWER_FILE, VM_CPU_POWER_FORMAT)
-		java.util.Map<String, String> vmEnv = config.buildVmEnvironment();
+		Map<String, String> vmEnv = config.buildVmEnvironment();
 		if (!vmEnv.isEmpty()) {
 			pb.environment().putAll(vmEnv);
 			LOG.info("Joular Core VM mode — environment: " + vmEnv);
@@ -90,7 +92,7 @@ public class JoularCoreRunner {
 		LOG.info("Stopping Joular Core (PID " + joularCoreProcess.pid() + ") …");
 		joularCoreProcess.destroy();
 
-		boolean exited = joularCoreProcess.waitFor(15, java.util.concurrent.TimeUnit.SECONDS);
+		boolean exited = joularCoreProcess.waitFor(15, TimeUnit.SECONDS);
 		if (!exited) {
 			LOG.warning("Joular Core did not stop in 15 s — force-killing");
 			joularCoreProcess.destroyForcibly();

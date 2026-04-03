@@ -39,7 +39,7 @@ env:
   # JDK 25 required by Spring Petclinic (Spring Boot 4.x); plugins target Java 17
   JAVA_VERSION: "25"
   PETCLINIC_VERSION: "main"
-  OHA_VERSION: "1.4.5"
+  OHA_VERSION: "1.14.0"
   BOMBARDIER_VERSION: "1.2.6"
   GATLING_VERSION: "3.11.5"
 
@@ -297,6 +297,7 @@ jobs:
           name: workload-report-${{ matrix.tool }}
           path: /tmp/workload-report-${{ matrix.tool }}.md
           retention-days: 30
+          if-no-files-found: ignore
 
       # Upload the Petclinic startup log only on failure — useful for debugging
       # "did not start within 120 s" failures.
@@ -307,6 +308,7 @@ jobs:
           name: petclinic-log-${{ matrix.tool }}
           path: /tmp/petclinic-${{ matrix.tool }}.log
           retention-days: 7
+          if-no-files-found: ignore
 
   # ── Dashboard: aggregate all per-tool reports into one workflow summary ──────
   dashboard:

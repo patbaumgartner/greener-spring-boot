@@ -31,91 +31,198 @@ import org.gradle.work.DisableCachingByDefault;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Gradle task that measures the energy consumption of a Spring Boot application
- * using <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>.
+ * using <a href="https://www.noureddine.org/research/joular/joularcore">Joular
+ * Core</a>.
  *
- * <p>This task mirrors the Maven {@code greener:measure} goal.
+ * <p>
+ * This task mirrors the Maven {@code greener:measure} goal.
  */
 @DisableCachingByDefault(because = "Energy measurement depends on live system state")
 public abstract class MeasureEnergyTask extends DefaultTask {
 
+    /**
+     * Path to the executable Spring Boot fat-jar.
+     * 
+     * @return the Spring Boot jar property
+     */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
     public abstract RegularFileProperty getSpringBootJar();
 
+    /**
+     * HTTP port the Spring Boot application listens on.
+     * 
+     * @return the application port property
+     */
     @Input
     public abstract Property<Integer> getApplicationPort();
 
+    /**
+     * Full path to the Joular Core binary (optional; auto-downloaded when absent).
+     * 
+     * @return the Joular Core binary path property
+     */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getJoularCoreBinaryPath();
 
+    /**
+     * Joular Core release version to download.
+     * 
+     * @return the Joular Core version property
+     */
     @Input
     public abstract Property<String> getJoularCoreVersion();
 
+    /**
+     * Hardware component to monitor: {@code cpu}, {@code gpu}, or {@code all}.
+     * 
+     * @return the Joular Core component property
+     */
     @Input
     public abstract Property<String> getJoularCoreComponent();
 
+    /**
+     * Base URL of the Spring Boot application.
+     * 
+     * @return the base URL property
+     */
     @Input
     public abstract Property<String> getBaseUrl();
 
+    /**
+     * Relative URL paths exercised during the training run.
+     * 
+     * @return the training paths property
+     */
     @Input
     public abstract ListProperty<String> getTrainingPaths();
 
+    /**
+     * Requests per second issued during the training run.
+     * 
+     * @return the requests per second property
+     */
     @Input
     public abstract Property<Integer> getRequestsPerSecond();
 
+    /**
+     * Optional external training command.
+     * 
+     * @return the external training command property
+     */
     @Input
     @org.gradle.api.tasks.Optional
     public abstract Property<String> getExternalTrainingCommand();
 
-    /** Path to an external shell script used as the training workload. */
+    /**
+     * Path to an external shell script used as the training workload.
+     * 
+     * @return the external training script file property
+     */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getExternalTrainingScriptFile();
 
-    /** Enable VM mode (no direct RAPL; reads power from {@link #getVmPowerFilePath()}). */
+    /**
+     * Enable VM mode (no direct RAPL; reads power from
+     * {@link #getVmPowerFilePath()}).
+     * 
+     * @return the VM mode property
+     */
     @Input
     public abstract Property<Boolean> getVmMode();
 
-    /** Path to the file providing VM power in Watts (VM mode only). */
+    /**
+     * Path to the file providing VM power in Watts (VM mode only).
+     * 
+     * @return the VM power file path property
+     */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getVmPowerFilePath();
 
+    /**
+     * Warmup duration in seconds.
+     * 
+     * @return the warmup duration property
+     */
     @Input
     public abstract Property<Integer> getWarmupDurationSeconds();
 
+    /**
+     * Measurement duration in seconds.
+     * 
+     * @return the measure duration property
+     */
     @Input
     public abstract Property<Integer> getMeasureDurationSeconds();
 
+    /**
+     * Seconds to wait for application startup.
+     * 
+     * @return the startup timeout property
+     */
     @Input
     public abstract Property<Integer> getStartupTimeoutSeconds();
 
+    /**
+     * Health-check path used to detect application readiness.
+     * 
+     * @return the health check path property
+     */
     @Input
     public abstract Property<String> getHealthCheckPath();
 
+    /**
+     * Path to the JSON baseline file.
+     * 
+     * @return the baseline file property
+     */
     @InputFile
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getBaselineFile();
 
+    /**
+     * Maximum percentage energy increase before the build is failed.
+     * 
+     * @return the threshold property
+     */
     @Input
     public abstract Property<Double> getThreshold();
 
+    /**
+     * Whether to fail the build on energy regression.
+     * 
+     * @return the fail on regression property
+     */
     @Input
     public abstract Property<Boolean> getFailOnRegression();
 
+    /**
+     * Directory where the HTML report is written.
+     * 
+     * @return the report output directory property
+     */
     @OutputDirectory
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getReportOutputDir();
 
+    /**
+     * Runs the energy measurement workflow.
+     * 
+     * @throws Exception if measurement fails
+     */
     @TaskAction
     public void measureEnergy() throws Exception {
         File springBootJarFile = getSpringBootJar().get().getAsFile();
@@ -127,7 +234,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         // Resolve Joular Core binary
         Path joularCoreBinary = resolveJoularCoreBinary();
 
-        int warmup  = getWarmupDurationSeconds().get();
+        int warmup = getWarmupDurationSeconds().get();
         int measure = getMeasureDurationSeconds().get();
         String baseUrl = getBaseUrl().get();
 
@@ -139,7 +246,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         getLogger().lifecycle("Starting Spring Boot application: " + springBootJarFile);
 
         // Enable health probes so /actuator/health/readiness is available
-        java.util.List<String> effectiveAppArgs = new java.util.ArrayList<>();
+        List<String> effectiveAppArgs = new ArrayList<>();
         effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
 
         Process appProcess = appRunner.start(
@@ -155,7 +262,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                     getStartupTimeoutSeconds().get());
 
             File vmPowerFile = getVmPowerFilePath().isPresent()
-                    ? getVmPowerFilePath().get().getAsFile() : null;
+                    ? getVmPowerFilePath().get().getAsFile()
+                    : null;
 
             JoularCoreConfig joularCoreConfig = new JoularCoreConfig()
                     .binaryPath(joularCoreBinary)
@@ -251,9 +359,11 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
     private Optional<EnergyBaseline> loadBaseline(BaselineManager manager) {
         RegularFileProperty prop = getBaselineFile();
-        if (!prop.isPresent()) return Optional.empty();
+        if (!prop.isPresent())
+            return Optional.empty();
         File f = prop.get().getAsFile();
-        if (!f.exists()) return Optional.empty();
+        if (!f.exists())
+            return Optional.empty();
         try {
             return manager.loadBaseline(f.toPath());
         } catch (Exception e) {

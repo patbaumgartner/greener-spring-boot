@@ -14,9 +14,11 @@ import java.util.List;
  */
 public class ConsoleReporter {
 
-	private static final String LINE = "=".repeat(72);
+	private static final int REPORT_WIDTH = 72;
 
-	private static final String THIN_LINE = "-".repeat(72);
+	private static final String LINE = "=".repeat(REPORT_WIDTH);
+
+	private static final String THIN_LINE = "-".repeat(REPORT_WIDTH);
 
 	private final int topN;
 

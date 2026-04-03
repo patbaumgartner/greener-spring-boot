@@ -23,9 +23,13 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
@@ -273,7 +277,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Starting Spring Boot application: " + springBootJar);
 
 		// Enable health probes so /actuator/health/readiness is available
-		List<String> effectiveAppArgs = new java.util.ArrayList<>();
+		List<String> effectiveAppArgs = new ArrayList<>();
 		if (appArgs != null) {
 			effectiveAppArgs.addAll(appArgs);
 		}
@@ -316,7 +320,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 					// Discard warmup readings by deleting the CSV and restarting Joular
 					// Core
 					joularCoreRunner.stop();
-					java.nio.file.Files.deleteIfExists(outputCsv);
+					Files.deleteIfExists(outputCsv);
 					joularCoreRunner.start(joularCoreConfig);
 				}
 
@@ -440,9 +444,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 		if (jars.length > 1) {
 			throw new MojoExecutionException("Multiple jars found in " + buildDirectory + ": "
-					+ java.util.Arrays.stream(jars)
-						.map(File::getName)
-						.collect(java.util.stream.Collectors.joining(", "))
+					+ Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
 					+ ". Set <springBootJar> explicitly to select one.");
 		}
 

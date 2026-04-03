@@ -60,3 +60,4 @@ jobs:
         with:
           name: gradle-test-results
           path: greener-spring-boot-gradle-plugin/build/reports/tests/
+          if-no-files-found: ignore
