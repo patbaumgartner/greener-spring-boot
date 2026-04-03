@@ -298,16 +298,11 @@ Banner "RUN 1 - BASELINE"
 
 Push-Location $PetclinicDir
 try {
-    $Jar = Get-ChildItem -Path "target" -Filter "*.jar" -Recurse |
-           Where-Object { $_.Name -notlike "*-sources.jar" } |
-           Select-Object -First 1 -ExpandProperty FullName
-
     $OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"
 
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
         "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure",
-        "-Dgreener.springBootJar=$Jar",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
         "-Dgreener.baseUrl=http://localhost:8080",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",
