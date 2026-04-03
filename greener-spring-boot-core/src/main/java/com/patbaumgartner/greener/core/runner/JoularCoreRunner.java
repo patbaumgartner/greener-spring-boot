@@ -57,6 +57,14 @@ public class JoularCoreRunner {
         LOG.info("Starting Joular Core: " + String.join(" ", command));
 
         ProcessBuilder pb = new ProcessBuilder(command).inheritIO();
+
+        // Set VM environment variables (VM_CPU_POWER_FILE, VM_CPU_POWER_FORMAT)
+        java.util.Map<String, String> vmEnv = config.buildVmEnvironment();
+        if (!vmEnv.isEmpty()) {
+            pb.environment().putAll(vmEnv);
+            LOG.info("Joular Core VM mode — environment: " + vmEnv);
+        }
+
         if (config.isSilent()) {
             // Redirect stderr to /dev/null equivalent when silent; stdout is the CSV stream
             pb.redirectError(ProcessBuilder.Redirect.DISCARD);

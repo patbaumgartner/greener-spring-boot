@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -75,7 +76,7 @@ class JoularCoreConfigTest {
     }
 
     @Test
-    void buildCommand_vmMode_addsVmFlag() {
+    void buildCommand_vmMode_doesNotAddCliFlags() {
         JoularCoreConfig config = new JoularCoreConfig()
                 .pid(42L)
                 .outputCsvPath(Path.of("/tmp/out.csv"))
@@ -83,12 +84,12 @@ class JoularCoreConfigTest {
 
         List<String> cmd = config.buildCommand(Path.of("/usr/bin/joularcore"));
 
-        assertThat(cmd).contains("--vm");
+        assertThat(cmd).doesNotContain("--vm");
         assertThat(cmd).doesNotContain("--vm-power-file");
     }
 
     @Test
-    void buildCommand_vmModeWithPowerFile_addsBothFlags(@TempDir Path tmp) throws IOException {
+    void buildVmEnvironment_vmModeWithPowerFile_returnsEnvVars(@TempDir Path tmp) throws IOException {
         Path powerFile = tmp.resolve("vm-power.txt");
         Files.writeString(powerFile, "45.5");
 
@@ -99,13 +100,16 @@ class JoularCoreConfigTest {
                 .vmPowerFilePath(powerFile);
 
         List<String> cmd = config.buildCommand(Path.of("/usr/bin/joularcore"));
+        Map<String, String> env = config.buildVmEnvironment();
 
-        assertThat(cmd).contains("--vm");
-        assertThat(cmd).contains("--vm-power-file", powerFile.toAbsolutePath().toString());
+        assertThat(cmd).doesNotContain("--vm");
+        assertThat(cmd).doesNotContain("--vm-power-file");
+        assertThat(env).containsEntry("VM_CPU_POWER_FILE", powerFile.toAbsolutePath().toString());
+        assertThat(env).containsEntry("VM_CPU_POWER_FORMAT", "watts");
     }
 
     @Test
-    void buildCommand_vmModeOff_doesNotAddVmFlag() {
+    void buildCommand_vmModeOff_doesNotAddVmFlagsOrEnv() {
         JoularCoreConfig config = new JoularCoreConfig()
                 .pid(1L)
                 .outputCsvPath(Path.of("/tmp/out.csv"))
@@ -115,6 +119,7 @@ class JoularCoreConfigTest {
 
         assertThat(cmd).doesNotContain("--vm");
         assertThat(cmd).doesNotContain("--vm-power-file");
+        assertThat(config.buildVmEnvironment()).isEmpty();
     }
 
     @Test

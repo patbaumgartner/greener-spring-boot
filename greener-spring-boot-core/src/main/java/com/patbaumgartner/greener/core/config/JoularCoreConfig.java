@@ -80,7 +80,9 @@ public class JoularCoreConfig {
      * (RAPL is not accessible inside a guest VM).  Instead it reads the VM's
      * total power from a file written by the host — see {@link #vmPowerFilePath}.
      *
-     * <p>This flag adds {@code --vm} to the Joular Core command line.
+     * <p>VM mode is configured via environment variables ({@code VM_CPU_POWER_FILE}
+     * and {@code VM_CPU_POWER_FORMAT}) rather than CLI flags.
+     * Use {@link #buildVmEnvironment()} to obtain the required variables.
      *
      * <h2>Host-side setup</h2>
      * The host must write the VM's instantaneous power (in Watts) to
@@ -97,7 +99,7 @@ public class JoularCoreConfig {
      *
      * <p>The file must contain a single floating-point number (e.g. {@code 45.2})
      * and should be updated every second by the host.
-     * This flag adds {@code --vm-power-file &lt;path&gt;} to the Joular Core command line.
+     * Mapped to the {@code VM_CPU_POWER_FILE} environment variable.
      */
     private Path vmPowerFilePath;
 
@@ -201,15 +203,6 @@ public class JoularCoreConfig {
             cmd.add("-s");
         }
 
-        if (vmMode) {
-            cmd.add("--vm");
-        }
-
-        if (vmPowerFilePath != null) {
-            cmd.add("--vm-power-file");
-            cmd.add(vmPowerFilePath.toAbsolutePath().toString());
-        }
-
         if (!extraArgs.isEmpty()) {
             cmd.addAll(extraArgs);
         }
@@ -231,4 +224,24 @@ public class JoularCoreConfig {
     public boolean isVmMode() { return vmMode; }
     public Path getVmPowerFilePath() { return vmPowerFilePath; }
     public List<String> getExtraArgs() { return List.copyOf(extraArgs); }
+
+    /**
+     * Builds the environment variables required for Joular Core VM mode.
+     *
+     * <p>Joular Core uses {@code VM_CPU_POWER_FILE} and {@code VM_CPU_POWER_FORMAT}
+     * environment variables (not CLI flags) to configure VM power monitoring.
+     *
+     * @return a map of environment variable names to values; empty if VM mode is disabled
+     */
+    public java.util.Map<String, String> buildVmEnvironment() {
+        if (!vmMode) {
+            return java.util.Map.of();
+        }
+        var env = new java.util.HashMap<String, String>();
+        if (vmPowerFilePath != null) {
+            env.put("VM_CPU_POWER_FILE", vmPowerFilePath.toAbsolutePath().toString());
+        }
+        env.put("VM_CPU_POWER_FORMAT", "watts");
+        return env;
+    }
 }
