@@ -1,0 +1,73 @@
+name: CodeQL
+
+# Standard CodeQL analysis for Java source code.
+#
+# Runs on:
+#   - every push to main
+#   - every pull request targeting main
+#   - weekly schedule (Sunday 02:00 UTC) to catch newly published CVEs
+#     even when the codebase has not changed
+#
+# The "standard" query suite is used (security-and-quality) which covers
+# the full OWASP Top 10 and CWE coverage expected by GitHub Advanced Security.
+#
+# Documentation: https://docs.github.com/en/code-security/code-scanning/
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 2 * * 0"   # Sunday 02:00 UTC
+
+jobs:
+  analyze:
+    name: Analyze Java
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write   # required to upload SARIF results
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: temurin
+          cache: maven
+
+      # Initialize the CodeQL tools for scanning.
+      # The "java-kotlin" language covers all Java source in the Maven modules.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          # "security-and-quality" is the standard suite — equivalent to running
+          # CodeQL with all security queries plus quality checks.
+          queries: security-and-quality
+
+      # Build the Maven modules so CodeQL can trace the compilation.
+      # The Gradle plugin depends on the Maven modules; build them here and let
+      # CodeQL pick up the compiled bytecode automatically.
+      - name: Build Maven modules
+        run: mvn --batch-mode --no-transfer-progress clean compile -DskipTests
+
+      # Build the Gradle plugin so its Java sources are also analysed.
+      - name: Build Gradle plugin
+        working-directory: greener-spring-boot-gradle-plugin
+        run: |
+          cd ..
+          mvn --batch-mode --no-transfer-progress install -DskipTests
+          cd greener-spring-boot-gradle-plugin
+          ./gradlew classes --no-daemon
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"

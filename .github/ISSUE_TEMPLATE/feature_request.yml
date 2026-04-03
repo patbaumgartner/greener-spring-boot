@@ -1,0 +1,32 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for greener-spring-boot
+title: "[Feature] "
+labels: ["enhancement"]
+assignees:
+  - patbaumgartner
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the problem or limitation you are facing.
+      placeholder: I'm always frustrated when…
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you have considered.
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, mockups, or references.
