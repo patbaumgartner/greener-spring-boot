@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -136,7 +137,7 @@ public class ApplicationRunner {
 		LOG.info("Stopping application (PID " + process.pid() + ") …");
 		process.destroy();
 
-		boolean exited = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+		boolean exited = process.waitFor(30, TimeUnit.SECONDS);
 		if (!exited) {
 			LOG.warning("Application did not stop in 30 s — force-killing");
 			process.destroyForcibly();

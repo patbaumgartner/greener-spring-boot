@@ -9,12 +9,15 @@ import org.gradle.api.tasks.InputFile;
 
 import org.gradle.api.tasks.OutputDirectory;
 
+import java.util.List;
+
 import javax.inject.Inject;
 
 /**
  * DSL extension for the {@code greener} block in Gradle build scripts.
  *
  * <h2>All available options</h2>
+ * 
  * <pre>{@code
  * greener {
  *     // Required
@@ -50,6 +53,9 @@ import javax.inject.Inject;
  */
 public abstract class GreenerExtension {
 
+    /**
+     * Creates the extension and sets sensible defaults for all optional properties.
+     */
     @Inject
     public GreenerExtension() {
         getApplicationPort().convention(8080);
@@ -57,7 +63,7 @@ public abstract class GreenerExtension {
         getJoularCoreComponent().convention("cpu");
         getVmMode().convention(false);
         getBaseUrl().convention("http://localhost:8080");
-        getTrainingPaths().convention(java.util.List.of("/", "/actuator/health"));
+        getTrainingPaths().convention(List.of("/", "/actuator/health"));
         getRequestsPerSecond().convention(5);
         getWarmupDurationSeconds().convention(30);
         getMeasureDurationSeconds().convention(60);
@@ -67,40 +73,77 @@ public abstract class GreenerExtension {
         getFailOnRegression().convention(false);
     }
 
-    /** Path to the executable Spring Boot fat-jar. */
+    /**
+     * Path to the executable Spring Boot fat-jar.
+     * 
+     * @return the Spring Boot jar property
+     */
     @InputFile
     public abstract RegularFileProperty getSpringBootJar();
 
-    /** HTTP port the Spring Boot application listens on. */
+    /**
+     * HTTP port the Spring Boot application listens on.
+     * 
+     * @return the application port property
+     */
     @Input
     public abstract Property<Integer> getApplicationPort();
 
-    /** Full path to the Joular Core binary (optional; auto-downloaded when absent). */
+    /**
+     * Full path to the Joular Core binary (optional; auto-downloaded when absent).
+     * 
+     * @return the Joular Core binary path property
+     */
     @InputFile
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getJoularCoreBinaryPath();
 
-    /** Joular Core release version to download when {@link #getJoularCoreBinaryPath()} is unset. */
+    /**
+     * Joular Core release version to download when
+     * {@link #getJoularCoreBinaryPath()} is unset.
+     * 
+     * @return the Joular Core version property
+     */
     @Input
     public abstract Property<String> getJoularCoreVersion();
 
-    /** Hardware component to monitor: {@code cpu}, {@code gpu}, or {@code all}. */
+    /**
+     * Hardware component to monitor: {@code cpu}, {@code gpu}, or {@code all}.
+     * 
+     * @return the Joular Core component property
+     */
     @Input
     public abstract Property<String> getJoularCoreComponent();
 
-    /** Base URL of the Spring Boot application used by the built-in HTTP loader. */
+    /**
+     * Base URL of the Spring Boot application used by the built-in HTTP loader.
+     * 
+     * @return the base URL property
+     */
     @Input
     public abstract Property<String> getBaseUrl();
 
-    /** Relative URL paths exercised during the training run. */
+    /**
+     * Relative URL paths exercised during the training run.
+     * 
+     * @return the training paths property
+     */
     @Input
     public abstract ListProperty<String> getTrainingPaths();
 
-    /** Requests per second issued during the training run. */
+    /**
+     * Requests per second issued during the training run.
+     * 
+     * @return the requests per second property
+     */
     @Input
     public abstract Property<Integer> getRequestsPerSecond();
 
-    /** Optional external training command (e.g. {@code k6 run script.js}). */
+    /**
+     * Optional external training command (e.g. {@code k6 run script.js}).
+     * 
+     * @return the external training command property
+     */
     @Input
     @org.gradle.api.tasks.Optional
     public abstract Property<String> getExternalTrainingCommand();
@@ -109,6 +152,8 @@ public abstract class GreenerExtension {
      * Path to an external shell script file used as the training workload.
      * Takes precedence over {@link #getExternalTrainingCommand()}.
      * See {@code examples/workloads/} for wrk, wrk2, oha, and Gatling examples.
+     * 
+     * @return the external training script file property
      */
     @InputFile
     @org.gradle.api.tasks.Optional
@@ -116,50 +161,87 @@ public abstract class GreenerExtension {
 
     /**
      * Enable Joular Core VM mode — for virtualised environments where RAPL
-     * counters are not directly accessible.  The host must write the VM's
+     * counters are not directly accessible. The host must write the VM's
      * instantaneous power in Watts to {@link #getVmPowerFilePath()} every second.
+     * 
+     * @return the VM mode property
      */
     @Input
     public abstract Property<Boolean> getVmMode();
 
     /**
      * Path to the file that provides VM power readings when {@link #getVmMode()} is
-     * {@code true}.  Must contain a single float (e.g. {@code 45.2}).
+     * {@code true}. Must contain a single float (e.g. {@code 45.2}).
+     * 
+     * @return the VM power file path property
      */
     @InputFile
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getVmPowerFilePath();
 
-    /** Warmup duration in seconds (energy from this phase is discarded). */
+    /**
+     * Warmup duration in seconds (energy from this phase is discarded).
+     * 
+     * @return the warmup duration property
+     */
     @Input
     public abstract Property<Integer> getWarmupDurationSeconds();
 
-    /** Measurement duration in seconds. */
+    /**
+     * Measurement duration in seconds.
+     * 
+     * @return the measure duration property
+     */
     @Input
     public abstract Property<Integer> getMeasureDurationSeconds();
 
-    /** Seconds to wait for the application health endpoint before aborting. */
+    /**
+     * Seconds to wait for the application health endpoint before aborting.
+     * 
+     * @return the startup timeout property
+     */
     @Input
     public abstract Property<Integer> getStartupTimeoutSeconds();
 
-    /** Health-check path used to detect when the application is ready. */
+    /**
+     * Health-check path used to detect when the application is ready.
+     * 
+     * @return the health check path property
+     */
     @Input
     public abstract Property<String> getHealthCheckPath();
 
-    /** Path to the JSON baseline file. */
+    /**
+     * Path to the JSON baseline file.
+     * 
+     * @return the baseline file property
+     */
     @org.gradle.api.tasks.InputFile
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getBaselineFile();
 
-    /** Maximum percentage energy increase before the build is failed. */
+    /**
+     * Maximum percentage energy increase before the build is failed.
+     * 
+     * @return the threshold property
+     */
     @Input
     public abstract Property<Double> getThreshold();
 
-    /** Whether to fail the build on energy regression beyond {@link #getThreshold()}. */
+    /**
+     * Whether to fail the build on energy regression beyond
+     * {@link #getThreshold()}.
+     * 
+     * @return the fail on regression property
+     */
     @Input
     public abstract Property<Boolean> getFailOnRegression();
 
-    /** Directory where the HTML report is written. */
+    /**
+     * Directory where the HTML report is written.
+     * 
+     * @return the report output directory property
+     */
     @OutputDirectory
     @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getReportOutputDir();

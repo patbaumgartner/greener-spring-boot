@@ -27,19 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependabot configuration for automated dependency updates
 - Renovate configuration for automated dependency updates
 - CPU-time × TDP software energy estimator (`ci-cpu-energy-estimator.sh` / `.ps1`) for
-  environments without RAPL access (GitHub Actions, GitLab CI, Jenkins, WSL2)
-- GitLab CI/CD pipeline (`.gitlab-ci.yml`) with build/test/energy stages
-- Jenkins declarative pipeline (`Jenkinsfile`) with the same three-tier power detection
-- Three-tier automatic power source detection in all CI pipelines:
+  environments without RAPL access (GitHub Actions, CI pipelines, WSL2)
+- Three-tier automatic power source detection in CI pipelines:
   RAPL (hardware) → Scaphandre VM file → CPU-time × TDP estimation
 
 ### Changed
 
-- Java source/target compatibility upgraded from 17 to 25
-- Gradle wrapper upgraded from 8.7 to 9.4.1 (required for Java 25 support)
-- Jackson upgraded to 2.18.2, JUnit 5 to 5.11.4, Mockito to 5.14.2, AssertJ to 3.27.7
-- Maven plugin tooling upgraded: compiler-plugin 3.13.0, surefire 3.5.2,
-  plugin-plugin 3.15.2, plugin-api 3.9.9
+- Gradle wrapper upgraded from 8.7 to 9.4.1
+- Jackson upgraded to 2.21.2, JUnit to 6.0.3, Mockito to 5.23.0, AssertJ to 3.27.7
+- Maven plugin tooling upgraded: compiler-plugin 3.15.0, surefire 3.5.5,
+  plugin-plugin 3.15.2, plugin-api 3.9.14
 - Fixed RAPL availability check: now tests `energy_uj` file readability
   instead of directory existence (the directory exists on VMs but files are unreadable)
 - Energy measurement workflows no longer skip on GitHub-hosted runners;
