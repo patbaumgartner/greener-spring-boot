@@ -5,33 +5,63 @@
 > compare results against a stored baseline, and fail the build on regressions.
 
 [![CI](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml/badge.svg)](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/codeql.yml/badge.svg)](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/codeql.yml)
+[![Energy Baseline](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/energy-baseline.yml/badge.svg)](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/energy-baseline.yml)
+[![License](https://img.shields.io/github/license/patbaumgartner/greener-spring-boot)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)](https://spring.io/projects/spring-boot)
+[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.1.0--SNAPSHOT-orange)](https://central.sonatype.com/)
+[![GitHub issues](https://img.shields.io/github/issues/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/issues)
+[![GitHub stars](https://img.shields.io/github/stars/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/stargazers)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
 
 ## How it works
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  greener-spring-boot plugin (Maven / Gradle)                                 │
-│                                                                              │
-│  1. Start Spring Boot application (fat-jar)                                  │
-│  2. Wait for /actuator/health → 200 OK                                       │
-│  3. Start Joular Core  ──monitors PID──►  writes CSV (power W / second)      │
-│  4. Run training workload  (warmup + measure)                                │
-│     • Built-in HTTP loader  OR  external command (k6, wrk, …)               │
-│  5. Stop Joular Core & application                                           │
-│  6. Read CSV  →  energy = Σ power × 1 s                                     │
-│  7. Compare against baseline  →  IMPROVED / UNCHANGED / REGRESSED           │
-│  8. Write console + HTML report                                              │
-│  9. Optionally fail the build if regression exceeds threshold                │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph plugin["greener-spring-boot plugin"]
+        direction TB
+        A["1. Resolve Joular Core binary<br/><i>auto-download or use provided path</i>"] --> B
+        B["2. Start Spring Boot fat-jar"] --> C
+        C["3. Wait for readiness probe<br/><code>/actuator/health/readiness → 200</code>"] --> D
+        D["4. Start Joular Core<br/><i>monitors PID, writes CSV (W/s)</i>"] --> E
+        E["5. Training workload<br/><b>warmup</b> (discard) + <b>measure</b> (record)"] --> F
+        F["6. Stop Joular Core & application"] --> G
+        G["7. Compute energy<br/><code>E = Σ power × Δt</code>"] --> H
+        H["8. Compare against baseline<br/><b>IMPROVED</b> · <b>UNCHANGED</b> · <b>REGRESSED</b>"] --> I
+        I["9. Generate reports<br/><i>console + HTML</i>"] --> J
+        J{"Regression > threshold?"}
+    end
+
+    J -- No --> K["✅ Build passes"]
+    J -- Yes --> L["❌ Build fails <i>(if failOnRegression=true)</i>"]
+
+    subgraph workload["Training workload options"]
+        W1["Built-in HTTP loader"]
+        W2["External script<br/><i>oha, wrk, k6, gatling, …</i>"]
+        W3["External command<br/><i>any CLI tool</i>"]
+    end
+    workload -.-> E
+
+    subgraph power["Power sources (auto-detected)"]
+        P1["🔌 RAPL counters<br/><i>bare-metal Intel/AMD</i>"]
+        P2["🖥️ Scaphandre VM file<br/><i>KVM host exports power</i>"]
+        P3["📊 CPU-time × TDP estimate<br/><i>CI fallback</i>"]
+    end
+    power -.-> D
 ```
 
 **[Joular Core](https://www.noureddine.org/research/joular/joularcore)** is a
 cross-platform Rust binary that reads hardware power counters:
-- Linux  — Intel/AMD RAPL via the `powercap` interface
-- Windows — via Hubblo's RAPL driver
-- macOS  — via `powermetrics`
+
+| Platform | Power source | Notes |
+|---|---|---|
+| Linux | Intel/AMD RAPL via `powercap` | Most accurate; requires readable counters |
+| Windows | [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) | Requires driver installation |
+| macOS | `powermetrics` | Requires `sudo` or sudoers config |
+| VM / CI | CPU-time × TDP estimation | Automatic fallback; good for relative comparisons |
 
 ---
 
@@ -60,8 +90,8 @@ greener-spring-boot/
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <configuration>
-    <!-- Required: path to the Spring Boot fat-jar -->
-    <springBootJar>${project.build.directory}/myapp.jar</springBootJar>
+    <!-- springBootJar is auto-detected from target/ — set only if needed -->
+    <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
 
     <!-- Training workload -->
     <warmupDurationSeconds>30</warmupDurationSeconds>
@@ -94,7 +124,7 @@ mvn greener:update-baseline
 
 | Parameter | Default | Description |
 |---|---|---|
-| `springBootJar` | *(required)* | Path to the Spring Boot fat-jar |
+| `springBootJar` | *(auto-detected)* | Path to the Spring Boot fat-jar; auto-detected from `target/` if not set |
 | `applicationPort` | `8080` | HTTP port |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
 | `joularCoreVersion` | `0.0.1-alpha-11` | Version to download |
@@ -109,7 +139,7 @@ mvn greener:update-baseline
 | `warmupDurationSeconds` | `30` | Warmup before recording (discarded) |
 | `measureDurationSeconds` | `60` | Measurement window |
 | `startupTimeoutSeconds` | `120` | Wait for health check |
-| `healthCheckPath` | `/actuator/health` | Health endpoint path |
+| `healthCheckPath` | `/actuator/health/readiness` | Health endpoint path (readiness probe) |
 | `baselineFile` | `energy-baseline.json` | JSON baseline file |
 | `threshold` | `10` | % regression threshold |
 | `failOnRegression` | `false` | Fail build if regression > threshold |
@@ -203,6 +233,28 @@ For absolute energy accuracy, use a self-hosted bare-metal runner or configure
 | Linux | Intel/AMD CPU with RAPL; `powercap` files readable (`sudo` or ACL) |
 | Windows | [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) installed |
 | macOS | `powermetrics` (pre-installed); run with `sudo` or configure `sudoers` |
+
+---
+
+## Alternatives
+
+greener-spring-boot focuses on **build-integrated, automated energy regression testing** for Spring Boot. Here are other tools in the green software ecosystem:
+
+| Tool | Scope | Approach |
+|---|---|---|
+| [JoularJX](https://github.com/joular/joularjx) | Java (method-level) | Java agent using Joular Core; per-method energy attribution |
+| [Kepler](https://github.com/sustainable-computing-io/kepler) | Kubernetes pods | eBPF + ML models to estimate energy per pod |
+| [Scaphandre](https://github.com/hubblo-org/scaphandre) | Host / VM | System-level power monitoring; exports to Prometheus |
+| [PowerAPI](https://github.com/powerapi-ng/powerapi) | Processes | Middleware for real-time per-process power monitoring |
+| [Green Metrics Tool](https://github.com/green-coding-solutions/green-metrics-tool) | Full stack | End-to-end energy measurement pipelines |
+| [codecarbon](https://github.com/mlco2/codecarbon) | Python | Tracks CO₂ emissions from compute; ML-focused |
+| [Cloud Carbon Footprint](https://github.com/cloud-carbon-footprint/cloud-carbon-footprint) | Cloud | Estimates carbon from cloud provider billing data |
+
+---
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
