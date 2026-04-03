@@ -3,22 +3,25 @@
 greener-spring-boot uses
 [Joular Core](https://www.noureddine.org/research/joular/joularcore) to measure
 CPU energy consumption.  Joular Core reads hardware power counters (Intel/AMD RAPL
-via the Linux `powercap` subsystem).  Inside a virtual machine the guest kernel
-cannot access RAPL directly because the hypervisor does not expose those MSRs.
+via the Linux `powercap` subsystem or the
+[Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) on
+Windows).  Inside a virtual machine the guest kernel cannot access RAPL directly
+because the hypervisor does not expose those MSRs.
 
-The recommended solutions, from most accurate to most portable, are:
+The recommended solutions, from simplest setup to most portable, are:
 
 | Option | Environment | Accuracy |
 |---|---|---|
-| **A** — Scaphandre virtio-mem | KVM guest + Scaphandre on host | ★★★ highest |
-| **B** — Scaphandre file exporter | KVM guest via virtio-fs / NFS | ★★★ high |
-| **C** — RAPL MSR passthrough | KVM guest with passthrough | ★★★ high |
-| **D** — CPU-time × TDP estimation | Any Linux (CI, WSL2, VMs) | ★★ estimated |
+| **A** — RAPL MSR passthrough | KVM guest with passthrough | ★★★ high |
+| **B** — Windows RAPL driver | Windows bare-metal (Intel/AMD) | ★★★ high |
+| **C** — Scaphandre virtio-mem | KVM guest + Scaphandre on host | ★★★ highest |
+| **D** — Scaphandre file exporter | KVM guest via virtio-fs / NFS | ★★★ high |
+| **E** — CPU-time × TDP estimation | Any Linux/Windows (CI, WSL2, VMs) | ★★ estimated |
 
-> **Important**: Options A–C all rely on real hardware power counters.
-> Option D uses a software model — results are reproducible on the same
-> runner/hardware but not hardware-calibrated.  Only use Option D for
-> relative comparisons between commits; use A–C for absolute accuracy.
+> **Important**: Options A–D all rely on real hardware power counters.
+> Option E uses a software model — results are reproducible on the same
+> runner/hardware but not hardware-calibrated.  Only use Option E for
+> relative comparisons between commits; use A–D for absolute accuracy.
 
 ---
 
@@ -38,7 +41,78 @@ KVM Host (bare-metal, Intel/AMD with RAPL)
 
 ---
 
-## Option A — Scaphandre virtio-mem exporter (recommended)
+## Option A — RAPL MSR passthrough (simplest)
+
+Some hypervisors allow passing RAPL MSRs through to the guest.  When this works,
+no VM mode is needed at all — Joular Core reads RAPL directly as if on bare metal.
+
+Requirements:
+- KVM with `msr` module loaded (`modprobe msr`)
+- Guest kernel with `intel_rapl_msr` or `intel_rapl_common` modules
+- QEMU option: `-cpu host` (exposes host CPU features) or explicit MSR passthrough
+
+```bash
+# Check inside the VM
+ls /sys/class/powercap/intel-rapl
+# If this directory exists, use Joular Core without --vm
+```
+
+```xml
+<!-- Maven — no VM mode needed -->
+<vmMode>false</vmMode>
+```
+
+---
+
+## Option B — Windows RAPL driver (bare-metal Windows)
+
+On bare-metal Windows machines with Intel or AMD CPUs, Joular Core can read
+hardware RAPL counters directly — no VM mode or TDP estimation needed — once
+[Hubblo's Windows RAPL driver](https://github.com/hubblo-org/windows-rapl-driver)
+is installed.
+
+### Installation
+
+The easiest way to install the signed driver is through the Scaphandre installer:
+
+1. Download the installer from the
+   [Scaphandre v1.0.0 release](https://github.com/hubblo-org/scaphandre/releases/download/v1.0.0/scaphandre_v1.0.0_installer.exe).
+2. Run `scaphandre_v1.0.0_installer.exe` — this installs and registers the
+   `ScaphandreDrv` kernel driver.
+3. Verify the driver is running:
+   ```powershell
+   driverquery /v | Select-String "Scaph"
+   ```
+   You should see a line with `ScaphandreDrv` in `Running` state.
+
+Once the driver is installed, Joular Core reads RAPL without administrator
+rights.  GPU power is also available via `nvidia-smi` / `amd-smi`.
+
+### Plugin configuration (no VM mode)
+
+```xml
+<!-- Maven — no VM mode needed, RAPL is read directly -->
+<vmMode>false</vmMode>
+```
+
+```kotlin
+// Gradle — no VM mode needed
+vmMode = false
+```
+
+### Checking RAPL availability
+
+```powershell
+# Verify the ScaphandreDrv service is running
+sc.exe query ScaphandreDrv
+```
+
+If the driver is not installed, the `local-simulation.ps1` script falls back to
+the CPU-time × TDP software estimation (Option E) automatically.
+
+---
+
+## Option C — Scaphandre virtio-mem exporter (recommended for KVM)
 
 Scaphandre's `qemu` exporter uses a shared memory device (virtio-mem) to push
 per-VM power data directly into the guest's address space.  Joular Core reads
@@ -87,7 +161,7 @@ vmMode = true
 
 ---
 
-## Option B — Scaphandre file exporter over virtio-fs
+## Option D — Scaphandre file exporter over virtio-fs
 
 Use this when virtio-mem is not available or when you need to share the power
 value via a regular file (e.g. Proxmox, older QEMU versions).
@@ -95,7 +169,7 @@ value via a regular file (e.g. Proxmox, older QEMU versions).
 ### Host setup
 
 ```bash
-# 1. Install Scaphandre (see Option A)
+# 1. Install Scaphandre (see Option C)
 
 # 2. Create the shared directory
 sudo mkdir -p /srv/greener-power-share
@@ -137,34 +211,11 @@ vmPowerFilePath = file("/mnt/host-power/vm-power.txt")
 
 ---
 
-## Option C — RAPL MSR passthrough (advanced)
-
-Some hypervisors allow passing RAPL MSRs through to the guest.  When this works,
-no VM mode is needed at all — Joular Core reads RAPL directly as if on bare metal.
-
-Requirements:
-- KVM with `msr` module loaded (`modprobe msr`)
-- Guest kernel with `intel_rapl_msr` or `intel_rapl_common` modules
-- QEMU option: `-cpu host` (exposes host CPU features) or explicit MSR passthrough
-
-```bash
-# Check inside the VM
-ls /sys/class/powercap/intel-rapl
-# If this directory exists, use Joular Core without --vm
-```
-
-```xml
-<!-- Maven — no VM mode needed -->
-<vmMode>false</vmMode>
-```
-
----
-
-## Option D — CPU-time × TDP estimation (CI/CD, WSL2, any Linux VM)
+## Option E — CPU-time × TDP estimation (CI/CD, WSL2, any Linux/Windows VM)
 
 Use this when none of the hardware-backed options above are available — for
 example on GitHub-hosted runners, GitLab shared runners, Jenkins agents,
-WSL2, or any Linux VM where `/proc/stat` is readable but RAPL is not.
+WSL2, or any Linux/Windows VM where hardware RAPL access is not available.
 
 ### How it works
 
@@ -256,7 +307,7 @@ vmPowerFilePath = file("/tmp/ci-power.txt")
 ## Proxmox notes
 
 Proxmox VE uses QEMU/KVM.  Scaphandre works the same way as described in
-Options A and B.
+Options C and D.
 
 1. Install Scaphandre on the Proxmox host node.
 2. Use the `qemu` exporter (Option A) for automatic per-VM power exposure via

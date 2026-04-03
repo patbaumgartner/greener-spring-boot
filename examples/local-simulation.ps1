@@ -10,11 +10,12 @@
 # so the comparison shows how reproducible the results are (expected delta ~ 0 %).
 #
 # Power source auto-detection (Windows):
-#   1. CPU x TDP estimation via Win32_Processor.LoadPercentage
-#   2. VM power file   -- set VM_POWER_FILE env var to a file path
+#   1. Hubblo RAPL driver (ScaphandreDrv) -- direct hardware RAPL reading
+#   2. CPU x TDP estimation via Win32_Processor.LoadPercentage
+#   3. VM power file   -- set VM_POWER_FILE env var to a file path
 #
 # Prerequisites:
-#   - Java 17+ (temurin recommended)
+#   - Java 17+
 #   - Maven
 #   - git, python3 -- must be on PATH
 #   - Rust toolchain (cargo) -- installed automatically via rustup if missing
@@ -161,7 +162,19 @@ Banner "Detecting power source"
 
 $PowerSource = "none"
 
-if ($env:VM_POWER_FILE -and (Test-Path $env:VM_POWER_FILE)) {
+# Check for Hubblo's RAPL driver (ScaphandreDrv) — enables direct RAPL reading
+$RaplDriverRunning = $false
+try {
+    $svc = sc.exe query ScaphandreDrv 2>$null
+    if ($svc -and ($svc | Select-String "RUNNING")) {
+        $RaplDriverRunning = $true
+    }
+} catch {}
+
+if ($RaplDriverRunning) {
+    $PowerSource = "rapl"
+    Ok "Hubblo RAPL driver (ScaphandreDrv) detected -- using direct RAPL readings."
+} elseif ($env:VM_POWER_FILE -and (Test-Path $env:VM_POWER_FILE)) {
     $PowerSource = "vm-file"
     Ok "VM power file found at $($env:VM_POWER_FILE)."
 } elseif (Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue) {
@@ -278,6 +291,7 @@ $VmFlags = @()
 if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
     $VmFlags = @("-Dgreener.vmMode=true", "-Dgreener.vmPowerFilePath=$($env:VM_POWER_FILE)")
 }
+# When PowerSource is "rapl", no VM flags are needed -- Joular Core reads RAPL directly
 
 # -- Run 1: Baseline measurement ----------------------------------------------
 Banner "RUN 1 - BASELINE"

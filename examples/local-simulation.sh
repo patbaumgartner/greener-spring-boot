@@ -10,13 +10,14 @@
 # Both measurements happen on the same machine under identical conditions,
 # so the comparison shows how reproducible the results are (expected delta ≈ 0 %).
 #
-# Power source auto-detection (three tiers):
+# Power source auto-detection (four tiers):
 #   1. RAPL          — bare-metal Linux with readable powercap
-#   2. Scaphandre VM — KVM guest with host-side power file
-#   3. CPU × TDP     — software estimation via /proc/stat
+#   2. WSL + RAPL    — Hubblo RAPL driver on Windows host (CPU x TDP fallback)
+#   3. Scaphandre VM — KVM guest with host-side power file
+#   4. CPU × TDP     — software estimation via /proc/stat
 #
 # Prerequisites:
-#   - Java 17+ (temurin recommended)
+#   - Java 17+
 #   - Maven
 #   - git, curl, python3 — installed automatically if missing
 #   - Rust toolchain (cargo) — installed automatically if missing
@@ -90,7 +91,7 @@ command -v mvn   >/dev/null 2>&1 || { echo "[ERR] mvn not found. Install Maven."
 # Auto-install lightweight tools if missing
 for tool in git curl python3; do
     if ! command -v "${tool}" >/dev/null 2>&1; then
-        info "${tool} not found — installing..."
+        info "${tool} not found - installing..."
         if command -v apt-get >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq "${tool}"
         elif command -v dnf >/dev/null 2>&1; then
@@ -160,18 +161,26 @@ cp -r "${PROJECT_ROOT}/examples" "${PETCLINIC_DIR}/"
 banner "Detecting power source"
 
 POWER_SOURCE="none"
+IS_WSL=false
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    IS_WSL=true
+fi
 
 if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
     POWER_SOURCE="rapl"
-    ok "RAPL readable — hardware energy measurement."
+    ok "RAPL readable - hardware energy measurement."
+elif [ "$IS_WSL" = true ] && sc.exe query ScaphandreDrv 2>/dev/null | grep -q RUNNING 2>/dev/null; then
+    POWER_SOURCE="ci-estimated"
+    ok "WSL: Hubblo RAPL driver (ScaphandreDrv) detected on Windows host."
+    info "For direct RAPL readings, run local-simulation.ps1 natively on Windows."
 elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
     POWER_SOURCE="vm-file"
     ok "Scaphandre VM power file found."
 elif [ -f /proc/stat ]; then
     POWER_SOURCE="ci-estimated"
-    info "Using CPU-time × TDP software estimation."
+    info "Using CPU-time x TDP software estimation."
 else
-    warn "No power source — measurement will be skipped."
+    warn "No power source - measurement will be skipped."
 fi
 
 if [ "${POWER_SOURCE}" = "none" ]; then
@@ -188,7 +197,7 @@ if [ "${POWER_SOURCE}" = "ci-estimated" ]; then
     CI_ESTIMATOR_PID=$!
     export VM_POWER_FILE="${CI_POWER_FILE}"
     sleep 2
-    info "Estimator running — current estimate: $(cat "${CI_POWER_FILE}") W"
+    info "Estimator running - current estimate: $(cat "${CI_POWER_FILE}") W"
 fi
 
 # ── Joular Core ──────────────────────────────────────────────────────────────
@@ -217,13 +226,13 @@ else
         ok "Joular Core downloaded and cached."
         DOWNLOADED=true
     else
-        info "Download failed — will try building from source."
+        info "Download failed - will try building from source."
         rm -f "${JOULAR_CORE_BINARY}"
     fi
 
     if [ "${DOWNLOADED}" = false ]; then
         if ! command -v cargo >/dev/null 2>&1; then
-            info "cargo not found — installing Rust toolchain via rustup..."
+            info "cargo not found - installing Rust toolchain via rustup..."
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             # shellcheck source=/dev/null
             source "${HOME}/.cargo/env"
