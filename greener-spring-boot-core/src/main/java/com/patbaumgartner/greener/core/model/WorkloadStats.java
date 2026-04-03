@@ -45,6 +45,11 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 		return new WorkloadStats(tool, UNKNOWN, UNKNOWN, durationSeconds);
 	}
 
+	/** Factory for an external tool with parsed request counts. */
+	public static WorkloadStats external(String tool, long totalRequests, long failedRequests, long durationSeconds) {
+		return new WorkloadStats(tool, totalRequests, failedRequests, durationSeconds);
+	}
+
 	/** Returns {@code true} if request counts are available. */
 	public boolean hasRequestCounts() {
 		return totalRequests >= 0;

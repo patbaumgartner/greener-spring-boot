@@ -3,7 +3,9 @@ package com.patbaumgartner.greener.core.runner;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -35,7 +37,9 @@ import java.util.logging.Logger;
  * Java {@link HttpClient}; requires no external tools.</li>
  * </ol>
  *
- * <h2>Environment variables available to external scripts</h2> <pre>
+ * <h2>Environment variables available to external scripts</h2>
+ *
+ * <pre>
  * APP_URL         http://localhost:8080
  * APP_HOST        localhost
  * APP_PORT        8080
@@ -172,18 +176,21 @@ public class TrainingRunner {
 
 		LOG.info("Running external training script [" + toolName + "]: " + script);
 
-		ProcessBuilder pb = new ProcessBuilder("/bin/sh", script.toAbsolutePath().toString()).inheritIO();
+		ProcessBuilder pb = new ProcessBuilder("/bin/sh", script.toAbsolutePath().toString());
+		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
 		long start = System.currentTimeMillis();
-		int exitCode = pb.start().waitFor();
+		Process process = pb.start();
+		String output = captureAndForwardOutput(process);
+		int exitCode = process.waitFor();
 		long elapsed = (System.currentTimeMillis() - start) / 1_000;
 
 		if (exitCode != 0) {
 			throw new IOException("Training script exited with code " + exitCode + ": " + script);
 		}
 		LOG.info("Training script [" + toolName + "] completed in " + elapsed + " s");
-		return WorkloadStats.external(toolName, elapsed);
+		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
@@ -191,18 +198,22 @@ public class TrainingRunner {
 
 		LOG.info("Running external training command: " + command);
 
-		ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command).inheritIO();
+		ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command);
+		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
 		long start = System.currentTimeMillis();
-		int exitCode = pb.start().waitFor();
+		Process process = pb.start();
+		String output = captureAndForwardOutput(process);
+		int exitCode = process.waitFor();
 		long elapsed = (System.currentTimeMillis() - start) / 1_000;
 
 		if (exitCode != 0) {
 			throw new IOException("External training command exited with code " + exitCode + ": " + command);
 		}
 		LOG.info("External training command completed in " + elapsed + " s");
-		return WorkloadStats.external("custom", elapsed);
+		String toolName = deriveToolName(command, null);
+		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	// -------------------------------------------------------------------------
@@ -216,6 +227,33 @@ public class TrainingRunner {
 		pb.environment().put("MEASURE_SECONDS", String.valueOf(config.getMeasureDurationSeconds()));
 		pb.environment().put("TOTAL_SECONDS", String.valueOf(config.getTotalDurationSeconds()));
 		pb.environment().put("RPS", String.valueOf(config.getRequestsPerSecond()));
+	}
+
+	/**
+	 * Reads all output from the process, printing each line to System.out (so the user
+	 * still sees tool output live) and collecting it into a string for parsing.
+	 */
+	private String captureAndForwardOutput(Process process) throws IOException {
+		StringBuilder sb = new StringBuilder();
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				System.out.println(line);
+				sb.append(line).append('\n');
+			}
+		}
+		return sb.toString();
+	}
+
+	private WorkloadStats buildExternalStats(String toolName, String output, long elapsed) {
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse(toolName, output);
+		if (parser.hasResults()) {
+			LOG.info(String.format("Parsed %d total requests (%d failed) from %s output", parser.totalRequests(),
+					parser.failedRequests(), toolName));
+			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
+		}
+		return WorkloadStats.external(toolName, elapsed);
 	}
 
 	/**

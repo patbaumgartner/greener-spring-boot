@@ -308,7 +308,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                 getThreshold().get());
 
         new ConsoleReporter().report(report, comparison, workloadStats, resolvePowerSource());
-        Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, resolvePowerSource(), reportDir);
+        Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, resolvePowerSource(),
+                reportDir);
         getLogger().lifecycle("HTML report: " + htmlReport);
 
         if (getFailOnRegression().get() && comparison.isFailed()) {
