@@ -137,11 +137,16 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         // Start application
         ApplicationRunner appRunner = new ApplicationRunner();
         getLogger().lifecycle("Starting Spring Boot application: " + springBootJarFile);
+
+        // Enable health probes so /actuator/health/readiness is available
+        java.util.List<String> effectiveAppArgs = new java.util.ArrayList<>();
+        effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+
         Process appProcess = appRunner.start(
                 springBootJarFile.toPath(),
                 null, null,
                 workingDir,
-                null, null);
+                null, effectiveAppArgs);
 
         Path outputCsv = workingDir.resolve("joularcore-output.csv");
         WorkloadStats workloadStats = null;
