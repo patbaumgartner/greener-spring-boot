@@ -72,10 +72,15 @@ greener-spring-boot/
 ├── greener-spring-boot-core/           Shared library (model, readers, comparator, reporters, runners)
 ├── greener-spring-boot-maven-plugin/   Maven plugin  (greener:measure, greener:update-baseline)
 ├── greener-spring-boot-gradle-plugin/  Gradle plugin (measureEnergy, updateEnergyBaseline)
+├── examples/                           Workload scripts, VM setup guides, local simulation
 └── .github/workflows/
     ├── ci.yml                          Build & test all modules
+    ├── codeql.yml                      Static security analysis (CodeQL)
     ├── energy-baseline.yml             Measure baseline on main branch (Spring Petclinic)
-    └── energy-comparison.yml           Measure on PR, compare, post comment
+    ├── energy-comparison.yml           Measure on PR, compare, post comment
+    ├── energy-local-simulation.yml     Baseline + comparison in a single run
+    ├── release.yml                     Release to Maven Central and Gradle Plugin Portal
+    └── validate-workloads.yml          Smoke-test all example workload scripts
 ```
 
 ---
@@ -220,9 +225,10 @@ For absolute energy accuracy, use a self-hosted bare-metal runner or configure
 | CI System | Config file | Notes |
 |---|---|---|
 | **GitHub Actions** | `.github/workflows/energy-baseline.yml` / `energy-comparison.yml` | Posts comparison as PR comment |
-| **GitLab CI/CD** | `.gitlab-ci.yml` | Artifacts published per pipeline |
-| **Jenkins** | `Jenkinsfile` | Requires `temurin-25` JDK + `maven-3` tool configured |
 | **Local / WSL2** | Run the Maven plugin directly | `mvn greener:measure` with `vmMode=true` and the estimator script |
+
+The plugin itself is CI-agnostic — use it in any pipeline that can run Maven or Gradle.
+The `ci-cpu-energy-estimator.sh` script works on any Linux with `/proc/stat`.
 
 ---
 

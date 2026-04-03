@@ -7,8 +7,7 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.{java,kt,kts}]
-indent_style = space
-indent_size = 4
+indent_style = tab
 
 [*.{xml,yml,yaml,json,json5}]
 indent_style = space

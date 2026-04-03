@@ -1,8 +1,8 @@
 {
   // Renovate configuration for greener-spring-boot
   //
-  // Dependabot already covers: Maven, Gradle dependencies, GitHub Actions.
-  // Renovate handles everything else: Gradle wrapper + tool versions in workflows.
+  // Dependabot already covers: Maven, Gradle dependencies.
+  // Renovate handles: Gradle wrapper, tool versions in workflows, GitHub Actions (SHA-pinned).
   //
   // Documentation: https://docs.renovatebot.com/configuration-options/
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
@@ -14,7 +14,7 @@
   ],
 
   // ── Only enable managers NOT covered by Dependabot ──────────────────────────
-  enabledManagers: ["gradle-wrapper", "custom.regex"],
+  enabledManagers: ["gradle-wrapper", "custom.regex", "github-actions"],
 
   // ── Schedule ────────────────────────────────────────────────────────────────
   schedule: ["before 7am on monday"],
@@ -94,6 +94,21 @@
     {
       matchManagers: ["custom.regex", "gradle-wrapper"],
       matchUpdateTypes: ["minor", "patch"],
+      automerge: true,
+      automergeType: "pr",
+    },
+
+    // GitHub Actions: group all action digest updates into a single PR
+    {
+      matchManagers: ["github-actions"],
+      groupName: "GitHub Actions",
+      labels: ["dependencies", "github-actions"],
+    },
+
+    // GitHub Actions: automerge digest (SHA) and minor/patch updates
+    {
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["digest", "minor", "patch"],
       automerge: true,
       automergeType: "pr",
     },

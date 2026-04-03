@@ -17,12 +17,16 @@ import java.util.logging.Logger;
  * converts the power samples into an {@link EnergyReport}.
  *
  * <h2>Joular Core CSV format</h2> Joular Core writes one row per sample interval
- * (default: 1 second): <pre>
+ * (default: 1 second):
+ *
+ * <pre>
  * timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power
  * 1700000001,45.2,0.0,45.2,23.1,12.3
  * 1700000002,47.8,0.0,47.8,25.4,14.1
  * ...
- * </pre> Columns:
+ * </pre>
+ *
+ * Columns:
  * <ul>
  * <li>{@code timestamp} — Unix epoch seconds</li>
  * <li>{@code cpu_power} — total CPU power in Watts</li>
@@ -44,15 +48,11 @@ public class JoularCoreResultReader {
 	 * CSV column indices (zero-based). Joular Core may include a header row; the reader
 	 * detects it automatically.
 	 */
-	private static final int COL_TIMESTAMP = 0;
-
 	private static final int COL_CPU_POWER = 1;
 
 	private static final int COL_GPU_POWER = 2;
 
 	private static final int COL_TOTAL_POWER = 3;
-
-	private static final int COL_CPU_USAGE = 4;
 
 	private static final int COL_PID_OR_APP_POWER = 5;
 

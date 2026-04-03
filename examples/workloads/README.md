@@ -87,7 +87,7 @@ and has a real-time TUI that is disabled automatically with `--no-tui`.
 
 ```bash
 # Install (Linux — GitHub release)
-OHA_VERSION="1.4.5"
+OHA_VERSION="1.14.0"
 curl -fsSL -o /usr/local/bin/oha \
   "https://github.com/hatoo/oha/releases/download/v${OHA_VERSION}/oha-linux-amd64"
 chmod +x /usr/local/bin/oha

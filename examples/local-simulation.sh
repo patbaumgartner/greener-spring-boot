@@ -32,7 +32,7 @@
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
-#   OHA_VERSION            oha release version             (default: 1.4.5)
+#   OHA_VERSION            oha release version             (default: 1.14.0)
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-local-sim)
@@ -45,7 +45,7 @@ JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-alpha-11}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"
-OHA_VERSION="${OHA_VERSION:-1.4.5}"
+OHA_VERSION="${OHA_VERSION:-1.14.0}"
 TDP_WATTS="${TDP_WATTS:-100}"
 WORK_DIR="${WORK_DIR:-/tmp/greener-local-sim}"
 

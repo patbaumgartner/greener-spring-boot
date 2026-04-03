@@ -2,7 +2,9 @@ package com.patbaumgartner.greener.core.config;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Configuration for the <a href="https://www.noureddine.org/research/joular/joularcore">
@@ -278,11 +280,11 @@ public class JoularCoreConfig {
 	 * environment variables (not CLI flags) to configure VM power monitoring.
 	 * @return a map of environment variable names to values; empty if VM mode is disabled
 	 */
-	public java.util.Map<String, String> buildVmEnvironment() {
+	public Map<String, String> buildVmEnvironment() {
 		if (!vmMode) {
-			return java.util.Map.of();
+			return Map.of();
 		}
-		var env = new java.util.HashMap<String, String>();
+		var env = new HashMap<String, String>();
 		if (vmPowerFilePath != null) {
 			env.put("VM_CPU_POWER_FILE", vmPowerFilePath.toAbsolutePath().toString());
 		}

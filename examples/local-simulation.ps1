@@ -29,7 +29,7 @@
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
-#   OHA_VERSION            oha release version             (default: 1.4.5)
+#   OHA_VERSION            oha release version             (default: 1.14.0)
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-local-sim)
@@ -43,7 +43,7 @@ $JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
-$OhaVersion         = if ($env:OHA_VERSION)          { $env:OHA_VERSION }          else { "1.4.5" }
+$OhaVersion         = if ($env:OHA_VERSION)          { $env:OHA_VERSION }          else { "1.14.0" }
 $TdpWatts           = if ($env:TDP_WATTS)            { $env:TDP_WATTS }            else { "100" }
 $WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-local-sim" }
 

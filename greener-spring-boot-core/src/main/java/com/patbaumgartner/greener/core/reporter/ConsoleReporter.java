@@ -4,6 +4,7 @@ import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.ComparisonResult.MethodComparison;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 
 import java.util.Comparator;
@@ -14,9 +15,11 @@ import java.util.List;
  */
 public class ConsoleReporter {
 
-	private static final String LINE = "=".repeat(72);
+	private static final int REPORT_WIDTH = 72;
 
-	private static final String THIN_LINE = "-".repeat(72);
+	private static final String LINE = "=".repeat(REPORT_WIDTH);
+
+	private static final String THIN_LINE = "-".repeat(REPORT_WIDTH);
 
 	private final int topN;
 
@@ -30,11 +33,17 @@ public class ConsoleReporter {
 
 	/** Reports energy measurements without workload stats. */
 	public void report(EnergyReport current, ComparisonResult comparison) {
-		report(current, comparison, null);
+		report(current, comparison, null, null);
 	}
 
 	/** Reports energy measurements including use-case energy metrics. */
 	public void report(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats) {
+		report(current, comparison, workloadStats, null);
+	}
+
+	/** Reports energy measurements including power source assumptions. */
+	public void report(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
+			PowerSource powerSource) {
 		System.out.println();
 		System.out.println(LINE);
 		System.out.println(" greener-spring-boot — Energy Consumption Report");
@@ -43,6 +52,12 @@ public class ConsoleReporter {
 		System.out.printf(" Timestamp   : %s%n", current.timestamp());
 		System.out.printf(" Duration    : %d s%n", current.durationSeconds());
 		System.out.printf(" Total Energy: %.4f J%n", current.totalEnergyJoules());
+
+		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
+			System.out.printf(" Power Source : %s%n", powerSource.label());
+			System.out.printf("               %s%n", powerSource.description());
+		}
+
 		System.out.println(THIN_LINE);
 
 		// Use-case energy section
