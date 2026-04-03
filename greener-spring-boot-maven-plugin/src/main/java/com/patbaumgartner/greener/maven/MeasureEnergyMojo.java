@@ -70,9 +70,16 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
     // ---- Application ----
 
-    /** Path to the executable Spring Boot fat-jar to measure. */
-    @Parameter(property = "greener.springBootJar", required = true)
+    /**
+     * Path to the executable Spring Boot fat-jar to measure.
+     * When not set, the plugin auto-detects the fat-jar in {@code ${project.build.directory}}.
+     */
+    @Parameter(property = "greener.springBootJar")
     private File springBootJar;
+
+    /** Build output directory used for auto-detecting the Spring Boot fat-jar. */
+    @Parameter(defaultValue = "${project.build.directory}", readonly = true)
+    private File buildDirectory;
 
     /** HTTP port the Spring Boot application listens on. */
     @Parameter(property = "greener.applicationPort", defaultValue = "8080")
@@ -191,7 +198,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
     private int startupTimeoutSeconds;
 
     /** Health-check path used to detect when the application is ready. */
-    @Parameter(property = "greener.healthCheckPath", defaultValue = "/actuator/health")
+    @Parameter(property = "greener.healthCheckPath", defaultValue = "/actuator/health/readiness")
     private String healthCheckPath;
 
     // ---- Baseline / reporting ----
@@ -263,12 +270,20 @@ public class MeasureEnergyMojo extends AbstractMojo {
         // 3. Start application
         ApplicationRunner appRunner = new ApplicationRunner();
         getLog().info("Starting Spring Boot application: " + springBootJar);
+
+        // Enable health probes so /actuator/health/readiness is available
+        List<String> effectiveAppArgs = new java.util.ArrayList<>();
+        if (appArgs != null) {
+            effectiveAppArgs.addAll(appArgs);
+        }
+        effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+
         Process appProcess = appRunner.start(
                 springBootJar.toPath(),
                 null, null,   // no JoularJX in process mode
                 workingDir,
                 jvmArgs,
-                appArgs);
+                effectiveAppArgs);
 
         WorkloadStats workloadStats = null;
         try {
@@ -392,17 +407,50 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
     private void validateConfiguration() throws MojoExecutionException {
         if (springBootJar == null) {
-            throw new MojoExecutionException(
-                    "springBootJar must be configured. "
-                    + "Set <springBootJar>${project.build.directory}/myapp.jar</springBootJar>");
+            springBootJar = autoDetectSpringBootJar();
         }
         if (!springBootJar.exists()) {
             throw new MojoExecutionException(
                     "Spring Boot jar not found: " + springBootJar
-                    + ". Run 'mvn package' first.");
+                    + ". Run 'mvn package' first or set <springBootJar> explicitly.");
         }
         if (measureDurationSeconds <= 0) {
             throw new MojoExecutionException("measureDurationSeconds must be > 0");
         }
+    }
+
+    /**
+     * Auto-detects the Spring Boot fat-jar in the build output directory.
+     * Looks for a single executable jar, excluding sources and javadoc jars.
+     */
+    private File autoDetectSpringBootJar() throws MojoExecutionException {
+        if (buildDirectory == null || !buildDirectory.isDirectory()) {
+            throw new MojoExecutionException(
+                    "springBootJar not configured and build directory not found: " + buildDirectory
+                    + ". Set <springBootJar> explicitly.");
+        }
+
+        File[] jars = buildDirectory.listFiles((dir, name) ->
+                name.endsWith(".jar")
+                && !name.endsWith("-sources.jar")
+                && !name.endsWith("-javadoc.jar")
+                && !name.endsWith("-tests.jar")
+                && !name.contains(".original"));
+
+        if (jars == null || jars.length == 0) {
+            throw new MojoExecutionException(
+                    "No jar found in " + buildDirectory
+                    + ". Run 'mvn package' first or set <springBootJar> explicitly.");
+        }
+        if (jars.length > 1) {
+            throw new MojoExecutionException(
+                    "Multiple jars found in " + buildDirectory + ": "
+                    + java.util.Arrays.stream(jars).map(File::getName)
+                        .collect(java.util.stream.Collectors.joining(", "))
+                    + ". Set <springBootJar> explicitly to select one.");
+        }
+
+        getLog().info("Auto-detected Spring Boot jar: " + jars[0]);
+        return jars[0];
     }
 }
