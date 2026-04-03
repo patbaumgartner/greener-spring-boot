@@ -31,24 +31,14 @@ PATHS="/
 /vets.html
 /actuator/health"
 
-# Build URL list file for oha's --urls-from-file flag
-URL_FILE="$(mktemp)"
-for path in $PATHS; do
-    echo "${APP_URL}${path}" >> "${URL_FILE}"
-done
-
 echo "=== oha: warmup ${WARMUP_SECONDS}s at ${RPS} req/s ==="
 oha --no-tui \
-    --duration "${WARMUP_SECONDS}s" \
-    --qps "${RPS}" \
-    --urls-from-file "${URL_FILE}" \
+    -z "${WARMUP_SECONDS}s" \
+    -q "${RPS}" \
     "${APP_URL}/" || true
 
 echo "=== oha: measurement ${MEASURE_SECONDS}s at ${RPS} req/s ==="
 oha --no-tui \
-    --duration "${MEASURE_SECONDS}s" \
-    --qps "${RPS}" \
-    --urls-from-file "${URL_FILE}" \
+    -z "${MEASURE_SECONDS}s" \
+    -q "${RPS}" \
     "${APP_URL}/"
-
-rm -f "${URL_FILE}"
