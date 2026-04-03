@@ -1,4 +1,4 @@
-# local-simulation.ps1
+﻿# local-simulation.ps1
 #
 # Simulates the full energy-measurement workflow on your local machine (Windows):
 #
@@ -11,19 +11,19 @@
 #
 # Power source auto-detection (Windows):
 #   1. CPU x TDP estimation via Win32_Processor.LoadPercentage
-#   2. VM power file   — set VM_POWER_FILE env var to a file path
+#   2. VM power file   -- set VM_POWER_FILE env var to a file path
 #
 # Prerequisites:
 #   - Java 25+ (temurin recommended)
 #   - Maven
-#   - git, python3 — must be on PATH
-#   - Rust toolchain (cargo) — installed automatically via rustup if missing
-#   - oha — downloaded automatically if missing
+#   - git, python3 -- must be on PATH
+#   - Rust toolchain (cargo) -- installed automatically via rustup if missing
+#   - oha -- downloaded automatically if missing
 #
 # Usage:
 #   .\examples\local-simulation.ps1
 #
-# Environment variables (all optional — sensible defaults are used):
+# Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
 #   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
@@ -37,7 +37,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+# -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
 $JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
@@ -63,7 +63,7 @@ $JoularCacheDir    = Join-Path $HOME ".greener" "cache" "joularcore"
 
 $CiEstimatorJob = $null
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 function Info($msg)   { Write-Host "i  $msg" }
 function Ok($msg)     { Write-Host "[OK] $msg" -ForegroundColor Green }
 function Warn($msg)   { Write-Host "[!!] $msg" -ForegroundColor Yellow }
@@ -82,7 +82,7 @@ function Invoke-Cmd {
     }
 }
 
-# ── Cleanup on exit ──────────────────────────────────────────────────────────
+# -- Cleanup on exit ----------------------------------------------------------
 $cleanupBlock = {
     if ($script:CiEstimatorJob) {
         Stop-Job $script:CiEstimatorJob -ErrorAction SilentlyContinue
@@ -93,7 +93,7 @@ $cleanupBlock = {
 
 try {
 
-# ── Preflight checks ─────────────────────────────────────────────────────────
+# -- Preflight checks ---------------------------------------------------------
 Banner "Preflight checks"
 
 foreach ($tool in @("java", "mvn", "git")) {
@@ -109,7 +109,7 @@ if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
 }
 
-# ── Build greener-spring-boot plugins ─────────────────────────────────────────
+# -- Build greener-spring-boot plugins -----------------------------------------
 Banner "Building greener-spring-boot plugins"
 
 Push-Location $ProjectRoot
@@ -117,7 +117,7 @@ try {
     Invoke-Cmd "Maven build" mvn @("--batch-mode", "--no-transfer-progress", "clean", "install", "-DskipTests")
 } finally { Pop-Location }
 
-# ── Clone & build Spring Petclinic ────────────────────────────────────────────
+# -- Clone & build Spring Petclinic --------------------------------------------
 Banner "Cloning Spring Petclinic ($PetclinicVersion)"
 
 if (Test-Path $PetclinicDir) {
@@ -134,7 +134,7 @@ try {
     Invoke-Cmd "Petclinic build" mvn @("--batch-mode", "--no-transfer-progress", "package", "-DskipTests")
 } finally { Pop-Location }
 
-# ── Install oha ──────────────────────────────────────────────────────────────
+# -- Install oha --------------------------------------------------------------
 Banner "Checking oha $OhaVersion"
 
 if (Get-Command oha -ErrorAction SilentlyContinue) {
@@ -148,12 +148,12 @@ if (Get-Command oha -ErrorAction SilentlyContinue) {
     Ok "oha installed: $(oha --version)"
 }
 
-# ── Copy workload scripts ────────────────────────────────────────────────────
+# -- Copy workload scripts ----------------------------------------------------
 $ExamplesTarget = Join-Path $PetclinicDir "examples"
 if (Test-Path $ExamplesTarget) { Remove-Item -Recurse -Force $ExamplesTarget }
 Copy-Item -Recurse -Force (Join-Path $ProjectRoot "examples") $ExamplesTarget
 
-# ── Power source detection ───────────────────────────────────────────────────
+# -- Power source detection ---------------------------------------------------
 Banner "Detecting power source"
 
 $PowerSource = "none"
@@ -165,7 +165,7 @@ if ($env:VM_POWER_FILE -and (Test-Path $env:VM_POWER_FILE)) {
     $PowerSource = "ci-estimated"
     Info "Using CPU load x TDP software estimation via Win32_Processor."
 } else {
-    Warn "No power source — measurement will be skipped."
+    Warn "No power source -- measurement will be skipped."
 }
 
 if ($PowerSource -eq "none") {
@@ -174,7 +174,7 @@ if ($PowerSource -eq "none") {
     exit 0
 }
 
-# ── Start CI CPU power estimator (if needed) ──────────────────────────────────
+# -- Start CI CPU power estimator (if needed) ----------------------------------
 if ($PowerSource -eq "ci-estimated") {
     Info "Starting CI CPU power estimator (TDP=$TdpWatts W)..."
     $EstimatorScript = Join-Path $ProjectRoot "examples" "vm-setup" "ci-cpu-energy-estimator.ps1"
@@ -185,11 +185,11 @@ if ($PowerSource -eq "ci-estimated") {
     $env:VM_POWER_FILE = $CiPowerFile
     Start-Sleep -Seconds 2
     if (Test-Path $CiPowerFile) {
-        Info "Estimator running — current estimate: $(Get-Content $CiPowerFile) W"
+        Info "Estimator running -- current estimate: $(Get-Content $CiPowerFile) W"
     }
 }
 
-# ── Joular Core ──────────────────────────────────────────────────────────────
+# -- Joular Core --------------------------------------------------------------
 Banner "Preparing Joular Core $JoularCoreVersion"
 
 $JoularCoreBinary = Join-Path $JoularCacheDir "joularcore-windows-x86_64.exe"
@@ -199,11 +199,12 @@ if (Test-Path $JoularCoreBinary) {
 } else {
     Info "Building Joular Core from source..."
     if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-        Info "cargo not found — installing Rust toolchain via rustup..."
+        Info "cargo not found -- installing Rust toolchain via rustup..."
         $RustupInit = Join-Path $WorkDir "rustup-init.exe"
         Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile $RustupInit -UseBasicParsing
         & $RustupInit -y
-        $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+        $cargoBin = Join-Path $env:USERPROFILE ".cargo" | Join-Path -ChildPath "bin"
+        $env:PATH = "$cargoBin;$env:PATH"
         Ok "Rust toolchain installed: $(cargo --version)"
     }
 
@@ -224,13 +225,13 @@ if (Test-Path $JoularCoreBinary) {
     Ok "Joular Core built and cached."
 }
 
-# ── VM flags ──────────────────────────────────────────────────────────────────
+# -- VM flags ------------------------------------------------------------------
 $VmFlags = @()
 if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
     $VmFlags = @("-Dgreener.vmMode=true", "-Dgreener.vmPowerFilePath=$($env:VM_POWER_FILE)")
 }
 
-# ── Run 1: Baseline measurement ──────────────────────────────────────────────
+# -- Run 1: Baseline measurement ----------------------------------------------
 Banner "RUN 1 - BASELINE"
 
 Push-Location $PetclinicDir
@@ -260,7 +261,7 @@ try {
     Invoke-Cmd "Baseline measurement" mvn $MvnArgs
 } finally { Pop-Location }
 
-# ── Promote Run 1 to baseline ────────────────────────────────────────────────
+# -- Promote Run 1 to baseline ------------------------------------------------
 Banner "Promoting Run 1 to baseline"
 
 Push-Location $PetclinicDir
@@ -282,7 +283,7 @@ $bEnergy  = $baseline.report.totalEnergyJoules
 Write-Host ("  Energy : {0:F4} J" -f $bEnergy)
 Write-Host "  Commit : $CommitSha"
 
-# ── Run 2: Comparison measurement ────────────────────────────────────────────
+# -- Run 2: Comparison measurement --------------------------------------------
 Banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
 
 Push-Location $PetclinicDir
@@ -307,7 +308,7 @@ try {
     Invoke-Cmd "Comparison measurement" mvn $MvnArgs
 } finally { Pop-Location }
 
-# ── Summary ──────────────────────────────────────────────────────────────────
+# -- Summary ------------------------------------------------------------------
 Banner "RESULTS - Baseline vs Comparison"
 
 $baseline   = Get-Content $BaselineFile -Raw | ConvertFrom-Json
@@ -320,7 +321,7 @@ $pct     = if ($bEnergy -gt 0) { $delta / $bEnergy * 100 } else { 0 }
 
 Write-Host ("  Baseline energy  : {0:F4} J" -f $bEnergy)
 Write-Host ("  Comparison energy: {0:F4} J" -f $cEnergy)
-Write-Host ("  Delta            : {0:+0.0000;-0.0000} J ({1:+0.00;-0.00} %)" -f $delta, $pct)
+Write-Host ('  Delta            : {0:+0.0000;-0.0000} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
 Write-Host "  Threshold        : +/-$Threshold %"
 Write-Host ""
 
@@ -332,8 +333,8 @@ if ([Math]::Abs($pct) -le [double]$Threshold) {
 
 Write-Host ""
 Write-Host "Reports saved to:"
-Write-Host "  Baseline   : $ReportsBaseline\"
-Write-Host "  Comparison : $ReportsComparison\"
+Write-Host "  Baseline   : $ReportsBaseline"
+Write-Host "  Comparison : $ReportsComparison"
 Write-Host "  Baseline JSON: $BaselineFile"
 
 } finally {
