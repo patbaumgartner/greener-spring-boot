@@ -3,6 +3,7 @@ package com.patbaumgartner.greener.maven;
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.comparator.EnergyComparator;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
@@ -284,20 +285,15 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 		effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
 
-		Process appProcess = appRunner.start(springBootJar.toPath(), null, null, // no
-																					// JoularJX
-																					// in
-																					// process
-																					// mode
-				workingDir, jvmArgs, effectiveAppArgs);
+		Process appProcess = appRunner.start(springBootJar.toPath(), null, null, workingDir, jvmArgs, effectiveAppArgs);
 
+		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats = null;
 		try {
 			// 4. Wait for startup
 			appRunner.waitForStartup(baseUrl, healthCheckPath, startupTimeoutSeconds);
 
 			// 5. Configure and start Joular Core
-			Path outputCsv = workingDir.resolve("joularcore-output.csv");
 			JoularCoreConfig joularCoreConfig = new JoularCoreConfig().binaryPath(joularCoreBinary)
 				.pid(appProcess.pid())
 				.component(joularCoreComponent)
@@ -342,10 +338,10 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 
 		// 8. Read results
-		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		String appIdentifier = springBootJar.getName().replace(".jar", "");
 		JoularCoreResultReader resultReader = new JoularCoreResultReader();
-		EnergyReport report = resultReader.readResults(outputCsv, buildRunId(), measureDurationSeconds, appIdentifier);
+		EnergyReport report = resultReader.readResults(outputCsv, PluginDefaults.buildRunId(), measureDurationSeconds,
+				appIdentifier);
 
 		// 9. Compare with baseline
 		BaselineManager baselineManager = new BaselineManager();
@@ -359,7 +355,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Latest energy report saved to: " + latestReportPath);
 
 		// 10. Report
-		PowerSource powerSource = resolvePowerSource();
+		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
 		new ConsoleReporter().report(report, comparison, workloadStats, powerSource);
 		Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, powerSource,
 				reportOutputDir.toPath());
@@ -408,12 +404,6 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		return config;
 	}
 
-	private String buildRunId() {
-		String sha = System.getenv("GITHUB_SHA");
-		return sha != null && !sha.isBlank() ? sha.substring(0, Math.min(sha.length(), 8))
-				: String.valueOf(System.currentTimeMillis());
-	}
-
 	private void validateConfiguration() throws MojoExecutionException {
 		if (springBootJar == null) {
 			springBootJar = autoDetectSpringBootJar();
@@ -452,18 +442,6 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 		getLog().info("Auto-detected Spring Boot jar: " + jars[0]);
 		return jars[0];
-	}
-
-	private PowerSource resolvePowerSource() {
-		String override = System.getProperty("greener.powerSource");
-		if (override != null && !override.isBlank()) {
-			return PowerSource.fromString(override);
-		}
-		String envOverride = System.getenv("POWER_SOURCE");
-		if (envOverride != null && !envOverride.isBlank()) {
-			return PowerSource.fromString(envOverride);
-		}
-		return PowerSource.detect(vmMode);
 	}
 
 }
