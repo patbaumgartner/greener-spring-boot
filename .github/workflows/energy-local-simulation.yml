@@ -48,30 +48,7 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Build greener-spring-boot plugins
-        run: mvn --batch-mode --no-transfer-progress clean install -DskipTests
-
-      - name: Clone Spring Petclinic (${{ env.PETCLINIC_VERSION }})
-        run: |
-          git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
-            https://github.com/spring-projects/spring-petclinic.git \
-            /tmp/spring-petclinic
-
-      - name: Build Spring Petclinic
-        working-directory: /tmp/spring-petclinic
-        run: mvn --batch-mode --no-transfer-progress package -DskipTests
-
-      - name: Install oha ${{ env.OHA_VERSION }}
-        run: |
-          curl -fsSL -o /usr/local/bin/oha \
-            "https://github.com/hatoo/oha/releases/download/v${{ env.OHA_VERSION }}/oha-linux-amd64"
-          chmod +x /usr/local/bin/oha
-          oha --version
-
-      - name: Copy workload scripts
-        run: cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
-
-      # ── Power source detection ────────────────────────────────────────────────
+      # ── Power source detection (fail fast) ────────────────────────────────────
       - name: Detect power source
         id: power-check
         run: |
@@ -89,15 +66,10 @@ jobs:
             echo "⚠️  No power source — measurement skipped."
           fi
 
-      - name: Start CI CPU power estimator
-        if: steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
-        run: |
-          bash "$GITHUB_WORKSPACE/examples/vm-setup/ci-cpu-energy-estimator.sh" \
-            /tmp/ci-power.txt ${{ env.TDP_WATTS }} &
-          echo "CI_ESTIMATOR_PID=$!"                 >> "$GITHUB_ENV"
-          echo "VM_POWER_FILE=/tmp/ci-power.txt"     >> "$GITHUB_ENV"
-          sleep 2
-          echo "ℹ️  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
+      # ── Build greener-spring-boot plugins ─────────────────────────────────────
+      - name: Build greener-spring-boot plugins
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        run: mvn --batch-mode --no-transfer-progress clean install -DskipTests
 
       # ── Joular Core ───────────────────────────────────────────────────────────
       - name: Restore cached Joular Core binary
@@ -126,6 +98,43 @@ jobs:
       - name: Set Joular Core binary path
         if: steps.power-check.outputs.POWER_SOURCE != 'none'
         run: echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_ENV"
+
+      # ── Install oha ──────────────────────────────────────────────────────────
+      - name: Install oha ${{ env.OHA_VERSION }}
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        run: |
+          curl -fsSL -o /usr/local/bin/oha \
+            "https://github.com/hatoo/oha/releases/download/v${{ env.OHA_VERSION }}/oha-linux-amd64"
+          chmod +x /usr/local/bin/oha
+          oha --version
+
+      # ── Clone & build Spring Petclinic ────────────────────────────────────────
+      - name: Clone Spring Petclinic (${{ env.PETCLINIC_VERSION }})
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        run: |
+          git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
+            https://github.com/spring-projects/spring-petclinic.git \
+            /tmp/spring-petclinic
+
+      - name: Build Spring Petclinic
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        working-directory: /tmp/spring-petclinic
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+      - name: Copy workload scripts
+        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        run: cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
+
+      # ── Start CI CPU power estimator (if needed) ──────────────────────────────
+      - name: Start CI CPU power estimator
+        if: steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
+        run: |
+          bash "$GITHUB_WORKSPACE/examples/vm-setup/ci-cpu-energy-estimator.sh" \
+            /tmp/ci-power.txt ${{ env.TDP_WATTS }} &
+          echo "CI_ESTIMATOR_PID=$!"                 >> "$GITHUB_ENV"
+          echo "VM_POWER_FILE=/tmp/ci-power.txt"     >> "$GITHUB_ENV"
+          sleep 2
+          echo "ℹ️  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
 
       # ── Run 1: Baseline measurement ───────────────────────────────────────────
       - name: "Run 1 — Baseline measurement"

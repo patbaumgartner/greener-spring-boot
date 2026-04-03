@@ -23,10 +23,14 @@ THREADS=$(( RPS / 10 < 2 ? 2 : RPS / 10 ))
 CONNECTIONS="${RPS}"
 SCRIPT="$(dirname "$0")/petclinic.lua"
 
-echo "=== wrk: warmup ${WARMUP_SECONDS}s ==="
-wrk -t"${THREADS}" -c"${CONNECTIONS}" -d"${WARMUP_SECONDS}s" \
-    -s "${SCRIPT}" "${APP_URL}" || true   # ignore warmup failures
+if [ "${WARMUP_SECONDS}" -gt 0 ]; then
+    echo "=== wrk: warmup ${WARMUP_SECONDS}s ==="
+    wrk -t"${THREADS}" -c"${CONNECTIONS}" -d"${WARMUP_SECONDS}s" \
+        -s "${SCRIPT}" "${APP_URL}" || true   # ignore warmup failures
+fi
 
-echo "=== wrk: measurement ${MEASURE_SECONDS}s ==="
-wrk -t"${THREADS}" -c"${CONNECTIONS}" -d"${MEASURE_SECONDS}s" \
-    -s "${SCRIPT}" "${APP_URL}"
+if [ "${MEASURE_SECONDS}" -gt 0 ]; then
+    echo "=== wrk: measurement ${MEASURE_SECONDS}s ==="
+    wrk -t"${THREADS}" -c"${CONNECTIONS}" -d"${MEASURE_SECONDS}s" \
+        -s "${SCRIPT}" "${APP_URL}"
+fi

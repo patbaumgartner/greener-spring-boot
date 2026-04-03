@@ -31,14 +31,18 @@ PATHS="/
 /vets.html
 /actuator/health"
 
-echo "=== oha: warmup ${WARMUP_SECONDS}s at ${RPS} req/s ==="
-oha --no-tui \
-    -z "${WARMUP_SECONDS}s" \
-    -q "${RPS}" \
-    "${APP_URL}/" || true
+if [ "${WARMUP_SECONDS}" -gt 0 ]; then
+    echo "=== oha: warmup ${WARMUP_SECONDS}s at ${RPS} req/s ==="
+    oha --no-tui \
+        -z "${WARMUP_SECONDS}s" \
+        -q "${RPS}" \
+        "${APP_URL}/" || true
+fi
 
-echo "=== oha: measurement ${MEASURE_SECONDS}s at ${RPS} req/s ==="
-oha --no-tui \
-    -z "${MEASURE_SECONDS}s" \
-    -q "${RPS}" \
-    "${APP_URL}/"
+if [ "${MEASURE_SECONDS}" -gt 0 ]; then
+    echo "=== oha: measurement ${MEASURE_SECONDS}s at ${RPS} req/s ==="
+    oha --no-tui \
+        -z "${MEASURE_SECONDS}s" \
+        -q "${RPS}" \
+        "${APP_URL}/"
+fi
