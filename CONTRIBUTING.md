@@ -17,7 +17,8 @@ propose changes to this document in a pull request.
 5. [Running the tests](#running-the-tests)
 6. [Submitting a pull request](#submitting-a-pull-request)
 7. [Coding conventions](#coding-conventions)
-8. [Commit message style](#commit-message-style)
+8. [CI / GitHub Actions](#ci--github-actions)
+9. [Commit message style](#commit-message-style)
 
 ---
 
@@ -143,13 +144,25 @@ mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
 ## Coding conventions
 
 - **Java 17** language features are fine.
-- Formatting is enforced by `.editorconfig` (4-space indent, UTF-8, LF line
-  endings for Java).
+- Formatting is enforced by **Spring Java Format** (`spring-javaformat-maven-plugin`).
+  It produces tab-based indentation for Java source files.
 - Public API methods and classes must have Javadoc.
 - Prefer immutable value objects (`record`) for model classes.
 - Use `java.util.logging` (JUL) — no additional logging frameworks.
 - Keep the dependency footprint minimal. Do not add a dependency if the JDK
   already provides the functionality.
+
+---
+
+## CI / GitHub Actions
+
+- **Pin actions by full commit SHA** — never reference actions using mutable
+  tags like `@v6`. Always use the full 40-character commit SHA and add the
+  version tag as a trailing comment:
+  ```yaml
+  uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+  ```
+- Renovate automatically proposes PRs when action digests are updated.
 
 ---
 

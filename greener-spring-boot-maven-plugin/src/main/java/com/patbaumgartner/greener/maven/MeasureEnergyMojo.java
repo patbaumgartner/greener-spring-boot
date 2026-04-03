@@ -8,6 +8,7 @@ import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
 import com.patbaumgartner.greener.core.reporter.ConsoleReporter;
@@ -23,9 +24,13 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
@@ -273,7 +278,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Starting Spring Boot application: " + springBootJar);
 
 		// Enable health probes so /actuator/health/readiness is available
-		List<String> effectiveAppArgs = new java.util.ArrayList<>();
+		List<String> effectiveAppArgs = new ArrayList<>();
 		if (appArgs != null) {
 			effectiveAppArgs.addAll(appArgs);
 		}
@@ -316,7 +321,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 					// Discard warmup readings by deleting the CSV and restarting Joular
 					// Core
 					joularCoreRunner.stop();
-					java.nio.file.Files.deleteIfExists(outputCsv);
+					Files.deleteIfExists(outputCsv);
 					joularCoreRunner.start(joularCoreConfig);
 				}
 
@@ -354,8 +359,9 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Latest energy report saved to: " + latestReportPath);
 
 		// 10. Report
-		new ConsoleReporter().report(report, comparison, workloadStats);
-		Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats,
+		PowerSource powerSource = resolvePowerSource();
+		new ConsoleReporter().report(report, comparison, workloadStats, powerSource);
+		Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, powerSource,
 				reportOutputDir.toPath());
 		getLog().info("HTML report: " + htmlReport);
 
@@ -440,14 +446,24 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 		if (jars.length > 1) {
 			throw new MojoExecutionException("Multiple jars found in " + buildDirectory + ": "
-					+ java.util.Arrays.stream(jars)
-						.map(File::getName)
-						.collect(java.util.stream.Collectors.joining(", "))
+					+ Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
 					+ ". Set <springBootJar> explicitly to select one.");
 		}
 
 		getLog().info("Auto-detected Spring Boot jar: " + jars[0]);
 		return jars[0];
+	}
+
+	private PowerSource resolvePowerSource() {
+		String override = System.getProperty("greener.powerSource");
+		if (override != null && !override.isBlank()) {
+			return PowerSource.fromString(override);
+		}
+		String envOverride = System.getenv("POWER_SOURCE");
+		if (envOverride != null && !envOverride.isBlank()) {
+			return PowerSource.fromString(envOverride);
+		}
+		return PowerSource.detect(vmMode);
 	}
 
 }
