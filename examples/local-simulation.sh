@@ -26,7 +26,6 @@
 #   ./examples/local-simulation.sh
 #
 # Environment variables (all optional — sensible defaults are used):
-#   JAVA_VERSION           Java version label for display  (default: 25)
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
 #   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
@@ -195,32 +194,54 @@ fi
 # ── Joular Core ──────────────────────────────────────────────────────────────
 banner "Preparing Joular Core ${JOULAR_CORE_VERSION}"
 
-JOULAR_CORE_BINARY="${JOULAR_CACHE_DIR}/joularcore-linux-x86_64"
+ARCH="$(uname -m)"
+case "${ARCH}" in
+    x86_64)  JOULAR_ARCH="x86_64" ;;
+    aarch64) JOULAR_ARCH="aarch64" ;;
+    *)       echo "❌ Unsupported architecture: ${ARCH}"; exit 1 ;;
+esac
+JOULAR_CORE_BINARY="${JOULAR_CACHE_DIR}/joularcore-linux-${JOULAR_ARCH}"
 
 if [ -x "${JOULAR_CORE_BINARY}" ]; then
     ok "Joular Core found in cache: ${JOULAR_CORE_BINARY}"
 else
-    info "Building Joular Core from source..."
-    if ! command -v cargo >/dev/null 2>&1; then
-        info "cargo not found — installing Rust toolchain via rustup..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        # shellcheck source=/dev/null
-        source "${HOME}/.cargo/env"
-        ok "Rust toolchain installed: $(cargo --version)"
+    mkdir -p "${JOULAR_CACHE_DIR}"
+
+    # Try downloading a prebuilt binary from GitHub Releases first
+    ASSET_NAME="joularcore-linux-${JOULAR_ARCH}"
+    DOWNLOAD_URL="https://github.com/joular/joularcore/releases/download/${JOULAR_CORE_VERSION}/${ASSET_NAME}"
+    info "Downloading Joular Core from ${DOWNLOAD_URL} ..."
+    DOWNLOADED=false
+    if curl -fsSL -o "${JOULAR_CORE_BINARY}" "${DOWNLOAD_URL}"; then
+        chmod +x "${JOULAR_CORE_BINARY}"
+        ok "Joular Core downloaded and cached."
+        DOWNLOADED=true
+    else
+        info "Download failed — will try building from source."
+        rm -f "${JOULAR_CORE_BINARY}"
     fi
 
-    JOULAR_SRC="${WORK_DIR}/joularcore-src"
-    rm -rf "${JOULAR_SRC}"
-    git clone --depth 1 --branch "${JOULAR_CORE_VERSION}" \
-        https://github.com/joular/joularcore.git "${JOULAR_SRC}"
+    if [ "${DOWNLOADED}" = false ]; then
+        if ! command -v cargo >/dev/null 2>&1; then
+            info "cargo not found — installing Rust toolchain via rustup..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            # shellcheck source=/dev/null
+            source "${HOME}/.cargo/env"
+            ok "Rust toolchain installed: $(cargo --version)"
+        fi
 
-    cd "${JOULAR_SRC}"
-    cargo build --release
+        JOULAR_SRC="${WORK_DIR}/joularcore-src"
+        rm -rf "${JOULAR_SRC}"
+        git clone --depth 1 --branch "${JOULAR_CORE_VERSION}" \
+            https://github.com/joular/joularcore.git "${JOULAR_SRC}"
 
-    mkdir -p "${JOULAR_CACHE_DIR}"
-    cp target/release/joularcore "${JOULAR_CORE_BINARY}"
-    chmod +x "${JOULAR_CORE_BINARY}"
-    ok "Joular Core built and cached."
+        cd "${JOULAR_SRC}"
+        cargo build --release
+
+        cp target/release/joularcore "${JOULAR_CORE_BINARY}"
+        chmod +x "${JOULAR_CORE_BINARY}"
+        ok "Joular Core built and cached."
+    fi
 fi
 
 # ── VM flags ──────────────────────────────────────────────────────────────────

@@ -37,6 +37,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# PowerShell 5.x defaults to TLS 1.0/1.1; GitHub requires TLS 1.2+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
 $JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
@@ -59,7 +62,7 @@ $BaselineFile      = Join-Path $WorkDir "energy-baseline.json"
 $ReportsBaseline   = Join-Path $WorkDir "greener-reports-baseline"
 $ReportsComparison = Join-Path $WorkDir "greener-reports-comparison"
 $CiPowerFile       = Join-Path $WorkDir "ci-power.txt"
-$JoularCacheDir    = Join-Path $HOME ".greener" "cache" "joularcore"
+$JoularCacheDir    = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "joularcore"
 
 $CiEstimatorJob = $null
 
@@ -102,8 +105,8 @@ foreach ($tool in @("java", "mvn", "git")) {
     }
 }
 
-java -version 2>&1 | Select-Object -First 1 | Write-Host
-mvn --version 2>&1 | Select-Object -First 1 | Write-Host
+Write-Host (& { $ErrorActionPreference = 'SilentlyContinue'; java -version 2>&1 } | Select-Object -First 1)
+Write-Host (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&1 } | Select-Object -First 1)
 
 if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
@@ -177,7 +180,7 @@ if ($PowerSource -eq "none") {
 # -- Start CI CPU power estimator (if needed) ----------------------------------
 if ($PowerSource -eq "ci-estimated") {
     Info "Starting CI CPU power estimator (TDP=$TdpWatts W)..."
-    $EstimatorScript = Join-Path $ProjectRoot "examples" "vm-setup" "ci-cpu-energy-estimator.ps1"
+    $EstimatorScript = Join-Path (Join-Path (Join-Path $ProjectRoot "examples") "vm-setup") "ci-cpu-energy-estimator.ps1"
     $CiEstimatorJob = Start-Job -ScriptBlock {
         param($Script, $OutFile, $Tdp)
         & $Script -OutputFile $OutFile -TdpWatts $Tdp
@@ -197,32 +200,77 @@ $JoularCoreBinary = Join-Path $JoularCacheDir "joularcore-windows-x86_64.exe"
 if (Test-Path $JoularCoreBinary) {
     Ok "Joular Core found in cache: $JoularCoreBinary"
 } else {
-    Info "Building Joular Core from source..."
-    if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-        Info "cargo not found -- installing Rust toolchain via rustup..."
-        $RustupInit = Join-Path $WorkDir "rustup-init.exe"
-        Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile $RustupInit -UseBasicParsing
-        & $RustupInit -y
-        $cargoBin = Join-Path $env:USERPROFILE ".cargo" | Join-Path -ChildPath "bin"
-        $env:PATH = "$cargoBin;$env:PATH"
-        Ok "Rust toolchain installed: $(cargo --version)"
-    }
-
-    $JoularSrc = Join-Path $WorkDir "joularcore-src"
-    if (Test-Path $JoularSrc) { Remove-Item -Recurse -Force $JoularSrc }
-    Invoke-Cmd "Clone Joular Core" git @("clone", "--depth", "1", "--branch", $JoularCoreVersion,
-        "https://github.com/joular/joularcore.git", $JoularSrc)
-
-    Push-Location $JoularSrc
-    try {
-        Invoke-Cmd "Build Joular Core" cargo @("build", "--release")
-    } finally { Pop-Location }
-
     if (-not (Test-Path $JoularCacheDir)) {
         New-Item -ItemType Directory -Path $JoularCacheDir -Force | Out-Null
     }
-    Copy-Item (Join-Path $JoularSrc "target" "release" "joularcore.exe") $JoularCoreBinary
-    Ok "Joular Core built and cached."
+
+    # Try downloading a prebuilt binary from GitHub Releases first
+    $AssetName = "joularcore-windows-x86_64.exe"
+    $DownloadUrl = "https://github.com/joular/joularcore/releases/download/$JoularCoreVersion/$AssetName"
+    Info "Downloading Joular Core from $DownloadUrl ..."
+    $Downloaded = $false
+    try {
+        Invoke-WebRequest -Uri $DownloadUrl -OutFile $JoularCoreBinary -UseBasicParsing
+        Ok "Joular Core downloaded and cached."
+        $Downloaded = $true
+    } catch {
+        Info "Download failed ($($_.Exception.Message)) -- will try building from source."
+        if (Test-Path $JoularCoreBinary) { Remove-Item $JoularCoreBinary }
+    }
+
+    if (-not $Downloaded) {
+        # Ensure MinGW build tools are available (needed by the GNU Rust target)
+        $HasMinGW = (Get-Command dlltool -ErrorAction SilentlyContinue) -and
+                    (Get-Command gcc -ErrorAction SilentlyContinue)
+        if (-not $HasMinGW) {
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+                Info "MinGW-w64 not found -- installing via Chocolatey..."
+                & choco install mingw -y --no-progress | Out-Null
+                # Refresh PATH so gcc/dlltool are visible
+                $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                            [System.Environment]::GetEnvironmentVariable("PATH", "User")
+                $HasMinGW = (Get-Command dlltool -ErrorAction SilentlyContinue) -and
+                            (Get-Command gcc -ErrorAction SilentlyContinue)
+            }
+        }
+        if (-not $HasMinGW) {
+            throw ("Cannot obtain Joular Core v$JoularCoreVersion.`n" +
+                   "  - No prebuilt binary available for this version on GitHub Releases.`n" +
+                   "  - Building from source requires MinGW-w64 (dlltool.exe, gcc.exe).`n`n" +
+                   "Options:`n" +
+                   "  1. Install Chocolatey (https://chocolatey.org/install) then re-run`n" +
+                   "  2. Install MinGW-w64 manually:  choco install mingw  (then re-run)`n" +
+                   "  3. Manually place the binary at: $JoularCoreBinary")
+        }
+
+        if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+            Info "cargo not found -- installing Rust toolchain via rustup..."
+            $RustupInit = Join-Path $WorkDir "rustup-init.exe"
+            Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile $RustupInit -UseBasicParsing
+            & $RustupInit -y --default-host x86_64-pc-windows-gnu --default-toolchain stable
+            $cargoBin = Join-Path $env:USERPROFILE ".cargo" | Join-Path -ChildPath "bin"
+            $env:PATH = "$cargoBin;$env:PATH"
+            Ok "Rust toolchain installed: $(cargo --version)"
+        } else {
+            # Ensure existing Rust installation uses the GNU host (no MSVC needed)
+            & { $ErrorActionPreference = 'SilentlyContinue'; rustup set default-host x86_64-pc-windows-gnu 2>&1 } | Out-Null
+        }
+        # Ensure the GNU target is available
+        & { $ErrorActionPreference = 'SilentlyContinue'; rustup target add x86_64-pc-windows-gnu 2>&1 } | Out-Null
+
+        $JoularSrc = Join-Path $WorkDir "joularcore-src"
+        if (Test-Path $JoularSrc) { Remove-Item -Recurse -Force $JoularSrc }
+        Invoke-Cmd "Clone Joular Core" git @("clone", "--depth", "1", "--branch", $JoularCoreVersion,
+            "https://github.com/joular/joularcore.git", $JoularSrc)
+
+        Push-Location $JoularSrc
+        try {
+            Invoke-Cmd "Build Joular Core" cargo @("build", "--release", "--target", "x86_64-pc-windows-gnu")
+        } finally { Pop-Location }
+
+        Copy-Item (Join-Path (Join-Path (Join-Path (Join-Path $JoularSrc "target") "x86_64-pc-windows-gnu") "release") "joularcore.exe") $JoularCoreBinary
+        Ok "Joular Core built and cached."
+    }
 }
 
 # -- VM flags ------------------------------------------------------------------
@@ -240,7 +288,7 @@ try {
            Where-Object { $_.Name -notlike "*-sources.jar" } |
            Select-Object -First 1 -ExpandProperty FullName
 
-    $OhaScript = Join-Path $PetclinicDir "examples" "workloads" "oha" "run.sh"
+    $OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"
 
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
