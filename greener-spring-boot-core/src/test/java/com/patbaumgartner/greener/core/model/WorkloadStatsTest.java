@@ -97,4 +97,21 @@ class WorkloadStatsTest {
 		assertThatIllegalArgumentException().isThrownBy(() -> new WorkloadStats("built-in", 100, 0, -1));
 	}
 
+	@Test
+	void throughputUnit_reqsForHttpTools() {
+		assertThat(WorkloadStats.builtIn(100, 0, 60).throughputUnit()).isEqualTo("req/s");
+		assertThat(WorkloadStats.external("oha", 60).throughputUnit()).isEqualTo("req/s");
+		assertThat(WorkloadStats.external("wrk", 60).throughputUnit()).isEqualTo("req/s");
+		assertThat(WorkloadStats.external("wrk2", 60).throughputUnit()).isEqualTo("req/s");
+		assertThat(WorkloadStats.external("bombardier", 60).throughputUnit()).isEqualTo("req/s");
+		assertThat(WorkloadStats.external("ab", 60).throughputUnit()).isEqualTo("req/s");
+	}
+
+	@Test
+	void throughputUnit_scenariosForScenarioTools() {
+		assertThat(WorkloadStats.external("gatling", 60).throughputUnit()).isEqualTo("scenarios/s");
+		assertThat(WorkloadStats.external("k6", 60).throughputUnit()).isEqualTo("scenarios/s");
+		assertThat(WorkloadStats.external("locust", 60).throughputUnit()).isEqualTo("scenarios/s");
+	}
+
 }

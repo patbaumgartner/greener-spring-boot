@@ -31,7 +31,7 @@ class ConsoleReporterTest {
 
 		assertThat(output).contains("Energy Consumption Report");
 		assertThat(output).contains("run-1");
-		assertThat(output).contains("125.0000 J");
+		assertThat(output).contains("125.00 J");
 	}
 
 	@Test

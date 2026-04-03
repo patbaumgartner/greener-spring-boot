@@ -22,7 +22,7 @@ import org.gradle.api.Project;
  * }
  *
  * greener {
- *     springBootJar = file("build/libs/myapp.jar")
+ *     // springBootJar auto-detected from build/libs/ when omitted
  *     measureDurationSeconds = 60
  *     threshold = 10.0
  *     failOnRegression = false

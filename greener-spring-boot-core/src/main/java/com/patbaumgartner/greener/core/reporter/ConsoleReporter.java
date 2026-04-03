@@ -51,7 +51,7 @@ public class ConsoleReporter {
 		System.out.printf(" Run ID      : %s%n", current.runId());
 		System.out.printf(" Timestamp   : %s%n", current.timestamp());
 		System.out.printf(" Duration    : %d s%n", current.durationSeconds());
-		System.out.printf(" Total Energy: %.4f J%n", current.totalEnergyJoules());
+		System.out.printf(" Total Energy: %.2f J%n", current.totalEnergyJoules());
 
 		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
 			System.out.printf(" Power Source : %s%n", powerSource.label());
@@ -71,7 +71,7 @@ public class ConsoleReporter {
 			System.out.printf("   %-55s  %10s%n", "Name", "Joules");
 			System.out.println("   " + "-".repeat(68));
 			current.topMethods(topN)
-				.forEach(m -> System.out.printf("   %-55s  %10.4f%n", truncate(m.methodName(), 55), m.energyJoules()));
+				.forEach(m -> System.out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
 		}
 		else {
 			System.out.println(" No energy data recorded.");
@@ -99,7 +99,7 @@ public class ConsoleReporter {
 			System.out.printf("   Requests     : %d total, %d failed (%.1f%%)%n", stats.totalRequests(),
 					Math.max(0, stats.failedRequests()),
 					Double.isNaN(stats.failureRatePercent()) ? 0.0 : stats.failureRatePercent());
-			System.out.printf("   Throughput   : %.1f req/s%n", stats.requestsPerSecond());
+			System.out.printf("   Throughput   : %.1f %s%n", stats.requestsPerSecond(), stats.throughputUnit());
 		}
 		else {
 			System.out.println("   Requests     : N/A (external tool - counts not captured)");
@@ -131,8 +131,8 @@ public class ConsoleReporter {
 		};
 
 		System.out.printf(" Baseline comparison:%n");
-		System.out.printf("   Baseline Total : %.4f J%n", comparison.baselineTotalJoules());
-		System.out.printf("   Current Total  : %.4f J%n", comparison.currentTotalJoules());
+		System.out.printf("   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
+		System.out.printf("   Current Total  : %.2f J%n", comparison.currentTotalJoules());
 		System.out.printf("   Delta          : %+.2f%%%n", comparison.totalDeltaPercent());
 		System.out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
 		System.out.printf("   Status         : %s%n", arrow);
@@ -155,7 +155,7 @@ public class ConsoleReporter {
 			System.out.printf("   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
 			System.out.println("   " + "-".repeat(80));
 			regressions
-				.forEach(mc -> System.out.printf("   %-48s  %8.4f  %8.4f  %+8.2f%n", truncate(mc.methodName(), 48),
+				.forEach(mc -> System.out.printf("   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
 						mc.baselineEnergyJoules(), mc.currentEnergyJoules(), mc.deltaPercent()));
 		}
 
