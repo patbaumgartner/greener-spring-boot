@@ -16,104 +16,108 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EnergyComparatorTest {
 
-    private final EnergyComparator comparator = new EnergyComparator();
-    private static final double THRESHOLD = 10.0;
+	private final EnergyComparator comparator = new EnergyComparator();
 
-    @Test
-    void compare_noBaseline_returnsNoBaselineStatus() {
-        EnergyReport current = buildReport(100.0);
-        ComparisonResult result = comparator.compare(current, Optional.empty(), THRESHOLD);
+	private static final double THRESHOLD = 10.0;
 
-        assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
-        assertThat(result.thresholdBreached()).isFalse();
-        assertThat(result.isFailed()).isFalse();
-    }
+	@Test
+	void compare_noBaseline_returnsNoBaselineStatus() {
+		EnergyReport current = buildReport(100.0);
+		ComparisonResult result = comparator.compare(current, Optional.empty(), THRESHOLD);
 
-    @Test
-    void compare_energyImproved_statusImproved() {
-        EnergyReport current = buildReport(80.0);  // 20% better
+		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
+		assertThat(result.thresholdBreached()).isFalse();
+		assertThat(result.isFailed()).isFalse();
+	}
 
-        ComparisonResult result = comparator.compare(current,
-                Optional.of(EnergyBaseline.of(buildReport(100.0))), THRESHOLD);
+	@Test
+	void compare_energyImproved_statusImproved() {
+		EnergyReport current = buildReport(80.0); // 20% better
 
-        assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.IMPROVED);
-        assertThat(result.totalDeltaPercent()).isCloseTo(-20.0, Offset.offset(0.001));
-        assertThat(result.isFailed()).isFalse();
-    }
+		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
+				THRESHOLD);
 
-    @Test
-    void compare_energyRegressedBeyondThreshold_failsBuild() {
-        EnergyReport current = buildReport(115.0);  // +15% — exceeds 10% threshold
+		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.IMPROVED);
+		assertThat(result.totalDeltaPercent()).isCloseTo(-20.0, Offset.offset(0.001));
+		assertThat(result.isFailed()).isFalse();
+	}
 
-        ComparisonResult result = comparator.compare(current,
-                Optional.of(EnergyBaseline.of(buildReport(100.0))), THRESHOLD);
+	@Test
+	void compare_energyRegressedBeyondThreshold_failsBuild() {
+		EnergyReport current = buildReport(115.0); // +15% — exceeds 10% threshold
 
-        assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.REGRESSED);
-        assertThat(result.thresholdBreached()).isTrue();
-        assertThat(result.isFailed()).isTrue();
-        assertThat(result.totalDeltaPercent()).isCloseTo(15.0, Offset.offset(0.001));
-    }
+		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
+				THRESHOLD);
 
-    @Test
-    void compare_energyRegressedWithinThreshold_unchanged() {
-        EnergyReport current = buildReport(105.0);  // +5% — within 10% threshold
+		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.REGRESSED);
+		assertThat(result.thresholdBreached()).isTrue();
+		assertThat(result.isFailed()).isTrue();
+		assertThat(result.totalDeltaPercent()).isCloseTo(15.0, Offset.offset(0.001));
+	}
 
-        ComparisonResult result = comparator.compare(current,
-                Optional.of(EnergyBaseline.of(buildReport(100.0))), THRESHOLD);
+	@Test
+	void compare_energyRegressedWithinThreshold_unchanged() {
+		EnergyReport current = buildReport(105.0); // +5% — within 10% threshold
 
-        assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.UNCHANGED);
-        assertThat(result.thresholdBreached()).isFalse();
-    }
+		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
+				THRESHOLD);
 
-    @Test
-    void compare_methodLevelComparisonsIncluded() {
-        EnergyReport baseline = new EnergyReport("b", Instant.now(), 60, List.of(
-                new EnergyMeasurement("com.example.A.method", 50.0),
-                new EnergyMeasurement("com.example.B.method", 50.0)), 100.0);
+		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.UNCHANGED);
+		assertThat(result.thresholdBreached()).isFalse();
+	}
 
-        EnergyReport current = new EnergyReport("c", Instant.now(), 60, List.of(
-                new EnergyMeasurement("com.example.A.method", 60.0),  // +20%
-                new EnergyMeasurement("com.example.B.method", 50.0)), 110.0);
+	@Test
+	void compare_methodLevelComparisonsIncluded() {
+		EnergyReport baseline = new EnergyReport("b", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.A.method", 50.0),
+						new EnergyMeasurement("com.example.B.method", 50.0)),
+				100.0);
 
-        ComparisonResult result = comparator.compare(current,
-                Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
+		EnergyReport current = new EnergyReport("c", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.A.method", 60.0), // +20%
+						new EnergyMeasurement("com.example.B.method", 50.0)),
+				110.0);
 
-        assertThat(result.methodComparisons()).hasSize(2);
+		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
 
-        ComparisonResult.MethodComparison methodA = result.methodComparisons().stream()
-                .filter(mc -> mc.methodName().equals("com.example.A.method"))
-                .findFirst().orElseThrow();
+		assertThat(result.methodComparisons()).hasSize(2);
 
-        assertThat(methodA.deltaPercent()).isCloseTo(20.0, Offset.offset(0.001));
-        assertThat(methodA.isRegressed(THRESHOLD)).isTrue();
-    }
+		ComparisonResult.MethodComparison methodA = result.methodComparisons()
+			.stream()
+			.filter(mc -> mc.methodName().equals("com.example.A.method"))
+			.findFirst()
+			.orElseThrow();
 
-    @Test
-    void compare_methodPresentInBaselineButNotCurrent_appearsWithZeroEnergy() {
-        EnergyReport baseline = new EnergyReport("b", Instant.now(), 60,
-                List.of(new EnergyMeasurement("com.example.OldMethod.run", 30.0)), 30.0);
+		assertThat(methodA.deltaPercent()).isCloseTo(20.0, Offset.offset(0.001));
+		assertThat(methodA.isRegressed(THRESHOLD)).isTrue();
+	}
 
-        EnergyReport current = new EnergyReport("c", Instant.now(), 60,
-                List.of(new EnergyMeasurement("com.example.NewMethod.run", 20.0)), 20.0);
+	@Test
+	void compare_methodPresentInBaselineButNotCurrent_appearsWithZeroEnergy() {
+		EnergyReport baseline = new EnergyReport("b", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.OldMethod.run", 30.0)), 30.0);
 
-        ComparisonResult result = comparator.compare(current,
-                Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
+		EnergyReport current = new EnergyReport("c", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.NewMethod.run", 20.0)), 20.0);
 
-        boolean hasOldMethod = result.methodComparisons().stream()
-                .anyMatch(mc -> mc.methodName().equals("com.example.OldMethod.run")
-                        && mc.currentEnergyJoules() == 0.0);
-        assertThat(hasOldMethod).isTrue();
-    }
+		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
 
-    @Test
-    void compare_zeroBaselineEnergy_noBaseline() {
-        ComparisonResult result = comparator.compare(buildReport(5.0),
-                Optional.of(EnergyBaseline.of(buildReport(0.0))), THRESHOLD);
+		boolean hasOldMethod = result.methodComparisons()
+			.stream()
+			.anyMatch(mc -> mc.methodName().equals("com.example.OldMethod.run") && mc.currentEnergyJoules() == 0.0);
+		assertThat(hasOldMethod).isTrue();
+	}
 
-        assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
-    }
+	@Test
+	void compare_zeroBaselineEnergy_noBaseline() {
+		ComparisonResult result = comparator.compare(buildReport(5.0), Optional.of(EnergyBaseline.of(buildReport(0.0))),
+				THRESHOLD);
 
-    private EnergyReport buildReport(double totalJoules) {
-        return new EnergyReport("test-run", Instant.now(), 60L, List.of(), totalJoules);
-    }
+		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
+	}
+
+	private EnergyReport buildReport(double totalJoules) {
+		return new EnergyReport("test-run", Instant.now(), 60L, List.of(), totalJoules);
+	}
+
 }
