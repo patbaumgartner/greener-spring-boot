@@ -144,7 +144,6 @@ jobs:
           echo "════════════════════════════════════════════════════════════"
           echo "  RUN 1 — BASELINE"
           echo "════════════════════════════════════════════════════════════"
-          JAR=$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)
 
           VM_FLAGS=""
           if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
@@ -154,7 +153,6 @@ jobs:
 
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
-            -Dgreener.springBootJar="${JAR}" \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
@@ -198,7 +196,6 @@ jobs:
           echo "════════════════════════════════════════════════════════════"
           echo "  RUN 2 — COMPARISON (vs baseline from Run 1)"
           echo "════════════════════════════════════════════════════════════"
-          JAR=$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)
 
           VM_FLAGS=""
           if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
@@ -208,7 +205,6 @@ jobs:
 
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
-            -Dgreener.springBootJar="${JAR}" \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
