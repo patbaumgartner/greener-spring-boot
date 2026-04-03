@@ -151,7 +151,6 @@ jobs:
         if: steps.power-check.outputs.POWER_SOURCE != 'none'
         working-directory: /tmp/spring-petclinic
         run: |
-          JAR=$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)
           cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
 
           VM_FLAGS=""
@@ -162,7 +161,6 @@ jobs:
 
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
-            -Dgreener.springBootJar="${JAR}" \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \

@@ -263,11 +263,9 @@ fi
 banner "RUN 1 - BASELINE"
 
 cd "${PETCLINIC_DIR}"
-JAR="$(find target -name "*.jar" ! -name "*-sources.jar" | head -1)"
 
 mvn --batch-mode --no-transfer-progress \
     com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
-    -Dgreener.springBootJar="${JAR}" \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \
@@ -305,7 +303,6 @@ banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
 
 mvn --batch-mode --no-transfer-progress \
     com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
-    -Dgreener.springBootJar="${JAR}" \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \
