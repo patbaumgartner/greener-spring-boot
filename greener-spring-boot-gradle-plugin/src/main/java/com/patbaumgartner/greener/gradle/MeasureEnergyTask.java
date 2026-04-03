@@ -31,7 +31,6 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,7 +80,10 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract RegularFileProperty getJoularCoreBinaryPath();
 
     /**
-     * Joular Core release version to download.
+     * Joular Core release version to download when
+     * {@link #getJoularCoreBinaryPath()} is not set. See
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * for available versions.
      * 
      * @return the Joular Core version property
      */
@@ -97,7 +99,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<String> getJoularCoreComponent();
 
     /**
-     * Base URL of the Spring Boot application.
+     * Base URL of the Spring Boot application used by the built-in HTTP loader.
      * 
      * @return the base URL property
      */
@@ -113,7 +115,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract ListProperty<String> getTrainingPaths();
 
     /**
-     * Requests per second issued during the training run.
+     * Number of HTTP requests per second issued by the built-in HTTP loader
+     * during the training run.
      * 
      * @return the requests per second property
      */
@@ -121,7 +124,9 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Integer> getRequestsPerSecond();
 
     /**
-     * Optional external training command.
+     * Optional external command used as the training workload instead of the
+     * built-in HTTP loader (e.g. {@code k6 run script.js}). The {@code APP_URL}
+     * environment variable is set to {@link #getBaseUrl()}.
      * 
      * @return the external training command property
      */
@@ -130,7 +135,16 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<String> getExternalTrainingCommand();
 
     /**
-     * Path to an external shell script used as the training workload.
+     * Path to an external shell script file used as the training workload.
+     * Takes precedence over {@link #getExternalTrainingCommand()} when set.
+     *
+     * <p>
+     * Available environment variables in the script: {@code APP_URL},
+     * {@code APP_HOST}, {@code APP_PORT}, {@code WARMUP_SECONDS},
+     * {@code MEASURE_SECONDS}, {@code TOTAL_SECONDS}, {@code RPS}.
+     *
+     * <p>
+     * See {@code examples/workloads/} for wrk, wrk2, oha, and Gatling examples.
      * 
      * @return the external training script file property
      */
@@ -140,8 +154,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract RegularFileProperty getExternalTrainingScriptFile();
 
     /**
-     * Enable VM mode (no direct RAPL; reads power from
-     * {@link #getVmPowerFilePath()}).
+     * Enable Joular Core VM mode.
+     *
+     * <p>
+     * In VM mode Joular Core cannot read RAPL counters directly and instead
+     * reads the VM's total power from a file written by the host — see
+     * {@link #getVmPowerFilePath()}. The host must write the VM's instantaneous
+     * power (Watts) to that file once per second.
      * 
      * @return the VM mode property
      */
@@ -149,7 +168,9 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Boolean> getVmMode();
 
     /**
-     * Path to the file providing VM power in Watts (VM mode only).
+     * Path to the VM power file that Joular Core reads when {@link #getVmMode()}
+     * is {@code true}. The file must contain a single floating-point number
+     * (e.g. {@code 45.2}).
      * 
      * @return the VM power file path property
      */
@@ -159,7 +180,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract RegularFileProperty getVmPowerFilePath();
 
     /**
-     * Warmup duration in seconds.
+     * Warmup duration in seconds. The application runs under load during warmup
+     * so the JIT compiler warms up, but energy data from this phase is discarded.
      * 
      * @return the warmup duration property
      */
@@ -167,7 +189,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Integer> getWarmupDurationSeconds();
 
     /**
-     * Measurement duration in seconds.
+     * Duration in seconds of the actual measurement window after warmup.
      * 
      * @return the measure duration property
      */
@@ -175,7 +197,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Integer> getMeasureDurationSeconds();
 
     /**
-     * Seconds to wait for application startup.
+     * Seconds to wait for the application health endpoint before aborting.
      * 
      * @return the startup timeout property
      */
@@ -201,7 +223,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract RegularFileProperty getBaselineFile();
 
     /**
-     * Maximum percentage energy increase before the build is failed.
+     * Maximum allowed percentage increase in total energy before the build is
+     * failed. For example {@code 10} means a 10 % regression is tolerated.
      * 
      * @return the threshold property
      */
@@ -209,7 +232,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Double> getThreshold();
 
     /**
-     * Whether to fail the build on energy regression.
+     * When {@code true}, the build is failed if energy consumption regressed
+     * beyond {@link #getThreshold()}.
      * 
      * @return the fail on regression property
      */

@@ -97,7 +97,7 @@ public abstract class UpdateBaselineTask extends DefaultTask {
         getLogger().lifecycle("Energy baseline updated: " + baselineFileValue);
         getLogger().lifecycle("  commit : " + sha);
         getLogger().lifecycle("  branch : " + branch);
-        getLogger().lifecycle("  energy : " + String.format("%.4f J", report.totalEnergyJoules()));
+        getLogger().lifecycle("  energy : " + String.format("%.2f J", report.totalEnergyJoules()));
     }
 
     private String normalise(String s) {

@@ -297,7 +297,7 @@ python3 -c "
 import json
 b = json.load(open('${BASELINE_FILE}'))
 e = b['report']['totalEnergyJoules']
-print(f'  Energy : {e:.4f} J')
+print(f'  Energy : {e:.2f} J')
 print(f'  Commit : ${COMMIT_SHA}')
 "
 
@@ -334,9 +334,9 @@ c_energy = comparison["report"]["totalEnergyJoules"]
 delta = c_energy - b_energy
 pct = (delta / b_energy * 100) if b_energy > 0 else 0
 
-print(f"  Baseline energy  : {b_energy:.4f} J")
-print(f"  Comparison energy: {c_energy:.4f} J")
-print(f"  Delta            : {delta:+.4f} J ({pct:+.2f} %)")
+print(f"  Baseline energy  : {b_energy:.2f} J")
+print(f"  Comparison energy: {c_energy:.2f} J")
+print(f"  Delta            : {delta:+.2f} J ({pct:+.2f} %)")
 print(f'  Threshold        : +/-${THRESHOLD} %')
 print()
 
