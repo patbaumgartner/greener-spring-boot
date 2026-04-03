@@ -309,7 +309,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			try {
 				// 6. Warmup phase (skip energy recording)
 				if (warmupDurationSeconds > 0) {
-					getLog().info("Warmup phase: " + warmupDurationSeconds + " s …");
+					getLog().info("Warmup phase: " + warmupDurationSeconds + " s ...");
 					TrainingConfig warmupConfig = buildTrainingConfig().warmupDurationSeconds(warmupDurationSeconds)
 						.measureDurationSeconds(0);
 					new TrainingRunner().run(warmupConfig);
@@ -322,7 +322,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				}
 
 				// 7. Measurement phase
-				getLog().info("Measurement phase: " + measureDurationSeconds + " s …");
+				getLog().info("Measurement phase: " + measureDurationSeconds + " s ...");
 				TrainingConfig measureConfig = buildTrainingConfig().warmupDurationSeconds(0)
 					.measureDurationSeconds(measureDurationSeconds);
 				workloadStats = new TrainingRunner().run(measureConfig);
@@ -377,7 +377,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			return joularCoreBinaryPath.toPath();
 		}
 
-		getLog().info("Auto-downloading Joular Core " + joularCoreVersion + " …");
+		getLog().info("Auto-downloading Joular Core " + joularCoreVersion + " ...");
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
 		return downloader.download(joularCoreVersion, JoularCoreDownloader.defaultCacheDir());
 	}

@@ -77,10 +77,10 @@ public class TrainingRunner {
 			return runExternalCommand(config, command);
 		}
 		else {
-			LOG.warning("No external workload configured — falling back to the built-in HTTP loader. "
+			LOG.warning("No external workload configured - falling back to the built-in HTTP loader. "
 					+ "For accurate, reproducible energy measurements configure "
 					+ "'externalTrainingScriptFile' with one of the scripts from "
-					+ "examples/workloads/ (oha, wrk, wrk2, k6, Gatling, Locust, …).");
+					+ "examples/workloads/ (oha, wrk, wrk2, k6, Gatling, Locust, ...).");
 			return runBuiltInHttpLoader(config);
 		}
 	}
@@ -90,7 +90,7 @@ public class TrainingRunner {
 	private WorkloadStats runBuiltInHttpLoader(TrainingConfig config) throws InterruptedException {
 		List<String> paths = config.getPaths();
 		if (paths.isEmpty()) {
-			LOG.warning("No training URL paths configured — skipping workload");
+			LOG.warning("No training URL paths configured - skipping workload");
 			return WorkloadStats.builtIn(0, 0, config.getTotalDurationSeconds());
 		}
 
@@ -103,7 +103,7 @@ public class TrainingRunner {
 		int measure = config.getMeasureDurationSeconds();
 		int total = warmup + measure;
 
-		LOG.info(String.format("HTTP training workload — %d paths, %d req/s, concurrency %d, %ds warmup + %ds measure",
+		LOG.info(String.format("HTTP training workload - %d paths, %d req/s, concurrency %d, %ds warmup + %ds measure",
 				paths.size(), config.getRequestsPerSecond(), config.getConcurrency(), warmup, measure));
 
 		AtomicLong requestCount = new AtomicLong();
@@ -150,7 +150,7 @@ public class TrainingRunner {
 			scheduler.shutdownNow();
 		}
 
-		LOG.info(String.format("Training complete — %d requests, %d errors", requestCount.get(), errorCount.get()));
+		LOG.info(String.format("Training complete - %d requests, %d errors", requestCount.get(), errorCount.get()));
 
 		return WorkloadStats.builtIn(requestCount.get(), errorCount.get(), total);
 	}

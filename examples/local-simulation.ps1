@@ -14,7 +14,7 @@
 #   2. VM power file   -- set VM_POWER_FILE env var to a file path
 #
 # Prerequisites:
-#   - Java 25+ (temurin recommended)
+#   - Java 17+ (temurin recommended)
 #   - Maven
 #   - git, python3 -- must be on PATH
 #   - Rust toolchain (cargo) -- installed automatically via rustup if missing
@@ -67,14 +67,14 @@ $JoularCacheDir    = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") 
 $CiEstimatorJob = $null
 
 # -- Helpers -------------------------------------------------------------------
-function Info($msg)   { Write-Host "i  $msg" }
-function Ok($msg)     { Write-Host "[OK] $msg" -ForegroundColor Green }
-function Warn($msg)   { Write-Host "[!!] $msg" -ForegroundColor Yellow }
+function Info($msg)   { Write-Output "i  $msg" }
+function Ok($msg)     { Write-Output "[OK] $msg" }
+function Warn($msg)   { Write-Output "[!!] $msg" }
 function Banner($msg) {
-    Write-Host ""
-    Write-Host ("=" * 60)
-    Write-Host "  $msg"
-    Write-Host ("=" * 60)
+    Write-Output ""
+    Write-Output ("=" * 60)
+    Write-Output "  $msg"
+    Write-Output ("=" * 60)
 }
 
 function Invoke-Cmd {
@@ -105,8 +105,8 @@ foreach ($tool in @("java", "mvn", "git")) {
     }
 }
 
-Write-Host (& { $ErrorActionPreference = 'SilentlyContinue'; java -version 2>&1 } | Select-Object -First 1)
-Write-Host (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&1 } | Select-Object -First 1)
+Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; java -version 2>&1 } | Select-Object -First 1)
+Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&1 } | Select-Object -First 1)
 
 if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
@@ -172,8 +172,8 @@ if ($env:VM_POWER_FILE -and (Test-Path $env:VM_POWER_FILE)) {
 }
 
 if ($PowerSource -eq "none") {
-    Write-Host ""
-    Write-Host "No usable power source detected. Exiting."
+    Write-Output ""
+    Write-Output "No usable power source detected. Exiting."
     exit 0
 }
 
@@ -324,12 +324,12 @@ try {
     )
 } finally { Pop-Location }
 
-Write-Host ""
-Write-Host "Baseline created:"
+Write-Output ""
+Write-Output "Baseline created:"
 $baseline = Get-Content $BaselineFile -Raw | ConvertFrom-Json
 $bEnergy  = $baseline.report.totalEnergyJoules
-Write-Host ("  Energy : {0:F4} J" -f $bEnergy)
-Write-Host "  Commit : $CommitSha"
+Write-Output ("  Energy : {0:F4} J" -f $bEnergy)
+Write-Output "  Commit : $CommitSha"
 
 # -- Run 2: Comparison measurement --------------------------------------------
 Banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
@@ -367,23 +367,23 @@ $cEnergy = $comparison.report.totalEnergyJoules
 $delta   = $cEnergy - $bEnergy
 $pct     = if ($bEnergy -gt 0) { $delta / $bEnergy * 100 } else { 0 }
 
-Write-Host ("  Baseline energy  : {0:F4} J" -f $bEnergy)
-Write-Host ("  Comparison energy: {0:F4} J" -f $cEnergy)
-Write-Host ('  Delta            : {0:+0.0000;-0.0000} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
-Write-Host "  Threshold        : +/-$Threshold %"
-Write-Host ""
+Write-Output ("  Baseline energy  : {0:F4} J" -f $bEnergy)
+Write-Output ("  Comparison energy: {0:F4} J" -f $cEnergy)
+Write-Output ('  Delta            : {0:+0.0000;-0.0000} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
+Write-Output "  Threshold        : +/-$Threshold %"
+Write-Output ""
 
 if ([Math]::Abs($pct) -le [double]$Threshold) {
-    Write-Host "  [OK] Within threshold - results are reproducible." -ForegroundColor Green
+    Write-Output "  [OK] Within threshold - results are reproducible."
 } else {
-    Write-Host "  [!!] Outside threshold - noisy environment or real regression." -ForegroundColor Yellow
+    Write-Output "  [!!] Outside threshold - noisy environment or real regression."
 }
 
-Write-Host ""
-Write-Host "Reports saved to:"
-Write-Host "  Baseline   : $ReportsBaseline"
-Write-Host "  Comparison : $ReportsComparison"
-Write-Host "  Baseline JSON: $BaselineFile"
+Write-Output ""
+Write-Output "Reports saved to:"
+Write-Output "  Baseline  : $ReportsBaseline"
+Write-Output "  Comparison: $ReportsComparison"
+Write-Output "  Baseline JSON: $BaselineFile"
 
 } finally {
     # Run cleanup

@@ -282,14 +282,14 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
             try {
                 if (warmup > 0) {
-                    getLogger().lifecycle("Warmup: " + warmup + " s …");
+                    getLogger().lifecycle("Warmup: " + warmup + " s ...");
                     runTraining(baseUrl, warmup, 0);
                     joularCoreRunner.stop();
                     Files.deleteIfExists(outputCsv);
                     joularCoreRunner.start(joularCoreConfig);
                 }
 
-                getLogger().lifecycle("Measuring energy: " + measure + " s …");
+                getLogger().lifecycle("Measuring energy: " + measure + " s ...");
                 workloadStats = runTraining(baseUrl, 0, measure);
 
             } finally {
@@ -357,7 +357,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
             }
         }
         String version = getJoularCoreVersion().get();
-        getLogger().lifecycle("Auto-downloading Joular Core " + version + " …");
+        getLogger().lifecycle("Auto-downloading Joular Core " + version + " ...");
         return new JoularCoreDownloader().download(version, JoularCoreDownloader.defaultCacheDir());
     }
 

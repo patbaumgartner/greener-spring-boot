@@ -9,21 +9,21 @@ public enum PowerSource {
 	 * Hardware energy counters (Intel RAPL / AMD RAPL). Most accurate — reads real power
 	 * from the CPU's built-in energy registers.
 	 */
-	RAPL("RAPL (hardware energy counters)", "Energy measured via Intel/AMD RAPL hardware counters — high accuracy."),
+	RAPL("RAPL (hardware energy counters)", "Energy measured via Intel/AMD RAPL hardware counters - high accuracy."),
 
 	/**
 	 * VM power file written by the hypervisor host (e.g. Scaphandre on KVM). Joular Core
 	 * reads the file in {@code --vm} mode.
 	 */
 	VM_FILE("Scaphandre VM power file",
-			"Energy derived from a host-side power file (e.g. Scaphandre on KVM) — good accuracy."),
+			"Energy derived from a host-side power file (e.g. Scaphandre on KVM) - good accuracy."),
 
 	/**
 	 * Software estimation: CPU utilisation × TDP. Used on CI runners and VMs where
 	 * neither RAPL nor a host power file is available.
 	 */
-	ESTIMATED("CPU utilisation × TDP (estimated)",
-			"Energy estimated from CPU load and TDP — suitable for relative comparisons between commits."),
+	ESTIMATED("CPU utilisation x TDP (estimated)",
+			"Energy estimated from CPU load and TDP - suitable for relative comparisons between commits."),
 
 	/**
 	 * Fallback when the actual power source is not known.
