@@ -21,30 +21,46 @@ import org.gradle.api.Project;
  * 
  * <pre>{@code
  * plugins {
- *     id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
+ *     id("com.patbaumgartner.greener-spring-boot") version "<version>"
  * }
  *
  * greener {
  *     // springBootJar auto-detected from build/libs/ when omitted
- *     measureDurationSeconds = 60
- *     threshold = 10.0
- *     failOnRegression = false
+ *     measureDurationSeconds.set(60)
+ *     threshold.set(10.0)
+ *     failOnRegression.set(false)
  * }
  * }</pre>
  */
 public class GreenerPlugin implements Plugin<Project> {
 
+    private static final String EXTENSION_NAME = "greener";
+    private static final String TASK_GROUP = "greener";
+    private static final String MEASURE_ENERGY_TASK_NAME = "measureEnergy";
+    private static final String UPDATE_BASELINE_TASK_NAME = "updateEnergyBaseline";
+
     @Override
     public void apply(Project project) {
-        GreenerExtension extension = project.getExtensions()
-                .create("greener", GreenerExtension.class);
+        GreenerExtension extension = project.getExtensions().create(EXTENSION_NAME, GreenerExtension.class);
 
-        project.getTasks().register("measureEnergy", MeasureEnergyTask.class, task -> {
-            task.setGroup("greener");
+        // Apply useful project-level conventions down to the extension so tasks don't
+        // need getProject()
+        extension.getBaselineFile().convention(project.getLayout().getProjectDirectory().file("energy-baseline.json"));
+        extension.getReportOutputDir().convention(project.getLayout().getBuildDirectory().dir("greener-reports"));
+
+        configureMeasureEnergyTask(project, extension);
+        configureUpdateBaselineTask(project, extension);
+    }
+
+    private void configureMeasureEnergyTask(Project project, GreenerExtension extension) {
+        project.getTasks().register(MEASURE_ENERGY_TASK_NAME, MeasureEnergyTask.class, task -> {
+            task.setGroup(TASK_GROUP);
             task.setDescription(
                     "Measures energy consumption of the Spring Boot application using Joular Core "
                             + "and compares against the stored baseline.");
             task.getSpringBootJar().convention(extension.getSpringBootJar());
+            task.getJvmArgs().convention(extension.getJvmArgs());
+            task.getAppArgs().convention(extension.getAppArgs());
             task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
             task.getJoularCoreVersion().convention(extension.getJoularCoreVersion());
             task.getJoularCoreComponent().convention(extension.getJoularCoreComponent());
@@ -62,15 +78,24 @@ public class GreenerPlugin implements Plugin<Project> {
             task.getThreshold().convention(extension.getThreshold());
             task.getFailOnRegression().convention(extension.getFailOnRegression());
             task.getReportOutputDir().convention(extension.getReportOutputDir());
+            task.getAutoUpdateBaseline().convention(extension.getAutoUpdateBaseline());
+            task.getCommitSha().convention(extension.getCommitSha());
+            task.getBranch().convention(extension.getBranch());
+            task.getTimestampReports().convention(extension.getTimestampReports());
         });
+    }
 
-        project.getTasks().register("updateEnergyBaseline", UpdateBaselineTask.class, task -> {
-            task.setGroup("greener");
+    private void configureUpdateBaselineTask(Project project, GreenerExtension extension) {
+        project.getTasks().register(UPDATE_BASELINE_TASK_NAME, UpdateBaselineTask.class, task -> {
+            task.setGroup(TASK_GROUP);
             task.setDescription(
                     "Promotes the most recent energy measurement as the new baseline for "
                             + "future comparisons.");
             task.getBaselineFile().convention(extension.getBaselineFile());
+            task.getLatestReportFile().convention(extension.getLatestReportFile());
             task.getReportOutputDir().convention(extension.getReportOutputDir());
+            task.getCommitSha().convention(extension.getCommitSha());
+            task.getBranch().convention(extension.getBranch());
         });
     }
 }

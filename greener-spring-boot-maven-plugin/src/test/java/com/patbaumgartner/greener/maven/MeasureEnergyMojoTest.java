@@ -53,6 +53,21 @@ class MeasureEnergyMojoTest {
 	}
 
 	@Test
+	void failsWhenExternalTrainingScriptConfiguredButMissing() throws Exception {
+		File fakeJar = tempDir.resolve("app.jar").toFile();
+		Files.createFile(fakeJar.toPath());
+
+		MeasureEnergyMojo mojo = new MeasureEnergyMojo();
+		setField(mojo, "skip", false);
+		setField(mojo, "springBootJar", fakeJar);
+		setField(mojo, "measureDurationSeconds", 60);
+		setField(mojo, "externalTrainingScriptFile", tempDir.resolve("missing-run.sh").toFile());
+
+		assertThatThrownBy(mojo::execute).isInstanceOf(MojoExecutionException.class)
+			.hasMessageContaining("externalTrainingScriptFile does not exist");
+	}
+
+	@Test
 	void autoDetectsSpringBootJarFromBuildDirectory() throws Exception {
 		// Create a build directory with a single jar
 		Path buildDir = tempDir.resolve("target");

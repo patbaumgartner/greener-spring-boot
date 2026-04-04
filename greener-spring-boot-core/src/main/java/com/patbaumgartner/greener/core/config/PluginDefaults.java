@@ -1,13 +1,20 @@
 package com.patbaumgartner.greener.core.config;
 
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.runner.TrainingRunner;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -15,7 +22,11 @@ import java.util.stream.Collectors;
  */
 public final class PluginDefaults {
 
+	private static final Logger LOG = Logger.getLogger(PluginDefaults.class.getName());
+
 	private static final int EXPECTED_JAR_COUNT = 1;
+
+	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
 	private PluginDefaults() {
 	}
@@ -132,10 +143,63 @@ public final class PluginDefaults {
 			double totalEnergyJoules) {
 		List<String> lines = new ArrayList<>();
 		lines.add("Energy baseline updated: " + baselineFile);
-		lines.add("  commit : " + commitSha);
-		lines.add("  branch : " + branch);
+		lines.add("  commit : " + (commitSha != null ? commitSha : "n/a"));
+		lines.add("  branch : " + (branch != null ? branch : "n/a"));
 		lines.add("  energy : " + String.format("%.2f J", totalEnergyJoules));
 		return lines;
+	}
+
+	/**
+	 * Derives a tool name from the configured training script file or command string.
+	 * Used to create a tool-specific subdirectory under the report output directory.
+	 * @param scriptFile optional external training script file (may be {@code null})
+	 * @param command optional external training command (may be {@code null})
+	 * @return the derived tool name, or {@code "measurement"} as a fallback
+	 */
+	public static String resolveToolName(File scriptFile, String command) {
+		if (scriptFile != null && scriptFile.exists()) {
+			String fileName = scriptFile.getName();
+			String parentDir = scriptFile.getParentFile() != null ? scriptFile.getParentFile().getName() : null;
+			return TrainingRunner.deriveToolName(fileName, parentDir);
+		}
+		if (command != null && !command.isBlank()) {
+			return TrainingRunner.deriveToolName(command, null);
+		}
+		return "measurement";
+	}
+
+	/**
+	 * Appends a {@code yyyyMMdd-HHmmss} timestamp to the given base directory to create a
+	 * unique run-specific report directory.
+	 * @param baseDir the base report output directory
+	 * @return a new path with the timestamp appended (e.g.
+	 * {@code target/greener-reports-20260404-153012})
+	 */
+	public static Path buildTimestampedDir(Path baseDir) {
+		String dirName = baseDir.getFileName().toString();
+		String timestamp = TIMESTAMP_FORMAT.format(LocalDateTime.now());
+		return baseDir.resolveSibling(dirName + "-" + timestamp);
+	}
+
+	/**
+	 * Creates or updates a {@code latest} symlink pointing to the given target directory.
+	 * If the platform does not support symbolic links, a warning is logged and the
+	 * symlink is skipped.
+	 * @param targetDir the directory the symlink should point to
+	 * @param linkName the name of the symlink (created as a sibling of {@code targetDir})
+	 */
+	public static void createLatestLink(Path targetDir, String linkName) {
+		Path link = targetDir.resolveSibling(linkName);
+		try {
+			Files.deleteIfExists(link);
+			Files.createSymbolicLink(link, targetDir);
+		}
+		catch (UnsupportedOperationException e) {
+			LOG.log(Level.WARNING, "Symbolic links not supported on this platform. Skipping latest link.");
+		}
+		catch (IOException e) {
+			LOG.log(Level.WARNING, "Could not create latest symlink: " + e.getMessage());
+		}
 	}
 
 }

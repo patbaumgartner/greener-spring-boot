@@ -150,8 +150,84 @@ class PluginDefaultsTest {
 		List<String> lines = PluginDefaults.formatBaselineUpdateSummary(Path.of("baseline.json"), null, null, 0.0);
 
 		assertThat(lines).hasSize(4);
-		assertThat(lines.get(1)).contains("null");
+		assertThat(lines.get(1)).contains("n/a");
+		assertThat(lines.get(2)).contains("n/a");
 		assertThat(lines.get(3)).contains("0.00 J");
+	}
+
+	// ---- resolveToolName ----
+
+	@Test
+	void resolveToolNameFromScriptFile() throws Exception {
+		Path scriptDir = tempDir.resolve("oha");
+		Files.createDirectories(scriptDir);
+		Path scriptFile = scriptDir.resolve("run.sh");
+		Files.createFile(scriptFile);
+
+		String result = PluginDefaults.resolveToolName(scriptFile.toFile(), null);
+		assertThat(result).isEqualTo("oha");
+	}
+
+	@Test
+	void resolveToolNameFromCommand() {
+		String result = PluginDefaults.resolveToolName(null, "oha http://localhost:8080");
+		assertThat(result).isEqualTo("oha");
+	}
+
+	@Test
+	void resolveToolNameFallsBackToMeasurement() {
+		assertThat(PluginDefaults.resolveToolName(null, null)).isEqualTo("measurement");
+	}
+
+	@Test
+	void resolveToolNamePrefersScriptOverCommand() throws Exception {
+		Path scriptDir = tempDir.resolve("wrk");
+		Files.createDirectories(scriptDir);
+		Path scriptFile = scriptDir.resolve("run.sh");
+		Files.createFile(scriptFile);
+
+		String result = PluginDefaults.resolveToolName(scriptFile.toFile(), "oha http://localhost:8080");
+		assertThat(result).isEqualTo("wrk");
+	}
+
+	// ---- buildTimestampedDir ----
+
+	@Test
+	void buildTimestampedDirAppendsTimestamp() {
+		Path base = tempDir.resolve("greener-reports");
+		Path result = PluginDefaults.buildTimestampedDir(base);
+		assertThat(result.getFileName().toString()).startsWith("greener-reports-");
+		assertThat(result.getFileName().toString()).matches("greener-reports-\\d{8}-\\d{6}");
+		assertThat(result.getParent()).isEqualTo(base.getParent());
+	}
+
+	// ---- createLatestLink ----
+
+	@Test
+	void createLatestLinkCreatesSymlink() throws Exception {
+		Path targetDir = tempDir.resolve("reports-20260404-153012");
+		Files.createDirectories(targetDir);
+
+		PluginDefaults.createLatestLink(targetDir, "reports-latest");
+
+		Path link = tempDir.resolve("reports-latest");
+		assertThat(link).exists();
+		assertThat(Files.isSymbolicLink(link)).isTrue();
+		assertThat(Files.readSymbolicLink(link)).isEqualTo(targetDir);
+	}
+
+	@Test
+	void createLatestLinkReplacesExistingLink() throws Exception {
+		Path oldDir = tempDir.resolve("reports-old");
+		Files.createDirectories(oldDir);
+		Path newDir = tempDir.resolve("reports-new");
+		Files.createDirectories(newDir);
+
+		PluginDefaults.createLatestLink(oldDir, "reports-latest");
+		PluginDefaults.createLatestLink(newDir, "reports-latest");
+
+		Path link = tempDir.resolve("reports-latest");
+		assertThat(Files.readSymbolicLink(link)).isEqualTo(newDir);
 	}
 
 }

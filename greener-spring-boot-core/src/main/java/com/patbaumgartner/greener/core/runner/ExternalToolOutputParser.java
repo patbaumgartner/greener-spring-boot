@@ -227,10 +227,19 @@ public class ExternalToolOutputParser {
 	}
 
 	private void parseLocust(String output) {
+		// Use the LAST Aggregated line — locust prints periodic stats tables
+		// (including an initial empty one with 0 requests) during the run.
+		// The final Aggregated line contains the complete summary.
 		Matcher m = LOCUST_AGGREGATED.matcher(output);
-		if (m.find()) {
-			parsedTotalRequests = safeParseLong(m.group(1));
-			parsedFailedRequests = safeParseLong(m.group(2));
+		String lastTotal = null;
+		String lastFailed = null;
+		while (m.find()) {
+			lastTotal = m.group(1);
+			lastFailed = m.group(2);
+		}
+		if (lastTotal != null) {
+			parsedTotalRequests = safeParseLong(lastTotal);
+			parsedFailedRequests = safeParseLong(lastFailed);
 		}
 	}
 

@@ -174,6 +174,16 @@ greener-spring-boot/
     <!-- springBootJar is auto-detected from target/ - set only if needed -->
     <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
 
+    <!-- Optional JVM and Spring Boot app arguments -->
+    <jvmArgs>
+      <jvmArg>-Xmx512m</jvmArg>
+      <jvmArg>-Duser.timezone=UTC</jvmArg>
+    </jvmArgs>
+    <appArgs>
+      <appArg>--server.port=8081</appArg>
+      <appArg>--spring.profiles.active=perf</appArg>
+    </appArgs>
+
     <!-- Training workload -->
     <warmupDurationSeconds>30</warmupDurationSeconds>
     <measureDurationSeconds>60</measureDurationSeconds>
@@ -191,6 +201,13 @@ greener-spring-boot/
 </plugin>
 ```
 
+### JVM and app args (Maven)
+
+`jvmArgs` are passed to the Java process (`java ...`) and `appArgs` are passed to
+Spring Boot as application parameters. The plugin appends
+`--management.endpoint.health.probes.enabled=true` automatically so readiness
+checks work without extra setup.
+
 ### Run it
 
 ```bash
@@ -206,6 +223,8 @@ mvn greener:update-baseline
 | Parameter | Default | Description |
 |---|---|---|
 | `springBootJar` | *(auto-detected)* | Path to the Spring Boot fat-jar; auto-detected from `target/` if not set |
+| `jvmArgs` | *(none)* | Extra JVM args passed when starting the Spring Boot app (e.g. `-Xmx512m`) |
+| `appArgs` | *(none)* | Extra application args passed to Spring Boot (health-probe flag is always appended) |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
 | `joularCoreVersion` | `0.0.1-alpha-11` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
@@ -223,6 +242,21 @@ mvn greener:update-baseline
 | `threshold` | `10` | % regression threshold |
 | `failOnRegression` | `false` | Fail build if regression > threshold |
 | `reportOutputDir` | `target/greener-reports` | HTML report directory |
+| `autoUpdateBaseline` | `false` | Auto-promote measurement to baseline after a successful run |
+| `timestampReports` | `false` | Append timestamp to report dir and create a `latest` symlink |
+| `commitSha` | `${env.GITHUB_SHA}` | Git commit SHA recorded in the baseline |
+| `branch` | `${env.GITHUB_REF_NAME}` | Branch name recorded in the baseline |
+| `skip` | `false` | Skip execution |
+
+### `update-baseline` parameters (Maven)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `baselineFile` | `energy-baseline.json` | JSON baseline file to update |
+| `latestReportFile` | *(auto-discover)* | Explicit `latest-energy-report.json` to promote; when unset, newest report is discovered in `reportOutputDir` |
+| `reportOutputDir` | `target/greener-reports` | Report directory used for auto-discovery |
+| `commitSha` | `${env.GITHUB_SHA}` | Git commit SHA recorded in baseline metadata |
+| `branch` | `${env.GITHUB_REF_NAME}` | Git branch recorded in baseline metadata |
 | `skip` | `false` | Skip execution |
 
 ---
@@ -238,9 +272,14 @@ plugins {
 
 greener {
     springBootJar = file("build/libs/myapp.jar")
+    jvmArgs = listOf("-Xmx512m")
+    appArgs = listOf("--server.port=8080")
     measureDurationSeconds = 60
     threshold = 10.0
     failOnRegression = false
+    autoUpdateBaseline = false     // auto-promote measurement to baseline
+    timestampReports = false       // append timestamp to report dir
+    latestReportFile = file("build/greener-reports/oha/latest-energy-report.json") // used by updateEnergyBaseline
 }
 ```
 

@@ -60,7 +60,7 @@ jobs:
             echo "[OK] Scaphandre VM power file found."
           elif [ -f /proc/stat ]; then
             echo "POWER_SOURCE=ci-estimated" >> "$GITHUB_OUTPUT"
-            echo "i  Using CPU-time x TDP software estimation."
+            echo "[ii] Using CPU-time x TDP software estimation."
           else
             echo "POWER_SOURCE=none"         >> "$GITHUB_OUTPUT"
             echo "[!!] No power source - measurement skipped."
@@ -134,7 +134,7 @@ jobs:
           echo "CI_ESTIMATOR_PID=$!"                 >> "$GITHUB_ENV"
           echo "VM_POWER_FILE=/tmp/ci-power.txt"     >> "$GITHUB_ENV"
           sleep 2
-          echo "i  Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
+          echo "[ii] Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
 
       # ── Run 1: Baseline measurement ───────────────────────────────────────────
       - name: "Run 1 — Baseline measurement"

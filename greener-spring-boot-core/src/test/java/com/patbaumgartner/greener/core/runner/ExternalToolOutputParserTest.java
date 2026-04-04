@@ -539,6 +539,40 @@ class ExternalToolOutputParserTest {
 		assertThat(parser.failedRequests()).isZero();
 	}
 
+	@Test
+	void locust_multipleAggregatedLines_usesLast() {
+		// Locust prints periodic stats tables during the run (including an initial
+		// empty table with 0 requests). The parser must pick the LAST Aggregated
+		// line which contains the complete final summary.
+		String output = """
+				[2024-01-15 12:34:00,000] machine/INFO/locust.main: Starting Locust 2.24.0
+				Type     Name                                                # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				         Aggregated                                               0     0(0.00%) |      0       0       0      0 |    0.00        0.00
+
+				Type     Name                                                # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				GET      /                                                      150     0(0.00%) |     12       1      45     10 |    5.00        0.00
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				         Aggregated                                             150     0(0.00%) |     12       1      45     10 |    5.00        0.00
+
+				[2024-01-15 12:35:00,000] machine/INFO/locust.main: --run-time limit reached, shutting down
+				Type     Name                                                # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				GET      /                                                      620     2(0.32%) |     15       1      89     12 |   10.33        0.03
+				GET      /owners?lastName=                                       410     0(0.00%) |     23       2     123     18 |    6.83        0.00
+				--------|-----------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+				         Aggregated                                            1030     2(0.19%) |     18       1     123     14 |   17.17        0.03
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("locust", output);
+
+		assertThat(parser.hasResults()).isTrue();
+		assertThat(parser.totalRequests()).isEqualTo(1030);
+		assertThat(parser.failedRequests()).isEqualTo(2);
+	}
+
 	// ---- edge cases ----
 
 	@Test

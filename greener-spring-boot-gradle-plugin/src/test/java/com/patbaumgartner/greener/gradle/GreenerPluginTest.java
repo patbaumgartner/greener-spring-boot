@@ -6,10 +6,11 @@ import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -184,6 +185,91 @@ class GreenerPluginTest {
 
         MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
         assertThat(task.getExternalTrainingScriptFile().get().getAsFile()).isEqualTo(script.toFile());
+    }
+
+    @Test
+    void jvmAndAppArgsPropagateFromExtension() {
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+        ext.getJvmArgs().set(List.of("-Xmx512m", "-XX:+UseSerialGC"));
+        ext.getAppArgs().set(List.of("--server.port=9091", "--spring.profiles.active=test"));
+
+        MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+        assertThat(task.getJvmArgs().get()).containsExactly("-Xmx512m", "-XX:+UseSerialGC");
+        assertThat(task.getAppArgs().get()).containsExactly("--server.port=9091", "--spring.profiles.active=test");
+    }
+
+    @Test
+    void updateBaselineLatestReportFileConventionPropagatesFromExtension(@TempDir Path tempDir) throws IOException {
+        Path latestReport = tempDir.resolve("latest-energy-report.json");
+        Files.writeString(latestReport, "{}");
+
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+        ext.getLatestReportFile().set(latestReport.toFile());
+
+        UpdateBaselineTask task = (UpdateBaselineTask) project.getTasks().getByName("updateEnergyBaseline");
+        assertThat(task.getLatestReportFile().get().getAsFile()).isEqualTo(latestReport.toFile());
+    }
+
+    @Test
+    void updateBaselineFailsWhenExplicitLatestReportFileMissing(@TempDir Path tempDir) {
+        Path missingReport = tempDir.resolve("missing-latest-energy-report.json");
+
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        UpdateBaselineTask task = (UpdateBaselineTask) project.getTasks().getByName("updateEnergyBaseline");
+        task.getLatestReportFile().set(missingReport.toFile());
+
+        assertThatThrownBy(task::updateBaseline)
+                .isInstanceOf(GradleException.class)
+                .hasMessageContaining("latestReportFile does not exist");
+    }
+
+    @Test
+    void resolveJoularCoreBinaryFailsWhenExplicitPathMissing(@TempDir Path tempDir) throws Exception {
+        Path missingBinary = tempDir.resolve("missing-joularcore");
+
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+        task.getJoularCoreBinaryPath().set(missingBinary.toFile());
+
+        Method resolve = MeasureEnergyTask.class.getDeclaredMethod("resolveJoularCoreBinary");
+        resolve.setAccessible(true);
+
+        assertThatThrownBy(() -> resolve.invoke(task))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .cause()
+                .isInstanceOf(GradleException.class)
+                .hasMessageContaining("joularCoreBinaryPath does not exist");
+    }
+
+    @Test
+    void runTrainingFailsWhenExplicitScriptPathMissing(@TempDir Path tempDir) throws Exception {
+        Path missingScript = tempDir.resolve("missing-run.sh");
+
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+        task.getExternalTrainingScriptFile().set(missingScript.toFile());
+
+        Method runTraining = MeasureEnergyTask.class.getDeclaredMethod("runTraining", String.class, int.class,
+                int.class);
+        runTraining.setAccessible(true);
+
+        assertThatThrownBy(() -> runTraining.invoke(task, "http://localhost:8080", 0, 1))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .cause()
+                .isInstanceOf(GradleException.class)
+                .hasMessageContaining("externalTrainingScriptFile does not exist");
     }
 
 }

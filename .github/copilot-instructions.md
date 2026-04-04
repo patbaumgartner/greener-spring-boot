@@ -37,8 +37,11 @@ com.patbaumgartner.greener.core
 
 - **`PluginDefaults`** - shared utility used by both Maven and Gradle plugins
   for `buildRunId()`, `resolvePowerSource(boolean vmMode)`, `normalise(String)`,
-  `buildEffectiveAppArgs(List)`, `autoDetectJar(Path, String...)`, and
-  `formatBaselineUpdateSummary(...)`.
+  `buildEffectiveAppArgs(List)`, `autoDetectJar(Path, String...)`,
+  `formatBaselineUpdateSummary(...)`, `resolveToolName(File, String)`,
+  `buildTimestampedDir(Path)`, and `createLatestLink(Path, String)`.
+- **`BaselineManager`** - saves/loads `EnergyBaseline` JSON files and discovers
+  the most recent report via `discoverLatestReport(Path)`.
 - **`PowerSource`** - enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
   with `detect(boolean vmMode)` and `fromString(String)`.
 - **`ExternalToolOutputParser`** - extracts request counts from stdout of

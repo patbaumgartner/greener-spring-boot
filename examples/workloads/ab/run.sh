@@ -4,7 +4,9 @@
 # ab is the simplest possible HTTP load generator — it ships with every Apache
 # installation and most Linux distributions.  It has no native warmup support,
 # so this script runs two sequential ab invocations: one for warmup and one for
-# the measurement window.
+# the measurement window.  Both use -t (timelimit) so the load is spread over
+# the full duration — without it ab fires all requests instantly and finishes
+# in seconds, leaving Joular Core no time to collect power samples.
 #
 # Limitations: ab is single-threaded and supports only one URL per run.  For
 # multi-URL scenarios use wrk, oha, or k6 instead.  It is included here because
@@ -63,19 +65,20 @@ MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 RPS="${RPS:-20}"
 CONCURRENCY="${CONCURRENCY:-5}"
 
-# Derive total request counts from RPS × duration (ab uses -n for total requests)
-WARMUP_REQUESTS=$(( RPS * WARMUP_SECONDS ))
-MEASURE_REQUESTS=$(( RPS * MEASURE_SECONDS ))
-
 # ab requires a trailing slash on the path
 BENCH_URL="${APP_URL}/"
 
-if [ "${WARMUP_SECONDS}" -gt 0 ] && [ "${WARMUP_REQUESTS}" -gt 0 ]; then
-    echo "=== ab: warmup — ${WARMUP_REQUESTS} requests at ${RPS} req/s ==="
-    ab -n "${WARMUP_REQUESTS}" -c "${CONCURRENCY}" -q "${BENCH_URL}" || true
+# Use -t (timelimit) so ab runs for the full duration instead of finishing
+# instantly.  Without -t, ab fires all -n requests as fast as possible and
+# completes in seconds, leaving Joular Core no time to collect power samples.
+# The implicit -n 50000 ceiling is high enough for typical RPS × duration.
+
+if [ "${WARMUP_SECONDS}" -gt 0 ]; then
+    echo "=== ab: warmup — ${WARMUP_SECONDS}s at concurrency ${CONCURRENCY} ==="
+    ab -t "${WARMUP_SECONDS}" -c "${CONCURRENCY}" -q "${BENCH_URL}" || true
 fi
 
-if [ "${MEASURE_SECONDS}" -gt 0 ] && [ "${MEASURE_REQUESTS}" -gt 0 ]; then
-    echo "=== ab: measurement — ${MEASURE_REQUESTS} requests at ${RPS} req/s ==="
-    ab -n "${MEASURE_REQUESTS}" -c "${CONCURRENCY}" "${BENCH_URL}"
+if [ "${MEASURE_SECONDS}" -gt 0 ]; then
+    echo "=== ab: measurement — ${MEASURE_SECONDS}s at concurrency ${CONCURRENCY} ==="
+    ab -t "${MEASURE_SECONDS}" -c "${CONCURRENCY}" "${BENCH_URL}"
 fi

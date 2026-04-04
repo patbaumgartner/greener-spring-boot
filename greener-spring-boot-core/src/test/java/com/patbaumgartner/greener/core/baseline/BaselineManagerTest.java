@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -53,6 +54,61 @@ class BaselineManagerTest {
 		manager.saveBaseline(report, nested);
 
 		assertThat(nested).exists();
+	}
+
+	// ---- discoverLatestReport ----
+
+	@Test
+	void discoverLatestReport_findsReportInSubdirectory(@TempDir Path tmp) throws IOException {
+		Path toolDir = tmp.resolve("oha");
+		Files.createDirectories(toolDir);
+		EnergyReport report = EnergyReport.of("r1", Instant.now(), 60L, List.of());
+		manager.saveBaseline(report, toolDir.resolve("latest-energy-report.json"));
+
+		Optional<Path> result = manager.discoverLatestReport(tmp);
+
+		assertThat(result).isPresent();
+		assertThat(result.get().getFileName().toString()).isEqualTo("latest-energy-report.json");
+		assertThat(result.get().getParent().getFileName().toString()).isEqualTo("oha");
+	}
+
+	@Test
+	void discoverLatestReport_returnsEmptyForNullDir() throws IOException {
+		assertThat(manager.discoverLatestReport(null)).isEmpty();
+	}
+
+	@Test
+	void discoverLatestReport_returnsEmptyForNonExistentDir(@TempDir Path tmp) throws IOException {
+		assertThat(manager.discoverLatestReport(tmp.resolve("nonexistent"))).isEmpty();
+	}
+
+	@Test
+	void discoverLatestReport_returnsEmptyWhenNoReportsExist(@TempDir Path tmp) throws IOException {
+		Files.createDirectories(tmp.resolve("oha"));
+		assertThat(manager.discoverLatestReport(tmp)).isEmpty();
+	}
+
+	@Test
+	void discoverLatestReport_returnsMostRecentWhenMultipleExist(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("r1", Instant.now(), 60L, List.of());
+
+		Path olderDir = tmp.resolve("wrk");
+		Files.createDirectories(olderDir);
+		manager.saveBaseline(report, olderDir.resolve("latest-energy-report.json"));
+
+		// Ensure a time gap so the file modification times differ
+		Path newerDir = tmp.resolve("oha");
+		Files.createDirectories(newerDir);
+		Path newerReport = newerDir.resolve("latest-energy-report.json");
+		manager.saveBaseline(report, newerReport);
+		// Touch the newer file to ensure it has a later modification time
+		Files.setLastModifiedTime(newerReport,
+				java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 1000));
+
+		Optional<Path> result = manager.discoverLatestReport(tmp);
+
+		assertThat(result).isPresent();
+		assertThat(result.get().getParent().getFileName().toString()).isEqualTo("oha");
 	}
 
 }

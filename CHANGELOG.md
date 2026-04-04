@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `autoUpdateBaseline` parameter (Maven + Gradle) to auto-promote measurement results
+  to the baseline file after a successful run, eliminating separate `update-baseline` calls
+- `timestampReports` parameter (Maven + Gradle) to append a `yyyyMMdd-HHmmss` timestamp
+  to the report output directory and create a `latest` symlink
+- `commitSha` and `branch` parameters (Maven + Gradle) to record VCS metadata in the
+  baseline file when auto-updating
+- `BaselineManager.discoverLatestReport(Path)` to scan report subdirectories for the
+  most recently modified `latest-energy-report.json`
+- `PluginDefaults.resolveToolName(File, String)` to derive a workload tool name from
+  the configured training script or command
+- `PluginDefaults.buildTimestampedDir(Path)` and `createLatestLink(Path, String)` for
+  timestamped report directory management
+- Tests for `discoverLatestReport`, `resolveToolName`, `buildTimestampedDir`, and
+  `createLatestLink`
 - Negative tests for `ExternalToolOutputParser` covering malformed and partial output
 - `TrainingConfigTest` with tests for defaults, fluent setters, and edge cases
 - Scaphandre Windows installer link in README hardware requirements
@@ -17,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `discoverLatestReport` logic extracted from `UpdateBaselineMojo` and `UpdateBaselineTask`
+  into shared `BaselineManager`
+- `resolveToolName` logic extracted from `MeasureEnergyMojo` and `MeasureEnergyTask`
+  into shared `PluginDefaults`
+- Simulation scripts simplified to use `autoUpdateBaseline=true` instead of separate
+  `update-baseline` calls
 - Expanded "Supported CI systems" table in README with GitLab CI and Jenkins rows
 - `baseUrl` and `requestsPerSecond` parameter descriptions clarified as env vars for external scripts
 
@@ -26,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `trainingPaths` parameter from Maven and Gradle plugins
 - `paths` and `concurrency` fields from `TrainingConfig`
 - `WorkloadStats.builtIn()` factory method
+- Duplicate `discoverLatestReport()` methods in `UpdateBaselineMojo` and `UpdateBaselineTask`
+- Duplicate `resolveToolName()` body in `MeasureEnergyMojo` and `MeasureEnergyTask`
 
 ### Fixed
 

@@ -7,6 +7,7 @@ import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -75,9 +76,47 @@ public class BaselineManager {
 		}
 
 		EnergyBaseline baseline = objectMapper.readValue(baselineFile.toFile(), EnergyBaseline.class);
-		LOG.log(Level.INFO, () -> "Loaded energy baseline from: " + baselineFile + " (created: " + baseline.createdAt()
-				+ ", branch: " + baseline.branch() + ")");
+		LOG.log(Level.INFO, () -> {
+			StringBuilder sb = new StringBuilder("Loaded energy baseline from: ").append(baselineFile)
+				.append(" (created: ")
+				.append(baseline.createdAt());
+			if (baseline.branch() != null) {
+				sb.append(", branch: ").append(baseline.branch());
+			}
+			sb.append(")");
+			return sb.toString();
+		});
 		return Optional.of(baseline);
+	}
+
+	/**
+	 * Scans immediate subdirectories of the given directory for
+	 * {@code latest-energy-report.json} and returns the most recently modified match.
+	 * @param reportDir root report output directory
+	 * @return the path to the discovered report, or empty if none found
+	 */
+	public Optional<Path> discoverLatestReport(Path reportDir) throws IOException {
+		if (reportDir == null || !Files.isDirectory(reportDir)) {
+			return Optional.empty();
+		}
+		Path best = null;
+		long bestModified = Long.MIN_VALUE;
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(reportDir)) {
+			for (Path child : stream) {
+				if (!Files.isDirectory(child)) {
+					continue;
+				}
+				Path candidate = child.resolve("latest-energy-report.json");
+				if (Files.exists(candidate)) {
+					long modified = Files.getLastModifiedTime(candidate).toMillis();
+					if (modified > bestModified) {
+						best = candidate;
+						bestModified = modified;
+					}
+				}
+			}
+		}
+		return Optional.ofNullable(best);
 	}
 
 }

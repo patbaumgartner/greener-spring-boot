@@ -3,6 +3,7 @@ package com.patbaumgartner.greener.gradle;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 
 import javax.inject.Inject;
@@ -15,32 +16,41 @@ import javax.inject.Inject;
  * <pre>{@code
  * greener {
  *     // Optional - auto-detected from build/libs/ when omitted
- *     springBootJar = file("build/libs/myapp.jar")
+ *     springBootJar.set(file("build/libs/myapp.jar"))
+ *     jvmArgs.set(listOf("-Xmx512m"))
+ *     appArgs.set(listOf("--server.port=8080"))
  *
  *     // Joular Core
- *     joularCoreBinaryPath = file("/usr/local/bin/joularcore")  // optional, auto-downloaded if absent
- *     joularCoreVersion    = "0.0.1-alpha-11"
- *     joularCoreComponent  = "cpu"   // "cpu" | "gpu" | "all"
+ *     joularCoreBinaryPath.set(file("/usr/local/bin/joularcore"))  // optional, auto-downloaded if absent
+ *     joularCoreVersion.set("0.0.1-alpha-11")
+ *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
  *     // VM mode (virtualised environments - no direct RAPL access)
- *     vmMode         = true
- *     vmPowerFilePath = file("/tmp/vm-power.txt")  // host writes watts here every second
+ *     vmMode.set(true)
+ *     vmPowerFilePath.set(file("/tmp/vm-power.txt"))  // host writes watts here every second
  *
  *     // Training workload
- *     baseUrl                    = "http://localhost:8080"
- *     requestsPerSecond          = 5
- *     externalTrainingScriptFile = file("examples/workloads/oha/run.sh")  // required
- *     externalTrainingCommand    = "k6 run load-test.js"                  // alternative to script
- *     warmupDurationSeconds      = 30
- *     measureDurationSeconds     = 60
- *     startupTimeoutSeconds      = 120
- *     healthCheckPath            = "/actuator/health/readiness"
+ *     baseUrl.set("http://localhost:8080")
+ *     requestsPerSecond.set(5)
+ *     externalTrainingScriptFile.set(file("examples/workloads/oha/run.sh"))  // optional
+ *     externalTrainingCommand.set("k6 run load-test.js")                  // alternative to script
+ *     warmupDurationSeconds.set(30)
+ *     measureDurationSeconds.set(60)
+ *     startupTimeoutSeconds.set(120)
+ *     healthCheckPath.set("/actuator/health/readiness")
  *
  *     // Baseline & reporting
- *     baselineFile     = file("energy-baseline.json")
- *     threshold        = 10.0   // % regression allowed
- *     failOnRegression = false
- *     reportOutputDir  = file("build/greener-reports")
+ *     baselineFile.set(file("energy-baseline.json"))
+ *     threshold.set(10.0)   // % regression allowed
+ *     failOnRegression.set(false)
+ *     reportOutputDir.set(file("build/greener-reports"))
+ *     latestReportFile.set(file("build/greener-reports/oha/latest-energy-report.json"))
+ *
+ *     // Auto-update & timestamped reports
+ *     autoUpdateBaseline.set(false)  // auto-promote measurement to baseline
+ *     timestampReports.set(false)    // append timestamp, create latest symlink
+ *     commitSha.set("...")           // git SHA recorded in baseline (auto-detected from GITHUB_SHA)
+ *     branch.set("...")              // branch recorded in baseline (auto-detected from GITHUB_REF_NAME)
  * }
  * }</pre>
  */
@@ -62,6 +72,8 @@ public abstract class GreenerExtension {
         getHealthCheckPath().convention("/actuator/health/readiness");
         getThreshold().convention(10.0);
         getFailOnRegression().convention(false);
+        getAutoUpdateBaseline().convention(false);
+        getTimestampReports().convention(false);
     }
 
     /**
@@ -71,6 +83,20 @@ public abstract class GreenerExtension {
      * @return the Spring Boot jar property
      */
     public abstract RegularFileProperty getSpringBootJar();
+
+    /**
+     * Additional JVM arguments passed when starting the Spring Boot process.
+     *
+     * @return the JVM arguments property
+     */
+    public abstract ListProperty<String> getJvmArgs();
+
+    /**
+     * Additional application arguments passed to the Spring Boot process.
+     *
+     * @return the application arguments property
+     */
+    public abstract ListProperty<String> getAppArgs();
 
     /**
      * Full path to the Joular Core binary (optional; auto-downloaded when absent).
@@ -211,4 +237,44 @@ public abstract class GreenerExtension {
      * @return the report output directory property
      */
     public abstract DirectoryProperty getReportOutputDir();
+
+    /**
+     * Explicit path to a report JSON file to promote during
+     * {@code updateEnergyBaseline}. When unset, the latest report is discovered
+     * automatically under {@link #getReportOutputDir()}.
+     *
+     * @return the latest report file property
+     */
+    public abstract RegularFileProperty getLatestReportFile();
+
+    /**
+     * When {@code true}, the measurement result is automatically promoted to
+     * the baseline after a successful run. Eliminates the need to call
+     * {@code updateEnergyBaseline} separately.
+     * 
+     * @return the auto-update baseline property
+     */
+    public abstract Property<Boolean> getAutoUpdateBaseline();
+
+    /**
+     * Git commit SHA to record in the baseline when auto-updating.
+     * 
+     * @return the commit SHA property
+     */
+    public abstract Property<String> getCommitSha();
+
+    /**
+     * Branch name to record in the baseline when auto-updating.
+     * 
+     * @return the branch property
+     */
+    public abstract Property<String> getBranch();
+
+    /**
+     * When {@code true}, the report output directory gets a timestamp suffix
+     * and a {@code latest} symlink is created pointing to the most recent run.
+     * 
+     * @return the timestamp reports property
+     */
+    public abstract Property<Boolean> getTimestampReports();
 }

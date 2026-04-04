@@ -12,6 +12,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
 
 /**
@@ -41,21 +42,36 @@ public class UpdateBaselineMojo extends AbstractMojo {
 	private File baselineFile;
 
 	/**
-	 * Path to the latest energy report JSON produced by {@code greener:measure}. Defaults
-	 * to {@code ${project.build.directory}/greener-reports/work/}.
+	 * Path to the latest energy report JSON produced by {@code greener:measure}.
 	 *
 	 * <p>
 	 * When set, the report at this path is loaded and saved as the new baseline. When not
-	 * set, the mojo reads the most recent report from the default work directory.
+	 * set, the mojo tries to auto-discover a report from {@link #reportOutputDir}.
 	 */
 	@Parameter(property = "greener.latestReportFile")
 	private File latestReportFile;
 
-	/** Git commit SHA recorded in the baseline (e.g. from {@code GITHUB_SHA}). */
+	/**
+	 * Report output directory where {@code greener:measure} writes its results. Used to
+	 * auto-discover {@code latest-energy-report.json} in tool-specific subdirectories
+	 * when {@link #latestReportFile} is not set.
+	 */
+	@Parameter(property = "greener.reportOutputDir")
+	private File reportOutputDir;
+
+	/**
+	 * Git commit SHA recorded in the baseline (e.g. from {@code GITHUB_SHA}). If the
+	 * environment variable is not present (e.g., during local execution), this defaults
+	 * to null or empty string.
+	 */
 	@Parameter(property = "greener.commitSha", defaultValue = "${env.GITHUB_SHA}")
 	private String commitSha;
 
-	/** Branch name recorded in the baseline (e.g. from {@code GITHUB_REF_NAME}). */
+	/**
+	 * Branch name recorded in the baseline (e.g. from {@code GITHUB_REF_NAME}). If the
+	 * environment variable is not present (e.g., during local execution), this defaults
+	 * to null or empty string.
+	 */
 	@Parameter(property = "greener.branch", defaultValue = "${env.GITHUB_REF_NAME}")
 	private String branch;
 
@@ -70,43 +86,53 @@ public class UpdateBaselineMojo extends AbstractMojo {
 			return;
 		}
 
+		if (latestReportFile != null && !latestReportFile.exists()) {
+			throw new MojoExecutionException("Configured latestReportFile does not exist: " + latestReportFile);
+		}
+
 		BaselineManager manager = new BaselineManager();
 
 		try {
-			EnergyReport report;
-
-			if (latestReportFile != null && latestReportFile.exists()) {
-				// Load the report produced by the most recent greener:measure run
-				Optional<EnergyBaseline> latest = manager.loadBaseline(latestReportFile.toPath());
-				if (latest.isEmpty()) {
-					getLog().warn("No energy report found at: " + latestReportFile);
-					return;
-				}
-				report = latest.get().report();
-			}
-			else {
-				// Fall back to re-saving an existing baseline with updated metadata
-				Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFile.toPath());
-				if (existing.isEmpty()) {
-					getLog().warn("No energy report to promote to baseline. "
-							+ "Run 'mvn greener:measure' first, or set -Dgreener.latestReportFile.");
-					return;
-				}
-				report = existing.get().report();
-			}
-			manager.saveBaseline(report, PluginDefaults.normalise(commitSha), PluginDefaults.normalise(branch),
-					baselineFile.toPath());
-
-			for (String line : PluginDefaults.formatBaselineUpdateSummary(baselineFile.toPath(),
-					PluginDefaults.normalise(commitSha), PluginDefaults.normalise(branch),
-					report.totalEnergyJoules())) {
-				getLog().info(line);
+			EnergyReport report = resolveLatestReport(manager);
+			if (report == null) {
+				return;
 			}
 
+			SharedMojoUtils.saveAndLogBaseline(manager, report, commitSha, branch, baselineFile, getLog());
 		}
 		catch (IOException e) {
 			throw new MojoExecutionException("Failed to update energy baseline: " + e.getMessage(), e);
 		}
+	}
+
+	private EnergyReport resolveLatestReport(BaselineManager manager) throws IOException {
+		if (latestReportFile != null) {
+			Optional<EnergyBaseline> latest = manager.loadBaseline(latestReportFile.toPath());
+			if (latest.isEmpty()) {
+				getLog().warn("No energy report found at: " + latestReportFile);
+				return null;
+			}
+			return latest.get().report();
+		}
+
+		Path reportDirPath = reportOutputDir != null ? reportOutputDir.toPath() : null;
+		Optional<Path> discovered = manager.discoverLatestReport(reportDirPath);
+		if (discovered.isPresent()) {
+			Optional<EnergyBaseline> latest = manager.loadBaseline(discovered.get());
+			if (latest.isEmpty()) {
+				getLog().warn("Could not read energy report from: " + discovered.get());
+				return null;
+			}
+			return latest.get().report();
+		}
+
+		Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFile.toPath());
+		if (existing.isEmpty()) {
+			getLog().warn("No energy report to promote to baseline. "
+					+ "Run 'mvn greener:measure' first, or set -Dgreener.latestReportFile.");
+			return null;
+		}
+		return existing.get().report();
 	}
 
 }
