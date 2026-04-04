@@ -279,11 +279,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Starting Spring Boot application: " + springBootJar);
 
 		// Enable health probes so /actuator/health/readiness is available
-		List<String> effectiveAppArgs = new ArrayList<>();
-		if (appArgs != null) {
-			effectiveAppArgs.addAll(appArgs);
-		}
-		effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(appArgs);
 
 		Process appProcess = appRunner.start(springBootJar.toPath(), null, null, workingDir, jvmArgs, effectiveAppArgs);
 
@@ -417,31 +413,25 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 	}
 
-	/**
-	 * Auto-detects the Spring Boot fat-jar in the build output directory. Looks for a
-	 * single executable jar, excluding sources and javadoc jars.
-	 */
 	private File autoDetectSpringBootJar() throws MojoExecutionException {
 		if (buildDirectory == null || !buildDirectory.isDirectory()) {
 			throw new MojoExecutionException("springBootJar not configured and build directory not found: "
 					+ buildDirectory + ". Set <springBootJar> explicitly.");
 		}
 
-		File[] jars = buildDirectory.listFiles((dir, name) -> name.endsWith(".jar") && !name.endsWith("-sources.jar")
-				&& !name.endsWith("-javadoc.jar") && !name.endsWith("-tests.jar") && !name.contains(".original"));
-
-		if (jars == null || jars.length == 0) {
-			throw new MojoExecutionException("No jar found in " + buildDirectory
-					+ ". Run 'mvn package' first or set <springBootJar> explicitly.");
+		try {
+			Optional<File> jar = PluginDefaults.autoDetectJar(buildDirectory.toPath());
+			if (jar.isEmpty()) {
+				throw new MojoExecutionException("springBootJar not configured and build directory not found: "
+						+ buildDirectory + ". Set <springBootJar> explicitly.");
+			}
+			getLog().info("Auto-detected Spring Boot jar: " + jar.get());
+			return jar.get();
 		}
-		if (jars.length > 1) {
-			throw new MojoExecutionException("Multiple jars found in " + buildDirectory + ": "
-					+ Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
-					+ ". Set <springBootJar> explicitly to select one.");
+		catch (IllegalStateException e) {
+			throw new MojoExecutionException(
+					e.getMessage() + ". Run 'mvn package' first or set <springBootJar> explicitly.");
 		}
-
-		getLog().info("Auto-detected Spring Boot jar: " + jars[0]);
-		return jars[0];
 	}
 
 }

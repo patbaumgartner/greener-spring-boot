@@ -17,6 +17,73 @@
 
 ---
 
+## Quickstart (2 minutes)
+
+### Maven
+
+```xml
+<!-- Add to your Spring Boot project's pom.xml -->
+<plugin>
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>greener-spring-boot-maven-plugin</artifactId>
+  <version>0.1.0</version>
+</plugin>
+```
+
+```bash
+mvn package greener:measure
+```
+
+### Gradle
+
+```kotlin
+// Add to build.gradle.kts
+plugins {
+    id("com.patbaumgartner.greener-spring-boot") version "0.1.0"
+}
+```
+
+```bash
+./gradlew bootJar measureEnergy
+```
+
+That's it — you'll get an HTML energy report in `target/greener-reports/` (Maven) or `build/greener-reports/` (Gradle).
+
+---
+
+## Who is this for?
+
+| Role | Value |
+|---|---|
+| **Developer** | Find energy regressions before merge — catch inefficient code in PRs |
+| **Platform engineer** | Add an energy policy gate to CI — automated, no manual testing |
+| **Engineering manager** | Reduce compute cost drift over time — extra CPU watts = recurring cloud spend |
+
+> **ROI example**: a 12% energy regression on a service handling 10k req/s translates to ~€1,200/year in additional cloud compute costs per instance.
+
+<details>
+<summary><strong>More ROI scenarios</strong></summary>
+
+| Scenario | Regression | Scale | Estimated annual cost impact |
+|---|---|---|---|
+| Internal API (5 instances) | +8% CPU | 2k req/s | ~€480/year |
+| Customer-facing service (20 instances) | +15% CPU | 10k req/s | ~€9,600/year |
+| Batch processing pipeline | +25% CPU | 4h nightly jobs | ~€2,100/year |
+| Microservice fleet (50 services) | +5% avg | mixed | ~€15,000/year |
+
+**How to estimate your own impact**:
+1. Run `greener:measure` to establish a baseline energy value (in joules).
+2. Introduce a change and re-measure — note the delta percentage.
+3. Multiply the delta by your per-instance cloud compute cost × number of instances.
+
+Beyond cost, each watt saved reduces your carbon footprint.  At a typical European
+grid intensity of ~300 g CO₂/kWh, a 10 W reduction across 20 instances saves
+~525 kg CO₂/year.
+
+</details>
+
+---
+
 ## How it works
 
 ```mermaid
@@ -239,6 +306,69 @@ The `ci-cpu-energy-estimator.sh` script works on any Linux with `/proc/stat`.
 | Linux | Intel/AMD CPU with RAPL; `powercap` files readable (`sudo` or ACL) |
 | Windows | [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) installed |
 | macOS | `powermetrics` (pre-installed); run with `sudo` or configure `sudoers` |
+
+---
+
+## Troubleshooting
+
+### Permission denied reading RAPL counters
+
+On Linux, RAPL energy counters require read access to `/sys/class/powercap/intel-rapl/...`.
+As a non-root user, grant access:
+
+```bash
+sudo chmod -R a+r /sys/class/powercap/intel-rapl/
+```
+
+Or use a `udev` rule for persistence across reboots.  On VMs or CI, RAPL is
+unavailable — the plugin falls back to CPU-time × TDP estimation automatically.
+
+### Application does not start within timeout
+
+Increase `startupTimeoutSeconds` (default 120 s):
+
+```xml
+<startupTimeoutSeconds>180</startupTimeoutSeconds>
+```
+
+Check that the health endpoint is reachable at `http://localhost:<port>/actuator/health/readiness`.
+The plugin automatically enables Spring Boot health probes via
+`--management.endpoint.health.probes.enabled=true`.
+
+### "No jar found" error
+
+The plugin auto-detects the Spring Boot fat-jar from `target/` (Maven) or
+`build/libs/` (Gradle).  Ensure the jar is built first:
+
+```bash
+mvn package         # Maven
+./gradlew bootJar   # Gradle
+```
+
+If multiple jars exist, set the jar path explicitly:
+
+```xml
+<springBootJar>${project.build.directory}/myapp.jar</springBootJar>
+```
+
+### Energy results vary between runs
+
+Some variance (±5%) is normal due to CPU background activity and thermal
+throttling.  For more stable results:
+
+- Use `vmMode=true` with the CPU-time × TDP estimator for relative comparisons.
+- Increase `measureDurationSeconds` (longer windows smooth out fluctuations).
+- Set a reasonable `threshold` (e.g. 10%) to avoid false-positive regressions.
+- Close unrelated CPU-intensive processes during measurement.
+
+### Joular Core download fails
+
+The plugin auto-downloads Joular Core from [GitHub Releases](https://github.com/joular/joularcore/releases)
+into `~/.greener/cache/joularcore/`.  If the download fails:
+
+- Check internet connectivity and proxy/firewall settings.
+- Download manually and set `joularCoreBinaryPath` to the local path.
+- Verify the binary is executable: `chmod +x joularcore`.
 
 ---
 

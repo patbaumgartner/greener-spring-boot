@@ -19,6 +19,7 @@ import com.patbaumgartner.greener.core.runner.JoularCoreRunner;
 import com.patbaumgartner.greener.core.runner.TrainingRunner;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
@@ -82,7 +83,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     /**
      * Joular Core release version to download when
      * {@link #getJoularCoreBinaryPath()} is not set. See
-     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core
+     * releases</a>
      * for available versions.
      * 
      * @return the Joular Core version property
@@ -247,7 +249,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      */
     @OutputDirectory
     @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getReportOutputDir();
+    public abstract DirectoryProperty getReportOutputDir();
 
     /**
      * Runs the energy measurement workflow.
@@ -259,8 +261,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         File springBootJarFile;
         if (getSpringBootJar().isPresent()) {
             springBootJarFile = getSpringBootJar().get().getAsFile();
-        }
-        else {
+        } else {
             springBootJarFile = autoDetectSpringBootJar();
         }
         if (!springBootJarFile.exists()) {
@@ -283,8 +284,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         getLogger().lifecycle("Starting Spring Boot application: " + springBootJarFile);
 
         // Enable health probes so /actuator/health/readiness is available
-        List<String> effectiveAppArgs = new ArrayList<>();
-        effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+        List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(null);
 
         Process appProcess = appRunner.start(
                 springBootJarFile.toPath(),
@@ -348,6 +348,11 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, powerSource,
                 reportDir);
         getLogger().lifecycle("HTML report: " + htmlReport);
+
+        // Save latest report so that updateEnergyBaseline can promote it
+        Path latestReportPath = reportDir.resolve("latest-energy-report.json");
+        baselineManager.saveBaseline(report, null, null, latestReportPath);
+        getLogger().lifecycle("Latest energy report saved to: " + latestReportPath);
 
         if (getFailOnRegression().get() && comparison.isFailed()) {
             throw new GradleException(String.format(
@@ -423,31 +428,21 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      * single executable jar, excluding sources, javadoc, and test jars.
      */
     private File autoDetectSpringBootJar() {
-        File libsDir = getProject().getLayout().getBuildDirectory().getAsFile().get().toPath()
-                .resolve("libs").toFile();
+        Path libsDir = getProject().getLayout().getBuildDirectory().getAsFile().get().toPath()
+                .resolve("libs");
 
-        if (!libsDir.isDirectory()) {
-            throw new GradleException("springBootJar not configured and build/libs/ not found: "
-                    + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
+        try {
+            Optional<File> jar = PluginDefaults.autoDetectJar(libsDir, "-plain.jar");
+            if (jar.isEmpty()) {
+                throw new GradleException("springBootJar not configured and build/libs/ not found: "
+                        + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
+            }
+            getLogger().lifecycle("Auto-detected Spring Boot jar: " + jar.get());
+            return jar.get();
+        } catch (IllegalStateException e) {
+            throw new GradleException(
+                    e.getMessage() + ". Run 'bootJar' first or set springBootJar explicitly.");
         }
-
-        File[] jars = libsDir.listFiles((dir, name) -> name.endsWith(".jar")
-                && !name.endsWith("-sources.jar") && !name.endsWith("-javadoc.jar")
-                && !name.endsWith("-tests.jar") && !name.endsWith("-plain.jar")
-                && !name.contains(".original"));
-
-        if (jars == null || jars.length == 0) {
-            throw new GradleException("No jar found in " + libsDir
-                    + ". Run 'bootJar' first or set springBootJar explicitly.");
-        }
-        if (jars.length > 1) {
-            throw new GradleException("Multiple jars found in " + libsDir + ": "
-                    + Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
-                    + ". Set springBootJar explicitly to select one.");
-        }
-
-        getLogger().lifecycle("Auto-detected Spring Boot jar: " + jars[0]);
-        return jars[0];
     }
 
 }

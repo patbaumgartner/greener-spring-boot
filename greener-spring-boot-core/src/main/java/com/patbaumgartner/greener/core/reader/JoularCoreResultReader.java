@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -72,7 +73,7 @@ public class JoularCoreResultReader {
 	public EnergyReport readResults(Path csvFile, String runId, long durationSeconds, String appIdentifier)
 			throws IOException {
 		if (!Files.exists(csvFile)) {
-			LOG.warning("Joular Core CSV file not found: " + csvFile);
+			LOG.log(Level.WARNING, () -> "Joular Core CSV file not found: " + csvFile);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
@@ -80,22 +81,22 @@ public class JoularCoreResultReader {
 		List<PowerSample> samples = new ArrayList<>();
 
 		for (String line : lines) {
-			line = line.strip();
-			if (line.isEmpty() || isHeaderLine(line)) {
+			String trimmedLine = line.strip();
+			if (trimmedLine.isEmpty() || isHeaderLine(trimmedLine)) {
 				continue;
 			}
-			PowerSample sample = parseLine(line);
+			PowerSample sample = parseLine(trimmedLine);
 			if (sample != null) {
 				samples.add(sample);
 			}
 		}
 
 		if (samples.isEmpty()) {
-			LOG.warning("No valid samples found in Joular Core CSV: " + csvFile);
+			LOG.log(Level.WARNING, () -> "No valid samples found in Joular Core CSV: " + csvFile);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
-		LOG.info("Read " + samples.size() + " power samples from Joular Core CSV: " + csvFile);
+		LOG.log(Level.INFO, () -> "Read " + samples.size() + " power samples from Joular Core CSV: " + csvFile);
 
 		// Energy = Σ power × Δt. Joular Core emits one row per second, so Δt = 1 s.
 		double totalCpuEnergyJ = samples.stream().mapToDouble(s -> s.cpuPower).sum();
@@ -103,8 +104,9 @@ public class JoularCoreResultReader {
 		double avgCpuPowerW = samples.stream().mapToDouble(s -> s.cpuPower).average().orElse(0);
 		double avgAppPowerW = samples.stream().mapToDouble(s -> s.pidOrAppPower).average().orElse(0);
 
-		LOG.info(String.format("Energy summary - total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)",
-				totalCpuEnergyJ, avgCpuPowerW, totalAppEnergyJ, avgAppPowerW));
+		LOG.log(Level.INFO,
+				() -> String.format("Energy summary - total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)",
+						totalCpuEnergyJ, avgCpuPowerW, totalAppEnergyJ, avgAppPowerW));
 
 		List<EnergyMeasurement> measurements = new ArrayList<>();
 
@@ -162,7 +164,7 @@ public class JoularCoreResultReader {
 					return null;
 				}
 			}
-			LOG.fine("Skipping short CSV line: " + line);
+			LOG.log(Level.FINE, () -> "Skipping short CSV line: " + line);
 			return null;
 		}
 		try {
@@ -173,7 +175,7 @@ public class JoularCoreResultReader {
 			return new PowerSample(cpuPower, gpuPower, totalPower, pidOrAppPower);
 		}
 		catch (NumberFormatException e) {
-			LOG.fine("Skipping malformed CSV line: " + line);
+			LOG.log(Level.FINE, () -> "Skipping malformed CSV line: " + line);
 			return null;
 		}
 	}

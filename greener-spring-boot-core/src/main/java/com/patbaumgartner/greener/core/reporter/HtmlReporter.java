@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -31,6 +32,28 @@ public class HtmlReporter {
 
 	private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
 		.withZone(ZoneId.systemDefault());
+
+	private static final String FMT_ENERGY_JOULES = "%.2f J";
+
+	private static final String FMT_DECIMAL_2 = "%.2f";
+
+	private static final String TABLE_OPEN = "    <table><thead><tr>";
+
+	private static final String THEAD_CLOSE = "</tr></thead><tbody>\n";
+
+	private static final String TR_OPEN = "      <tr>";
+
+	private static final String TD_CODE_OPEN = "<td><code>";
+
+	private static final String TD_CODE_CLOSE = "</code></td>";
+
+	private static final String TD_OPEN = "<td>";
+
+	private static final String TD_CLOSE = "</td>";
+
+	private static final String TR_CLOSE = "</tr>\n";
+
+	private static final String DIV_CLOSE = "  </div>\n";
 
 	private final int topN;
 
@@ -59,7 +82,7 @@ public class HtmlReporter {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-energy-report.html");
 		Files.writeString(reportFile, buildHtml(current, comparison, workloadStats, powerSource));
-		LOG.info("HTML report written to: " + reportFile);
+		LOG.log(Level.INFO, () -> "HTML report written to: " + reportFile);
 		return reportFile;
 	}
 
@@ -77,7 +100,7 @@ public class HtmlReporter {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-aggregated-report.html");
 		Files.writeString(reportFile, buildAggregatedHtml(runs, powerSource));
-		LOG.info("Aggregated HTML report written to: " + reportFile);
+		LOG.log(Level.INFO, () -> "Aggregated HTML report written to: " + reportFile);
 		return reportFile;
 	}
 
@@ -102,7 +125,7 @@ public class HtmlReporter {
 		sb.append(metric("Run", current.runId()));
 		sb.append(metric("Measured at", FORMATTER.format(current.timestamp())));
 		sb.append(metric("Duration", current.durationSeconds() + " s"));
-		sb.append(metric("Total Energy", String.format("%.2f J", current.totalEnergyJoules())));
+		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, current.totalEnergyJoules())));
 		sb.append("    </div>\n  </div>\n");
 
 		// Use-case energy card
@@ -128,24 +151,24 @@ public class HtmlReporter {
 		if (!current.measurements().isEmpty()) {
 			sb.append("  <div class=\"card\">\n    <h2>Energy Breakdown</h2>\n");
 			boolean hasComparison = comparison != null && comparison.overallStatus() != ComparisonStatus.NO_BASELINE;
-			sb.append("    <table><thead><tr>").append("<th>Component</th><th>Energy (J)</th><th>Share</th>");
+			sb.append(TABLE_OPEN).append("<th>Component</th><th>Energy (J)</th><th>Share</th>");
 			if (hasComparison)
 				sb.append("<th>Change</th>");
-			sb.append("</tr></thead><tbody>\n");
+			sb.append(THEAD_CLOSE);
 
 			double total = current.totalEnergyJoules();
 			for (EnergyMeasurement m : current.topMethods(topN)) {
 				double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
-				sb.append("      <tr>")
-					.append("<td><code>")
+				sb.append(TR_OPEN)
+					.append(TD_CODE_OPEN)
 					.append(escHtml(m.methodName()))
-					.append("</code></td>")
-					.append("<td>")
-					.append(String.format("%.2f", m.energyJoules()))
-					.append("</td>")
-					.append("<td>")
+					.append(TD_CODE_CLOSE)
+					.append(TD_OPEN)
+					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+					.append(TD_CLOSE)
+					.append(TD_OPEN)
 					.append(String.format("%.1f%%", pct))
-					.append("</td>");
+					.append(TD_CLOSE);
 				if (hasComparison) {
 					comparison.methodComparisons()
 						.stream()
@@ -161,7 +184,7 @@ public class HtmlReporter {
 								.append("</span></td>");
 						}, () -> sb.append("<td>—</td>"));
 				}
-				sb.append("</tr>\n");
+				sb.append(TR_CLOSE);
 			}
 			sb.append("    </tbody></table>\n  </div>\n");
 		}
@@ -195,7 +218,7 @@ public class HtmlReporter {
 
 		sb.append("  <div class=\"card\">\n    <h2>Aggregated Summary</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Tool Runs", String.valueOf(runs.size())));
-		sb.append(metric("Total Energy", String.format("%.2f J", totalEnergy)));
+		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, totalEnergy)));
 		if (totalRequests > 0) {
 			sb.append(metric("Total Requests", String.format("%,d", totalRequests)));
 		}
@@ -208,38 +231,38 @@ public class HtmlReporter {
 
 		// Tool comparison table
 		sb.append("  <div class=\"card\">\n    <h2>Per-Tool Results</h2>\n");
-		sb.append("    <table><thead><tr>");
+		sb.append(TABLE_OPEN);
 		sb.append("<th>Tool</th><th>Run ID</th><th>Duration (s)</th>");
 		sb.append("<th>Energy (J)</th><th>Requests</th><th>Failed</th>");
 		sb.append("<th>Throughput</th><th>Energy/Req (mJ)</th><th>Status</th>");
-		sb.append("</tr></thead><tbody>\n");
+		sb.append(THEAD_CLOSE);
 
 		for (AggregatedRunEntry run : runs) {
 			EnergyReport report = run.report();
 			WorkloadStats stats = run.workloadStats();
 			ComparisonResult comp = run.comparison();
 
-			sb.append("      <tr>");
-			sb.append("<td><code>").append(escHtml(run.tool())).append("</code></td>");
-			sb.append("<td>").append(escHtml(report.runId())).append("</td>");
-			sb.append("<td>").append(report.durationSeconds()).append("</td>");
-			sb.append("<td>").append(String.format("%.2f", report.totalEnergyJoules())).append("</td>");
+			sb.append(TR_OPEN);
+			sb.append(TD_CODE_OPEN).append(escHtml(run.tool())).append(TD_CODE_CLOSE);
+			sb.append(TD_OPEN).append(escHtml(report.runId())).append(TD_CLOSE);
+			sb.append(TD_OPEN).append(report.durationSeconds()).append(TD_CLOSE);
+			sb.append(TD_OPEN).append(String.format(FMT_DECIMAL_2, report.totalEnergyJoules())).append(TD_CLOSE);
 
 			if (stats != null && stats.hasRequestCounts()) {
-				sb.append("<td>").append(String.format("%,d", stats.totalRequests())).append("</td>");
-				sb.append("<td>").append(String.format("%,d", Math.max(0, stats.failedRequests()))).append("</td>");
+				sb.append(TD_OPEN).append(String.format("%,d", stats.totalRequests())).append(TD_CLOSE);
+				sb.append(TD_OPEN).append(String.format("%,d", Math.max(0, stats.failedRequests()))).append(TD_CLOSE);
 				if (!Double.isNaN(stats.requestsPerSecond())) {
-					sb.append("<td>")
+					sb.append(TD_OPEN)
 						.append(String.format("%.1f %s", stats.requestsPerSecond(), stats.throughputUnit()))
-						.append("</td>");
+						.append(TD_CLOSE);
 				}
 				else {
 					sb.append("<td>—</td>");
 				}
 				double mjPerReq = stats.energyPerRequestMillijoules(report.totalEnergyJoules());
-				sb.append("<td>")
+				sb.append(TD_OPEN)
 					.append(!Double.isNaN(mjPerReq) ? String.format("%.3f", mjPerReq) : "—")
-					.append("</td>");
+					.append(TD_CLOSE);
 			}
 			else {
 				sb.append("<td>—</td><td>—</td><td>—</td><td>—</td>");
@@ -262,7 +285,7 @@ public class HtmlReporter {
 				sb.append("<td><span class=\"badge badge-yellow\">No baseline</span></td>");
 			}
 
-			sb.append("</tr>\n");
+			sb.append(TR_CLOSE);
 		}
 		sb.append("    </tbody></table>\n  </div>\n");
 
@@ -274,31 +297,29 @@ public class HtmlReporter {
 			sb.append(metric("Run ID", run.report().runId()));
 			sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
 			sb.append(metric("Duration", run.report().durationSeconds() + " s"));
-			sb.append(metric("Total Energy", String.format("%.2f J", run.report().totalEnergyJoules())));
+			sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
 			sb.append("    </div>\n");
 
 			if (!run.report().measurements().isEmpty()) {
-				sb.append("    <table><thead><tr>")
-					.append("<th>Component</th><th>Energy (J)</th><th>Share</th>")
-					.append("</tr></thead><tbody>\n");
+				sb.append(TABLE_OPEN).append("<th>Component</th><th>Energy (J)</th><th>Share</th>").append(THEAD_CLOSE);
 				double total = run.report().totalEnergyJoules();
 				for (EnergyMeasurement m : run.report().topMethods(topN)) {
 					double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
-					sb.append("      <tr>")
-						.append("<td><code>")
+					sb.append(TR_OPEN)
+						.append(TD_CODE_OPEN)
 						.append(escHtml(m.methodName()))
-						.append("</code></td>")
-						.append("<td>")
-						.append(String.format("%.2f", m.energyJoules()))
-						.append("</td>")
-						.append("<td>")
+						.append(TD_CODE_CLOSE)
+						.append(TD_OPEN)
+						.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+						.append(TD_CLOSE)
+						.append(TD_OPEN)
 						.append(String.format("%.1f%%", pct))
-						.append("</td>")
-						.append("</tr>\n");
+						.append(TD_CLOSE)
+						.append(TR_CLOSE);
 				}
 				sb.append("    </tbody></table>\n");
 			}
-			sb.append("  </div>\n");
+			sb.append(DIV_CLOSE);
 		}
 
 		sb.append(htmlFooter());
@@ -343,7 +364,7 @@ public class HtmlReporter {
 				.append("</div>\n");
 		}
 
-		sb.append("  </div>\n");
+		sb.append(DIV_CLOSE);
 		return sb.toString();
 	}
 
@@ -353,7 +374,7 @@ public class HtmlReporter {
 		sb.append(metric("Power Source", powerSource.label()));
 		sb.append("    </div>\n");
 		sb.append("    <div class=\"note\">").append(escHtml(powerSource.description())).append("</div>\n");
-		sb.append("  </div>\n");
+		sb.append(DIV_CLOSE);
 		return sb.toString();
 	}
 
@@ -372,8 +393,8 @@ public class HtmlReporter {
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Baseline vs Current</h2>\n    <div class=\"metrics\">\n");
-		sb.append(metric("Baseline", String.format("%.2f J", c.baselineTotalJoules())));
-		sb.append(metric("Current", String.format("%.2f J", c.currentTotalJoules())));
+		sb.append(metric("Baseline", String.format(FMT_ENERGY_JOULES, c.baselineTotalJoules())));
+		sb.append(metric("Current", String.format(FMT_ENERGY_JOULES, c.currentTotalJoules())));
 		sb.append(metric("Change", String.format("%+.2f%%", c.totalDeltaPercent())));
 		sb.append(metric("Threshold", String.format("±%.1f%%", c.threshold())));
 		sb.append("    <div class=\"metric\"><div class=\"label\">Status</div>")
@@ -400,26 +421,26 @@ public class HtmlReporter {
 
 		if (!regressions.isEmpty()) {
 			sb.append("    <h3>Components with Increased Consumption</h3>\n")
-				.append("    <table><thead><tr>")
+				.append(TABLE_OPEN)
 				.append("<th>Component</th><th>Baseline (J)</th><th>Current (J)</th><th>Change</th>")
-				.append("</tr></thead><tbody>\n");
-			regressions.forEach(mc -> sb.append("      <tr>")
-				.append("<td><code>")
+				.append(THEAD_CLOSE);
+			regressions.forEach(mc -> sb.append(TR_OPEN)
+				.append(TD_CODE_OPEN)
 				.append(escHtml(mc.methodName()))
-				.append("</code></td>")
-				.append("<td>")
-				.append(String.format("%.2f", mc.baselineEnergyJoules()))
-				.append("</td>")
-				.append("<td>")
-				.append(String.format("%.2f", mc.currentEnergyJoules()))
-				.append("</td>")
+				.append(TD_CODE_CLOSE)
+				.append(TD_OPEN)
+				.append(String.format(FMT_DECIMAL_2, mc.baselineEnergyJoules()))
+				.append(TD_CLOSE)
+				.append(TD_OPEN)
+				.append(String.format(FMT_DECIMAL_2, mc.currentEnergyJoules()))
+				.append(TD_CLOSE)
 				.append("<td><span class=\"badge badge-red\">")
 				.append(String.format("%+.2f%%", mc.deltaPercent()))
 				.append("</span></td>")
-				.append("</tr>\n"));
+				.append(TR_CLOSE));
 			sb.append("    </tbody></table>\n");
 		}
-		sb.append("  </div>\n");
+		sb.append(DIV_CLOSE);
 		return sb.toString();
 	}
 

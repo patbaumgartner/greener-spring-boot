@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -55,7 +56,7 @@ public class JoularCoreRunner {
 		Files.createDirectories(config.getOutputCsvPath().getParent());
 
 		List<String> command = config.buildCommand(config.getBinaryPath());
-		LOG.info("Starting Joular Core: " + String.join(" ", command));
+		LOG.log(Level.INFO, () -> "Starting Joular Core: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).inheritIO();
 
@@ -63,7 +64,7 @@ public class JoularCoreRunner {
 		Map<String, String> vmEnv = config.buildVmEnvironment();
 		if (!vmEnv.isEmpty()) {
 			pb.environment().putAll(vmEnv);
-			LOG.info("Joular Core VM mode - environment: " + vmEnv);
+			LOG.log(Level.INFO, () -> "Joular Core VM mode - environment: " + vmEnv);
 		}
 
 		if (config.isSilent()) {
@@ -74,7 +75,7 @@ public class JoularCoreRunner {
 		}
 
 		joularCoreProcess = pb.start();
-		LOG.info("Joular Core started (PID " + joularCoreProcess.pid() + ")");
+		LOG.log(Level.INFO, () -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
 	}
 
 	/**
@@ -89,7 +90,7 @@ public class JoularCoreRunner {
 			return;
 		}
 
-		LOG.info("Stopping Joular Core (PID " + joularCoreProcess.pid() + ") ...");
+		LOG.log(Level.INFO, () -> "Stopping Joular Core (PID " + joularCoreProcess.pid() + ") ...");
 		joularCoreProcess.destroy();
 
 		boolean exited = joularCoreProcess.waitFor(15, TimeUnit.SECONDS);

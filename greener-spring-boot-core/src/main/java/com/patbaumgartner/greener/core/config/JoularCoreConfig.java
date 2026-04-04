@@ -24,6 +24,7 @@ import java.util.Map;
  *
  * @see <a href="https://github.com/joular/joularcore">joular/joularcore on GitHub</a>
  */
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName") // fluent builder setters
 public class JoularCoreConfig {
 
 	/** Default version used when auto-downloading Joular Core. */

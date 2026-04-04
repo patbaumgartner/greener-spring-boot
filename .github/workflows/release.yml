@@ -74,7 +74,8 @@ jobs:
         if: inputs.version != ''
         working-directory: greener-spring-boot-gradle-plugin
         run: |
-          sed -i "s/0.2.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
+          sed -i "s/^version=.*/version=${{ inputs.version }}/" gradle.properties
+          sed -i "s/^coreVersion=.*/coreVersion=${{ inputs.version }}/" gradle.properties
           ./gradlew publishAllPublicationsToStagingRepository
 
       - name: Release
@@ -87,7 +88,10 @@ jobs:
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
-        run: ./gradlew publishPlugins
+        run: |
+          sed -i "s/^version=.*/version=${{ inputs.version }}/" gradle.properties
+          sed -i "s/^coreVersion=.*/coreVersion=${{ inputs.version }}/" gradle.properties
+          ./gradlew publishPlugins
 
       # ── Logs ─────────────────────────────────────────────────────────────────
       - name: JReleaser output

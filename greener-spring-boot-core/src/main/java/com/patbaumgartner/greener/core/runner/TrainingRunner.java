@@ -6,6 +6,7 @@ import com.patbaumgartner.greener.core.model.WorkloadStats;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,10 +16,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -52,6 +55,8 @@ import java.util.logging.Logger;
 public class TrainingRunner {
 
 	private static final Logger LOG = Logger.getLogger(TrainingRunner.class.getName());
+
+	private static final int HTTP_SERVER_ERROR_THRESHOLD = 500;
 
 	/**
 	 * Runs the full training cycle and returns statistics about the workload.
@@ -87,6 +92,8 @@ public class TrainingRunner {
 
 	// -------------------------------------------------------------------------
 
+	@SuppressWarnings("PMD.CloseResource") // HttpClient and ExecutorService are not
+											// AutoCloseable in Java 17
 	private WorkloadStats runBuiltInHttpLoader(TrainingConfig config) throws InterruptedException {
 		List<String> paths = config.getPaths();
 		if (paths.isEmpty()) {
@@ -103,8 +110,10 @@ public class TrainingRunner {
 		int measure = config.getMeasureDurationSeconds();
 		int total = warmup + measure;
 
-		LOG.info(String.format("HTTP training workload - %d paths, %d req/s, concurrency %d, %ds warmup + %ds measure",
-				paths.size(), config.getRequestsPerSecond(), config.getConcurrency(), warmup, measure));
+		LOG.log(Level.INFO,
+				() -> String.format(
+						"HTTP training workload - %d paths, %d req/s, concurrency %d, %ds warmup + %ds measure",
+						paths.size(), config.getRequestsPerSecond(), config.getConcurrency(), warmup, measure));
 
 		AtomicLong requestCount = new AtomicLong();
 		AtomicLong errorCount = new AtomicLong();
@@ -127,12 +136,12 @@ public class TrainingRunner {
 
 			client.sendAsync(request, HttpResponse.BodyHandlers.discarding()).thenAccept(resp -> {
 				requestCount.incrementAndGet();
-				if (resp.statusCode() >= 500)
+				if (resp.statusCode() >= HTTP_SERVER_ERROR_THRESHOLD)
 					errorCount.incrementAndGet();
 			}).exceptionally(ex -> {
 				errorCount.incrementAndGet();
 				if (!(ex.getCause() instanceof ConnectException)) {
-					LOG.fine("Request to " + url + " failed: " + ex.getMessage());
+					LOG.log(Level.FINE, () -> "Request to " + url + " failed: " + ex.getMessage());
 				}
 				return null;
 			});
@@ -140,7 +149,8 @@ public class TrainingRunner {
 
 		// Progress logging every 10 s
 		scheduler.scheduleAtFixedRate(
-				() -> LOG.info(String.format("Training: %d req sent, %d errors", requestCount.get(), errorCount.get())),
+				() -> LOG.log(Level.INFO,
+						() -> String.format("Training: %d req sent, %d errors", requestCount.get(), errorCount.get())),
 				10, 10, TimeUnit.SECONDS);
 
 		try {
@@ -150,7 +160,8 @@ public class TrainingRunner {
 			scheduler.shutdownNow();
 		}
 
-		LOG.info(String.format("Training complete - %d requests, %d errors", requestCount.get(), errorCount.get()));
+		LOG.log(Level.INFO, () -> String.format("Training complete - %d requests, %d errors", requestCount.get(),
+				errorCount.get()));
 
 		return WorkloadStats.builtIn(requestCount.get(), errorCount.get(), total);
 	}
@@ -174,7 +185,7 @@ public class TrainingRunner {
 		String toolName = deriveToolName(script.getFileName().toString(),
 				script.getParent() != null ? script.getParent().getFileName().toString() : null);
 
-		LOG.info("Running external training script [" + toolName + "]: " + script);
+		LOG.log(Level.INFO, () -> "Running external training script [" + toolName + "]: " + script);
 
 		String[] shellCommand = resolveShellCommand(script.toAbsolutePath().toString());
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -190,14 +201,14 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("Training script exited with code " + exitCode + ": " + script);
 		}
-		LOG.info("Training script [" + toolName + "] completed in " + elapsed + " s");
+		LOG.log(Level.INFO, () -> "Training script [" + toolName + "] completed in " + elapsed + " s");
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
 			throws IOException, InterruptedException {
 
-		LOG.info("Running external training command: " + command);
+		LOG.log(Level.INFO, () -> "Running external training command: " + command);
 
 		String[] shellCommand = resolveShellCommand("-c", command);
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -213,14 +224,16 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("External training command exited with code " + exitCode + ": " + command);
 		}
-		LOG.info("External training command completed in " + elapsed + " s");
+		LOG.log(Level.INFO, () -> "External training command completed in " + elapsed + " s");
 		String toolName = deriveToolName(command, null);
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	// -------------------------------------------------------------------------
 
-	private static final boolean IS_WINDOWS = System.getProperty("os.name", "").toLowerCase().startsWith("win");
+	private static final boolean IS_WINDOWS = System.getProperty("os.name", "")
+		.toLowerCase(Locale.ENGLISH)
+		.startsWith("win");
 
 	/**
 	 * Builds a shell command array appropriate for the current OS.
@@ -262,7 +275,7 @@ public class TrainingRunner {
 				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
 		for (String candidate : candidates) {
 			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
-				LOG.info("Using Git Bash shell: " + candidate);
+				LOG.log(Level.INFO, () -> "Using Git Bash shell: " + candidate);
 				return candidate;
 			}
 		}
@@ -283,16 +296,18 @@ public class TrainingRunner {
 	}
 
 	/**
-	 * Reads all output from the process, printing each line to System.out (so the user
-	 * still sees tool output live) and collecting it into a string for parsing.
+	 * Reads all output from the process, forwarding each line to the logger and
+	 * collecting it into a string for parsing.
 	 */
 	private String captureAndForwardOutput(Process process) throws IOException {
 		StringBuilder sb = new StringBuilder();
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				System.out.println(line);
+		try (BufferedReader reader = new BufferedReader(
+				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+			String line = reader.readLine();
+			while (line != null) {
+				LOG.info(line);
 				sb.append(line).append('\n');
+				line = reader.readLine();
 			}
 		}
 		return sb.toString();
@@ -302,8 +317,8 @@ public class TrainingRunner {
 		ExternalToolOutputParser parser = new ExternalToolOutputParser();
 		parser.parse(toolName, output);
 		if (parser.hasResults()) {
-			LOG.info(String.format("Parsed %d total requests (%d failed) from %s output", parser.totalRequests(),
-					parser.failedRequests(), toolName));
+			LOG.log(Level.INFO, () -> String.format("Parsed %d total requests (%d failed) from %s output",
+					parser.totalRequests(), parser.failedRequests(), toolName));
 			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
 		}
 		return WorkloadStats.external(toolName, elapsed);
@@ -318,7 +333,7 @@ public class TrainingRunner {
 	private String deriveToolName(String fileName, String parentDir) {
 		// Build a combined token: parent directory name (e.g. "oha", "wrk2") is the
 		// most reliable signal; fall back to the file name itself.
-		String combined = (fileName + " " + (parentDir != null ? parentDir : "")).toLowerCase();
+		String combined = (fileName + " " + (parentDir != null ? parentDir : "")).toLowerCase(Locale.ENGLISH);
 		if (combined.contains("wrk2"))
 			return "wrk2";
 		if (combined.contains("wrk"))
@@ -339,7 +354,7 @@ public class TrainingRunner {
 			return "hyperfoil";
 		// "ab" is only matched on an exact parent-directory token to avoid collisions
 		// with unrelated path segments that happen to contain the substring "ab".
-		if (parentDir != null && parentDir.equalsIgnoreCase("ab"))
+		if (parentDir != null && "ab".equalsIgnoreCase(parentDir))
 			return "ab";
 		return "script";
 	}

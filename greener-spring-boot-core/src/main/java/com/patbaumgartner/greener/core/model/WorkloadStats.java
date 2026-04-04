@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -100,7 +101,7 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 	 * {@code "req/s"}.
 	 */
 	public String throughputUnit() {
-		return SCENARIO_TOOLS.contains(tool.toLowerCase()) ? "scenarios/s" : "req/s";
+		return SCENARIO_TOOLS.contains(tool.toLowerCase(Locale.ENGLISH)) ? "scenarios/s" : "req/s";
 	}
 
 }

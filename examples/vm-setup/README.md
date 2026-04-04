@@ -329,8 +329,10 @@ See the individual CI configs for details:
 
 - **GitHub Actions** — `.github/workflows/energy-baseline.yml` and
   `.github/workflows/energy-comparison.yml`
-- **GitLab CI/CD** — `.gitlab-ci.yml`
-- **Jenkins** — `Jenkinsfile`
+
+The plugin itself is CI-agnostic — use it in any pipeline that can run Maven or
+Gradle. Adapt the GitHub Actions workflow steps for GitLab CI/CD, Jenkins, or
+other CI systems as needed.
 
 For hardware-accurate measurements use a self-hosted bare-metal runner or
 configure Scaphandre on your KVM host (Options A or B above).

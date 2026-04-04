@@ -29,6 +29,15 @@ jobs:
       - name: Build and test Maven modules
         run: mvn --batch-mode --no-transfer-progress clean verify
 
+      - name: Run SpotBugs
+        run: mvn --batch-mode --no-transfer-progress spotbugs:check -pl greener-spring-boot-core
+
+      - name: Run PMD
+        run: mvn --batch-mode --no-transfer-progress pmd:check -pl greener-spring-boot-core
+
+      - name: OpenRewrite dry-run
+        run: mvn --batch-mode --no-transfer-progress rewrite:dryRun
+
       - name: Publish test results
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7

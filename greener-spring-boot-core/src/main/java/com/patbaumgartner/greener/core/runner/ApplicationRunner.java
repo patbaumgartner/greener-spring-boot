@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -56,7 +57,7 @@ public class ApplicationRunner {
 
 		if (joularJxJar != null && Files.exists(joularJxJar)) {
 			command.add("-javaagent:" + joularJxJar.toAbsolutePath());
-			LOG.info("JoularJX agent attached: " + joularJxJar);
+			LOG.log(Level.INFO, () -> "JoularJX agent attached: " + joularJxJar);
 		}
 
 		if (joularJxConfig != null && Files.exists(joularJxConfig)) {
@@ -74,14 +75,14 @@ public class ApplicationRunner {
 			command.addAll(appArgs);
 		}
 
-		LOG.info("Starting application: " + String.join(" ", command));
+		LOG.log(Level.INFO, () -> "Starting application: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).directory(workingDir.toFile())
 			.redirectOutput(workingDir.resolve("app-stdout.log").toFile())
 			.redirectError(workingDir.resolve("app-stderr.log").toFile());
 
 		Process process = pb.start();
-		LOG.info("Application started with PID " + process.pid());
+		LOG.log(Level.INFO, () -> "Application started with PID " + process.pid());
 		return process;
 	}
 
@@ -90,11 +91,12 @@ public class ApplicationRunner {
 	 * {@code timeoutSeconds} elapses.
 	 * @throws RuntimeException if the application does not become healthy in time
 	 */
+	@SuppressWarnings("PMD.CloseResource") // HttpClient is not AutoCloseable in Java 17
 	public void waitForStartup(String baseUrl, String healthPath, int timeoutSeconds)
 			throws IOException, InterruptedException {
 
 		String healthUrl = baseUrl + healthPath;
-		LOG.info("Waiting for application at: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
+		LOG.log(Level.INFO, () -> "Waiting for application at: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
 
 		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
@@ -111,7 +113,7 @@ public class ApplicationRunner {
 				HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
 				if (response.statusCode() >= 200 && response.statusCode() < 300) {
-					LOG.info("Application is ready (HTTP " + response.statusCode() + ")");
+					LOG.log(Level.INFO, () -> "Application is ready (HTTP " + response.statusCode() + ")");
 					return;
 				}
 			}
@@ -134,7 +136,7 @@ public class ApplicationRunner {
 			return;
 		}
 
-		LOG.info("Stopping application (PID " + process.pid() + ") ...");
+		LOG.log(Level.INFO, () -> "Stopping application (PID " + process.pid() + ") ...");
 		process.destroy();
 
 		boolean exited = process.waitFor(30, TimeUnit.SECONDS);
@@ -143,7 +145,7 @@ public class ApplicationRunner {
 			process.destroyForcibly();
 		}
 		else {
-			LOG.info("Application stopped (exit code " + process.exitValue() + ")");
+			LOG.log(Level.INFO, () -> "Application stopped (exit code " + process.exitValue() + ")");
 		}
 	}
 

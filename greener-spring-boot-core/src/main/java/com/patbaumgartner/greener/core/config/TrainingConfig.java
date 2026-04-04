@@ -18,6 +18,7 @@ import java.util.List;
  * URL.</li>
  * </ul>
  */
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName") // fluent builder setters
 public class TrainingConfig {
 
 	/** Base URL of the application, e.g. {@code http://localhost:8080}. */

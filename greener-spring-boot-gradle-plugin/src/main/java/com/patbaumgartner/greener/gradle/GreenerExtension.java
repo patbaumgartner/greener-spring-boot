@@ -1,6 +1,7 @@
 package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
@@ -103,7 +104,8 @@ public abstract class GreenerExtension {
     /**
      * Joular Core release version to download when
      * {@link #getJoularCoreBinaryPath()} is unset. See
-     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core
+     * releases</a>
      * for available versions.
      * 
      * @return the Joular Core version property
@@ -259,5 +261,5 @@ public abstract class GreenerExtension {
      */
     @OutputDirectory
     @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getReportOutputDir();
+    public abstract DirectoryProperty getReportOutputDir();
 }
