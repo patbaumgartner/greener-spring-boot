@@ -36,6 +36,10 @@
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.microsoft.playwright</groupId>
+      <artifactId>playwright</artifactId>
+    </dependency>
   </dependencies>
   <url>https://github.com/patbaumgartner/greener-spring-boot</url>
 </project>

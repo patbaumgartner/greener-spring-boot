@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.reporter;
 
+import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.ComparisonResult.MethodComparison;
@@ -62,118 +63,30 @@ public class HtmlReporter {
 		return reportFile;
 	}
 
+	/**
+	 * Generates an aggregated report summarising multiple tool runs in a single HTML
+	 * page. Each entry captures the workload tool, energy report, and optional
+	 * comparison.
+	 * @param runs the list of tool run entries to aggregate
+	 * @param powerSource optional power source used for all runs
+	 * @param outputDir directory where the report file is written
+	 * @return path to the generated HTML file
+	 */
+	public Path generateAggregatedReport(List<AggregatedRunEntry> runs, PowerSource powerSource, Path outputDir)
+			throws IOException {
+		Files.createDirectories(outputDir);
+		Path reportFile = outputDir.resolve("greener-aggregated-report.html");
+		Files.writeString(reportFile, buildAggregatedHtml(runs, powerSource));
+		LOG.info("Aggregated HTML report written to: " + reportFile);
+		return reportFile;
+	}
+
 	private String buildHtml(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource) {
 		StringBuilder sb = new StringBuilder();
+		sb.append(htmlHead("Greener Spring Boot — Energy Report"));
 		sb.append(
 				"""
-						<!DOCTYPE html>
-						<html lang="en" data-theme="dark">
-						<head>
-						  <meta charset="UTF-8">
-						  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-						  <title>Greener Spring Boot — Energy Report</title>
-						  <style>
-						    :root,[data-theme="dark"]{
-						      --cyan:#00e5ff;--magenta:#ff00e5;--green:#39ff14;--yellow:#ffe600;
-						      --red:#ff3366;--bg:#0a0a0a;--card:#141414;--card-alt:#181820;
-						      --border:#222;--border-glow:#00e5ff18;--text:#d4d4d4;--muted:#777;
-						      --white:#f0f0f0;
-						      --badge-green-bg:#39ff1412;--badge-green-border:#39ff1430;
-						      --badge-red-bg:#ff336612;--badge-red-border:#ff336630;
-						      --badge-yellow-bg:#ffe60012;--badge-yellow-border:#ffe60030;
-						      --code-bg:#0e0e12;--row-hover:#ffffff06;
-						      --hero-bg:linear-gradient(135deg,#0a0a14 0%,#0d0d1a 50%,#0a0a14 100%);
-						      --alert-danger-bg:#ff336612;--alert-danger-border:#ff336630}
-						    [data-theme="light"]{
-						      --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
-						      --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
-						      --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
-						      --white:#111;
-						      --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
-						      --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
-						      --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
-						      --code-bg:#f0f0f0;--row-hover:#00000006;
-						      --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
-						      --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}
-						    @media(prefers-color-scheme:light){
-						      html:not([data-theme="dark"]){
-						        --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
-						        --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
-						        --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
-						        --white:#111;
-						        --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
-						        --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
-						        --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
-						        --code-bg:#f0f0f0;--row-hover:#00000006;
-						        --hero-bg:linear-gradient(135deg,#e0f7fa 0%,#f3e5f5 50%,#e0f7fa 100%);
-						        --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}}
-						    *{box-sizing:border-box}
-						    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-						         margin:0;background:var(--bg);color:var(--text);line-height:1.6;
-						         transition:background .3s,color .3s}
-						    .container{max-width:960px;margin:0 auto;padding:32px 24px}
-						    .hero{text-align:center;padding:48px 24px 36px;
-						          background:var(--hero-bg);
-						          border-bottom:1px solid var(--border);margin-bottom:32px;position:relative}
-						    .hero h1{font-size:32px;color:var(--white);margin:0 0 6px;font-weight:700;
-						             letter-spacing:-0.5px}
-						    .hero h1 span{color:var(--cyan);text-shadow:0 0 20px color-mix(in srgb,var(--cyan) 40%,transparent)}
-						    .hero .tagline{color:var(--muted);font-size:15px;margin:0}
-						    .hero .tagline a{color:var(--magenta);text-decoration:none;
-						                     border-bottom:1px solid transparent;transition:border-color .2s}
-						    .hero .tagline a:hover{border-bottom-color:var(--magenta)}
-						    .theme-toggle{position:absolute;top:16px;right:24px;background:var(--card);
-						                  border:1px solid var(--border);border-radius:20px;padding:6px 14px;
-						                  cursor:pointer;color:var(--muted);font-size:13px;
-						                  transition:all .2s}
-						    .theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
-						    h2{font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;
-						       color:var(--magenta);margin:0 0 16px;padding-bottom:10px;
-						       border-bottom:1px solid var(--border)}
-						    h3{color:var(--red);font-size:14px;text-transform:uppercase;letter-spacing:1px;
-						       margin:20px 0 12px}
-						    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
-						          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s}
-						    .card:hover{border-color:var(--cyan)}
-						    .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
-						    .metric{flex:1;min-width:130px;padding:14px 18px;
-						            background:var(--bg);border:1px solid var(--border);border-radius:8px;
-						            transition:background .3s}
-						    .metric .label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;
-						                   color:var(--muted);margin-bottom:6px}
-						    .metric .value{font-size:22px;font-weight:700;color:var(--white);
-						                   letter-spacing:-0.3px}
-						    .improved{color:var(--green)!important;text-shadow:0 0 10px color-mix(in srgb,var(--green) 30%,transparent)}
-						    .regressed{color:var(--red)!important;text-shadow:0 0 10px color-mix(in srgb,var(--red) 30%,transparent)}
-						    .unchanged{color:var(--yellow)!important;text-shadow:0 0 10px color-mix(in srgb,var(--yellow) 30%,transparent)}
-						    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
-						    th{background:var(--bg);text-align:left;padding:10px 14px;
-						       border-bottom:2px solid var(--border);color:var(--cyan);
-						       font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
-						    td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
-						    tr:last-child td{border-bottom:none}
-						    tr:hover td{background:var(--row-hover)}
-						    .badge{display:inline-block;padding:3px 10px;border-radius:20px;
-						           font-size:12px;font-weight:600;letter-spacing:0.3px}
-						    .badge-green{background:var(--badge-green-bg);color:var(--green);border:1px solid var(--badge-green-border)}
-						    .badge-red{background:var(--badge-red-bg);color:var(--red);border:1px solid var(--badge-red-border)}
-						    .badge-yellow{background:var(--badge-yellow-bg);color:var(--yellow);border:1px solid var(--badge-yellow-border)}
-						    .note{padding:14px 18px;border-radius:8px;margin-top:16px;font-size:13px;
-						          color:var(--muted);background:var(--bg);border:1px solid var(--border);
-						          line-height:1.5}
-						    .alert{padding:14px 18px;border-radius:8px;margin-top:16px;font-weight:500;
-						           line-height:1.5}
-						    .alert-danger{background:var(--alert-danger-bg);border:1px solid var(--alert-danger-border);color:var(--red)}
-						    code{background:var(--code-bg);padding:2px 7px;border-radius:4px;font-size:12px;
-						         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}
-						    .footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0 12px;
-						            border-top:1px solid var(--border);margin-top:36px}
-						    .footer a{color:var(--cyan);text-decoration:none}
-						    .footer a:hover{text-decoration:underline}
-						  </style>
-						</head>
-						<body>
 						<div class="hero">
 						  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
 						  <h1><span>&#9889;</span> Greener Spring Boot</h1>
@@ -253,20 +166,143 @@ public class HtmlReporter {
 			sb.append("    </tbody></table>\n  </div>\n");
 		}
 
-		sb.append("  <div class=\"footer\">")
-			.append("<a href=\"https://github.com/patbaumgartner/greener-spring-boot\">Greener Spring Boot</a>")
-			.append(" — making software sustainability visible, one commit at a time</div>\n");
-		sb.append("""
-				</div>
-				<script>
-				function toggleTheme(){
-				  var html=document.documentElement;
-				  var t=html.getAttribute('data-theme')==='dark'?'light':'dark';
-				  html.setAttribute('data-theme',t);
+		sb.append(htmlFooter());
+		sb.append(htmlScript());
+		return sb.toString();
+	}
+
+	private String buildAggregatedHtml(List<AggregatedRunEntry> runs, PowerSource powerSource) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(htmlHead("Greener Spring Boot — Aggregated Report"));
+		sb.append(
+				"""
+						<div class="hero">
+						  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
+						  <h1><span>&#9889;</span> Greener Spring Boot</h1>
+						  <p class="tagline">Aggregated Energy Report — powered by
+						    <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
+						  </p>
+						</div>
+						<div class="container">
+						""");
+
+		// Summary card
+		double totalEnergy = runs.stream().mapToDouble(r -> r.report().totalEnergyJoules()).sum();
+		long totalRequests = runs.stream()
+			.filter(r -> r.workloadStats() != null && r.workloadStats().hasRequestCounts())
+			.mapToLong(r -> r.workloadStats().totalRequests())
+			.sum();
+
+		sb.append("  <div class=\"card\">\n    <h2>Aggregated Summary</h2>\n    <div class=\"metrics\">\n");
+		sb.append(metric("Tool Runs", String.valueOf(runs.size())));
+		sb.append(metric("Total Energy", String.format("%.2f J", totalEnergy)));
+		if (totalRequests > 0) {
+			sb.append(metric("Total Requests", String.format("%,d", totalRequests)));
+		}
+		sb.append("    </div>\n  </div>\n");
+
+		// Power source card
+		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
+			sb.append(buildPowerSourceCard(powerSource));
+		}
+
+		// Tool comparison table
+		sb.append("  <div class=\"card\">\n    <h2>Per-Tool Results</h2>\n");
+		sb.append("    <table><thead><tr>");
+		sb.append("<th>Tool</th><th>Run ID</th><th>Duration (s)</th>");
+		sb.append("<th>Energy (J)</th><th>Requests</th><th>Failed</th>");
+		sb.append("<th>Throughput</th><th>Energy/Req (mJ)</th><th>Status</th>");
+		sb.append("</tr></thead><tbody>\n");
+
+		for (AggregatedRunEntry run : runs) {
+			EnergyReport report = run.report();
+			WorkloadStats stats = run.workloadStats();
+			ComparisonResult comp = run.comparison();
+
+			sb.append("      <tr>");
+			sb.append("<td><code>").append(escHtml(run.tool())).append("</code></td>");
+			sb.append("<td>").append(escHtml(report.runId())).append("</td>");
+			sb.append("<td>").append(report.durationSeconds()).append("</td>");
+			sb.append("<td>").append(String.format("%.2f", report.totalEnergyJoules())).append("</td>");
+
+			if (stats != null && stats.hasRequestCounts()) {
+				sb.append("<td>").append(String.format("%,d", stats.totalRequests())).append("</td>");
+				sb.append("<td>").append(String.format("%,d", Math.max(0, stats.failedRequests()))).append("</td>");
+				if (!Double.isNaN(stats.requestsPerSecond())) {
+					sb.append("<td>")
+						.append(String.format("%.1f %s", stats.requestsPerSecond(), stats.throughputUnit()))
+						.append("</td>");
 				}
-				</script>
-				</body>
-				</html>""");
+				else {
+					sb.append("<td>—</td>");
+				}
+				double mjPerReq = stats.energyPerRequestMillijoules(report.totalEnergyJoules());
+				sb.append("<td>")
+					.append(!Double.isNaN(mjPerReq) ? String.format("%.3f", mjPerReq) : "—")
+					.append("</td>");
+			}
+			else {
+				sb.append("<td>—</td><td>—</td><td>—</td><td>—</td>");
+			}
+
+			if (comp != null && comp.overallStatus() != ComparisonStatus.NO_BASELINE) {
+				String cls = switch (comp.overallStatus()) {
+					case IMPROVED -> "badge-green";
+					case REGRESSED -> "badge-red";
+					default -> "badge-yellow";
+				};
+				String label = switch (comp.overallStatus()) {
+					case IMPROVED -> "▼ Improved";
+					case REGRESSED -> "▲ Regressed";
+					default -> "→ Stable";
+				};
+				sb.append("<td><span class=\"badge ").append(cls).append("\">").append(label).append("</span></td>");
+			}
+			else {
+				sb.append("<td><span class=\"badge badge-yellow\">No baseline</span></td>");
+			}
+
+			sb.append("</tr>\n");
+		}
+		sb.append("    </tbody></table>\n  </div>\n");
+
+		// Per-tool detail cards
+		for (AggregatedRunEntry run : runs) {
+			sb.append("  <div class=\"card\">\n    <h2>")
+				.append(escHtml(run.tool()))
+				.append(" — Run Details</h2>\n    <div class=\"metrics\">\n");
+			sb.append(metric("Run ID", run.report().runId()));
+			sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
+			sb.append(metric("Duration", run.report().durationSeconds() + " s"));
+			sb.append(metric("Total Energy", String.format("%.2f J", run.report().totalEnergyJoules())));
+			sb.append("    </div>\n");
+
+			if (!run.report().measurements().isEmpty()) {
+				sb.append("    <table><thead><tr>")
+					.append("<th>Component</th><th>Energy (J)</th><th>Share</th>")
+					.append("</tr></thead><tbody>\n");
+				double total = run.report().totalEnergyJoules();
+				for (EnergyMeasurement m : run.report().topMethods(topN)) {
+					double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
+					sb.append("      <tr>")
+						.append("<td><code>")
+						.append(escHtml(m.methodName()))
+						.append("</code></td>")
+						.append("<td>")
+						.append(String.format("%.2f", m.energyJoules()))
+						.append("</td>")
+						.append("<td>")
+						.append(String.format("%.1f%%", pct))
+						.append("</td>")
+						.append("</tr>\n");
+				}
+				sb.append("    </tbody></table>\n");
+			}
+			sb.append("  </div>\n");
+		}
+
+		sb.append(htmlFooter());
+		sb.append(htmlScript());
 		return sb.toString();
 	}
 
@@ -396,6 +432,139 @@ public class HtmlReporter {
 		if (s == null)
 			return "";
 		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+	}
+
+	private String htmlHead(String title) {
+		return """
+				<!DOCTYPE html>
+				<html lang="en" data-theme="dark">
+				<head>
+				  <meta charset="UTF-8">
+				  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+				  <title>%s</title>
+				  <style>
+				    :root,[data-theme="dark"]{
+				      --cyan:#00e5ff;--magenta:#ff00e5;--green:#39ff14;--yellow:#ffe600;
+				      --red:#ff3366;--bg:#0a0a0a;--card:#141414;--card-alt:#181820;
+				      --border:#222;--border-glow:#00e5ff18;--text:#d4d4d4;--muted:#777;
+				      --white:#f0f0f0;
+				      --badge-green-bg:#39ff1412;--badge-green-border:#39ff1430;
+				      --badge-red-bg:#ff336612;--badge-red-border:#ff336630;
+				      --badge-yellow-bg:#ffe60012;--badge-yellow-border:#ffe60030;
+				      --code-bg:#0e0e12;--row-hover:#ffffff06;
+				      --hero-bg:linear-gradient(135deg,#0a0a14 0%%,#0d0d1a 50%%,#0a0a14 100%%);
+				      --alert-danger-bg:#ff336612;--alert-danger-border:#ff336630}
+				    [data-theme="light"]{
+				      --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
+				      --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
+				      --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
+				      --white:#111;
+				      --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
+				      --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
+				      --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
+				      --code-bg:#f0f0f0;--row-hover:#00000006;
+				      --hero-bg:linear-gradient(135deg,#e0f7fa 0%%,#f3e5f5 50%%,#e0f7fa 100%%);
+				      --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}
+				    @media(prefers-color-scheme:light){
+				      html:not([data-theme="dark"]){
+				        --cyan:#0097a7;--magenta:#c2185b;--green:#2e7d32;--yellow:#f9a825;
+				        --red:#c62828;--bg:#f5f5f5;--card:#ffffff;--card-alt:#fafafa;
+				        --border:#ddd;--border-glow:#0097a718;--text:#333;--muted:#888;
+				        --white:#111;
+				        --badge-green-bg:#e8f5e9;--badge-green-border:#a5d6a7;
+				        --badge-red-bg:#ffebee;--badge-red-border:#ef9a9a;
+				        --badge-yellow-bg:#fff8e1;--badge-yellow-border:#ffe082;
+				        --code-bg:#f0f0f0;--row-hover:#00000006;
+				        --hero-bg:linear-gradient(135deg,#e0f7fa 0%%,#f3e5f5 50%%,#e0f7fa 100%%);
+				        --alert-danger-bg:#ffebee;--alert-danger-border:#ef9a9a}}
+				    *{box-sizing:border-box}
+				    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+				         margin:0;background:var(--bg);color:var(--text);line-height:1.6;
+				         transition:background .3s,color .3s}
+				    .container{max-width:960px;margin:0 auto;padding:32px 24px}
+				    .hero{text-align:center;padding:48px 24px 36px;
+				          background:var(--hero-bg);
+				          border-bottom:1px solid var(--border);margin-bottom:32px;position:relative}
+				    .hero h1{font-size:32px;color:var(--white);margin:0 0 6px;font-weight:700;
+				             letter-spacing:-0.5px}
+				    .hero h1 span{color:var(--cyan);text-shadow:0 0 20px color-mix(in srgb,var(--cyan) 40%%,transparent)}
+				    .hero .tagline{color:var(--muted);font-size:15px;margin:0}
+				    .hero .tagline a{color:var(--magenta);text-decoration:none;
+				                     border-bottom:1px solid transparent;transition:border-color .2s}
+				    .hero .tagline a:hover{border-bottom-color:var(--magenta)}
+				    .theme-toggle{position:absolute;top:16px;right:24px;background:var(--card);
+				                  border:1px solid var(--border);border-radius:20px;padding:6px 14px;
+				                  cursor:pointer;color:var(--muted);font-size:13px;
+				                  transition:all .2s}
+				    .theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+				    h2{font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;
+				       color:var(--magenta);margin:0 0 16px;padding-bottom:10px;
+				       border-bottom:1px solid var(--border)}
+				    h3{color:var(--red);font-size:14px;text-transform:uppercase;letter-spacing:1px;
+				       margin:20px 0 12px}
+				    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+				          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s}
+				    .card:hover{border-color:var(--cyan)}
+				    .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
+				    .metric{flex:1;min-width:130px;padding:14px 18px;
+				            background:var(--bg);border:1px solid var(--border);border-radius:8px;
+				            transition:background .3s}
+				    .metric .label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;
+				                   color:var(--muted);margin-bottom:6px}
+				    .metric .value{font-size:22px;font-weight:700;color:var(--white);
+				                   letter-spacing:-0.3px}
+				    .improved{color:var(--green)!important;text-shadow:0 0 10px color-mix(in srgb,var(--green) 30%%,transparent)}
+				    .regressed{color:var(--red)!important;text-shadow:0 0 10px color-mix(in srgb,var(--red) 30%%,transparent)}
+				    .unchanged{color:var(--yellow)!important;text-shadow:0 0 10px color-mix(in srgb,var(--yellow) 30%%,transparent)}
+				    table{width:100%%;border-collapse:collapse;font-size:13px;margin-top:4px}
+				    th{background:var(--bg);text-align:left;padding:10px 14px;
+				       border-bottom:2px solid var(--border);color:var(--cyan);
+				       font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+				    td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+				    tr:last-child td{border-bottom:none}
+				    tr:hover td{background:var(--row-hover)}
+				    .badge{display:inline-block;padding:3px 10px;border-radius:20px;
+				           font-size:12px;font-weight:600;letter-spacing:0.3px}
+				    .badge-green{background:var(--badge-green-bg);color:var(--green);border:1px solid var(--badge-green-border)}
+				    .badge-red{background:var(--badge-red-bg);color:var(--red);border:1px solid var(--badge-red-border)}
+				    .badge-yellow{background:var(--badge-yellow-bg);color:var(--yellow);border:1px solid var(--badge-yellow-border)}
+				    .note{padding:14px 18px;border-radius:8px;margin-top:16px;font-size:13px;
+				          color:var(--muted);background:var(--bg);border:1px solid var(--border);
+				          line-height:1.5}
+				    .alert{padding:14px 18px;border-radius:8px;margin-top:16px;font-weight:500;
+				           line-height:1.5}
+				    .alert-danger{background:var(--alert-danger-bg);border:1px solid var(--alert-danger-border);color:var(--red)}
+				    code{background:var(--code-bg);padding:2px 7px;border-radius:4px;font-size:12px;
+				         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}
+				    .footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0 12px;
+				            border-top:1px solid var(--border);margin-top:36px}
+				    .footer a{color:var(--cyan);text-decoration:none}
+				    .footer a:hover{text-decoration:underline}
+				  </style>
+				</head>
+				<body>
+				"""
+			.formatted(escHtml(title));
+	}
+
+	private String htmlFooter() {
+		return "  <div class=\"footer\">" + "Made with \uD83E\uDE77 by Patrick Baumgartner \u2014 "
+				+ "<a href=\"https://github.com/patbaumgartner/greener-spring-boot\">Greener Spring Boot</a>"
+				+ "</div>\n";
+	}
+
+	private String htmlScript() {
+		return """
+				</div>
+				<script>
+				function toggleTheme(){
+				  var html=document.documentElement;
+				  var t=html.getAttribute('data-theme')==='dark'?'light':'dark';
+				  html.setAttribute('data-theme',t);
+				}
+				</script>
+				</body>
+				</html>""";
 	}
 
 }
