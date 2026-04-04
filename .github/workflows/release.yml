@@ -74,7 +74,7 @@ jobs:
         if: inputs.version != ''
         working-directory: greener-spring-boot-gradle-plugin
         run: |
-          sed -i "s/0.1.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
+          sed -i "s/0.2.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
           ./gradlew publishAllPublicationsToStagingRepository
 
       - name: Release

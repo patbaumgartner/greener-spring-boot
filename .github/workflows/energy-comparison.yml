@@ -160,7 +160,7 @@ jobs:
           fi
 
           mvn --batch-mode --no-transfer-progress \
-            com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+            com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \

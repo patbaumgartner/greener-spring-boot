@@ -305,7 +305,7 @@ try {
 
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
         "-Dgreener.baseUrl=http://localhost:8080",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",
@@ -328,7 +328,7 @@ Push-Location $PetclinicDir
 try {
     Invoke-Cmd "Update baseline" mvn @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline",
         "-Dgreener.baselineFile=$BaselineFile",
         "-Dgreener.latestReportFile=$(Join-Path $ReportsBaseline 'latest-energy-report.json')",
         "-Dgreener.commitSha=$CommitSha",
@@ -350,7 +350,7 @@ Push-Location $PetclinicDir
 try {
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
         "-Dgreener.baseUrl=http://localhost:8080",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",

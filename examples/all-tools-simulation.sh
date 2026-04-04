@@ -249,7 +249,7 @@ for tool in ${TOOLS}; do
 
     cd "${PETCLINIC_DIR}"
     if mvn --batch-mode --no-transfer-progress \
-        com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+        com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
         -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
         -Dgreener.baseUrl="http://localhost:8080" \
         -Dgreener.externalTrainingScriptFile="${TOOL_SCRIPT}" \

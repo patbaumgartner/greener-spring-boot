@@ -268,7 +268,7 @@ rm -f "${BASELINE_FILE}"
 cd "${PETCLINIC_DIR}"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \
@@ -285,7 +285,7 @@ mvn --batch-mode --no-transfer-progress \
 banner "Promoting Run 1 to baseline"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
     -Dgreener.baselineFile="${BASELINE_FILE}" \
     -Dgreener.latestReportFile="${REPORTS_BASELINE}/latest-energy-report.json" \
     -Dgreener.commitSha="${COMMIT_SHA}" \
@@ -305,7 +305,7 @@ print(f'  Commit : ${COMMIT_SHA}')
 banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \

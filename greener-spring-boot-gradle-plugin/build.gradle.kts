@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.patbaumgartner"
-version = "0.1.0-SNAPSHOT"
+version = "0.2.0-SNAPSHOT"
 
 java {
     toolchain {
@@ -21,7 +21,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.patbaumgartner:greener-spring-boot-core:0.1.0-SNAPSHOT")
+    implementation("com.patbaumgartner:greener-spring-boot-core:0.2.0-SNAPSHOT")
 }
 
 gradlePlugin {
