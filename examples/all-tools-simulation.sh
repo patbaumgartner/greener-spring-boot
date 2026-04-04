@@ -208,13 +208,36 @@ else
     ASSET_NAME="joularcore-linux-${JOULAR_ARCH}"
     DOWNLOAD_URL="https://github.com/joular/joularcore/releases/download/${JOULAR_CORE_VERSION}/${ASSET_NAME}"
     info "Downloading Joular Core from ${DOWNLOAD_URL} ..."
+    DOWNLOADED=false
     if curl -fsSL -o "${JOULAR_CORE_BINARY}" "${DOWNLOAD_URL}"; then
         chmod +x "${JOULAR_CORE_BINARY}"
         ok "Joular Core downloaded and cached."
+        DOWNLOADED=true
     else
+        info "Download failed - will try building from source."
         rm -f "${JOULAR_CORE_BINARY}"
-        echo "[ERR] Failed to download Joular Core. Build from source or provide a binary."
-        exit 1
+    fi
+
+    if [ "${DOWNLOADED}" = false ]; then
+        if ! command -v cargo >/dev/null 2>&1; then
+            info "cargo not found - installing Rust toolchain via rustup..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            # shellcheck source=/dev/null
+            source "${HOME}/.cargo/env"
+            ok "Rust toolchain installed: $(cargo --version)"
+        fi
+
+        JOULAR_SRC="${WORK_DIR}/joularcore-src"
+        rm -rf "${JOULAR_SRC}"
+        git clone --depth 1 --branch "${JOULAR_CORE_VERSION}" \
+            https://github.com/joular/joularcore.git "${JOULAR_SRC}"
+
+        cd "${JOULAR_SRC}"
+        cargo build --release
+
+        cp target/release/joularcore "${JOULAR_CORE_BINARY}"
+        chmod +x "${JOULAR_CORE_BINARY}"
+        ok "Joular Core built and cached."
     fi
 fi
 
