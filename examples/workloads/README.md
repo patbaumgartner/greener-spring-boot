@@ -4,9 +4,12 @@ This directory contains ready-to-use load-test scripts for popular HTTP benchmar
 tools.  Pass any of them to the greener-spring-boot plugin via
 `externalTrainingScriptFile` to use them as the energy measurement workload.
 
-> **Policy**: always configure an `externalTrainingScriptFile`.  The built-in HTTP
-> loader is a last-resort fallback and produces less reproducible load patterns.
-> Pick the tool that best matches your environment from the table below.
+ > **Tip**: configure an `externalTrainingScriptFile` to get reproducible load
+> patterns.  Pick the tool that best matches your environment from the table below.
+
+> **Auto-install**: each tool's `run.sh` script automatically installs the tool
+> if it is not already present on the system.  No manual pre-installation is
+> required - just run the script and it will handle the rest.
 
 ---
 
@@ -14,7 +17,7 @@ tools.  Pass any of them to the greener-spring-boot plugin via
 
 | Directory    | Tool | Best for |
 |---|---|---|
-| `oha/`       | [oha](https://github.com/hatoo/oha)        | CI pipelines — single static binary, constant-rate load |
+| `oha/`       | [oha](https://github.com/hatoo/oha)        | CI pipelines - single static binary, constant-rate load |
 | `k6/`        | [k6](https://grafana.com/docs/k6/)         | Scripted scenarios, thresholds, multi-scenario |
 | `wrk/`       | [wrk](https://github.com/wg/wrk)           | High-throughput benchmarking, Lua scripting |
 | `wrk2/`      | [wrk2](https://github.com/giltene/wrk2)    | Coordinated-omission-free constant-throughput |
@@ -32,7 +35,7 @@ tools.  Pass any of them to the greener-spring-boot plugin via
 ```xml
 <configuration>
   <springBootJar>${project.build.directory}/myapp.jar</springBootJar>
-  <!-- Always specify an external script — choose one of the examples below -->
+  <!-- Always specify an external script - choose one of the examples below -->
   <externalTrainingScriptFile>${project.basedir}/examples/workloads/oha/run.sh</externalTrainingScriptFile>
   <warmupDurationSeconds>30</warmupDurationSeconds>
   <measureDurationSeconds>60</measureDurationSeconds>
@@ -49,7 +52,7 @@ mvn greener:measure
 ```kotlin
 greener {
     springBootJar = file("build/libs/myapp.jar")
-    // Always specify an external script — choose one of the examples below
+    // Always specify an external script - choose one of the examples below
     externalTrainingScriptFile = file("examples/workloads/oha/run.sh")
     warmupDurationSeconds = 30
     measureDurationSeconds = 60
@@ -86,7 +89,7 @@ linked binary with no runtime dependencies, produces consistent constant-rate lo
 and has a real-time TUI that is disabled automatically with `--no-tui`.
 
 ```bash
-# Install (Linux — GitHub release)
+# Install (Linux - GitHub release)
 OHA_VERSION="1.14.0"
 curl -fsSL -o /usr/local/bin/oha \
   "https://github.com/hatoo/oha/releases/download/v${OHA_VERSION}/oha-linux-amd64"
@@ -104,7 +107,7 @@ oha --no-tui --duration 60s --qps 50 http://localhost:8080/
 ## k6
 
 k6 uses a constant-arrival-rate executor which keeps the request rate fixed
-regardless of server response time — ideal for reproducible energy measurements.
+regardless of server response time - ideal for reproducible energy measurements.
 
 ```bash
 # Install (Linux)
@@ -220,7 +223,7 @@ When running inside a virtual machine, RAPL power counters are not directly
 accessible.  Use **Scaphandre** on the KVM host to obtain real per-VM power data
 and feed it to Joular Core via `--vm --vm-power-file`.
 
-> **Never use a mocked or random power value** — it makes energy reports
+> **Never use a mocked or random power value** - it makes energy reports
 > meaningless and cannot be used to compare code changes.
 
 See [`examples/vm-setup/README.md`](../vm-setup/README.md) for a complete setup

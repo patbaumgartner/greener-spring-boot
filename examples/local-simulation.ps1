@@ -30,7 +30,6 @@
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
-#   OHA_VERSION            oha release version             (default: 1.14.0)
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-local-sim)
@@ -47,7 +46,6 @@ $JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
-$OhaVersion         = if ($env:OHA_VERSION)          { $env:OHA_VERSION }          else { "1.14.0" }
 $TdpWatts           = if ($env:TDP_WATTS)            { $env:TDP_WATTS }            else { "100" }
 $WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-local-sim" }
 
@@ -137,20 +135,6 @@ Push-Location $PetclinicDir
 try {
     Invoke-Cmd "Petclinic build" mvn @("--batch-mode", "--no-transfer-progress", "package", "-DskipTests")
 } finally { Pop-Location }
-
-# -- Install oha --------------------------------------------------------------
-Banner "Checking oha $OhaVersion"
-
-if (Get-Command oha -ErrorAction SilentlyContinue) {
-    Ok "oha already installed: $(oha --version)"
-} else {
-    Info "Installing oha $OhaVersion..."
-    $OhaUrl = "https://github.com/hatoo/oha/releases/download/v$OhaVersion/oha-windows-amd64.exe"
-    $OhaBin = Join-Path $WorkDir "oha.exe"
-    Invoke-WebRequest -Uri $OhaUrl -OutFile $OhaBin -UseBasicParsing
-    $env:PATH = "$WorkDir;$env:PATH"
-    Ok "oha installed: $(oha --version)"
-}
 
 # -- Copy workload scripts ----------------------------------------------------
 $ExamplesTarget = Join-Path $PetclinicDir "examples"
@@ -305,7 +289,7 @@ try {
 
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
         "-Dgreener.baseUrl=http://localhost:8080",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",
@@ -328,7 +312,7 @@ Push-Location $PetclinicDir
 try {
     Invoke-Cmd "Update baseline" mvn @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline",
         "-Dgreener.baselineFile=$BaselineFile",
         "-Dgreener.latestReportFile=$(Join-Path $ReportsBaseline 'latest-energy-report.json')",
         "-Dgreener.commitSha=$CommitSha",
@@ -350,7 +334,7 @@ Push-Location $PetclinicDir
 try {
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure",
+        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
         "-Dgreener.baseUrl=http://localhost:8080",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",

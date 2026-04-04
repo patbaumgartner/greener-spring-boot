@@ -47,7 +47,10 @@ jobs:
       # ── 3. Set release version (if provided) ─────────────────────────────────
       - name: Set release version
         if: inputs.version != ''
-        run: mvn -B versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+        run: |
+          mvn -B versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+          sed -i "s/^version=.*/version=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
+          sed -i "s/^coreVersion=.*/coreVersion=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
 
       # ── Snapshot deploy (direct to Central Portal snapshot repo) ──────────────
       - name: Deploy Maven snapshot
@@ -74,7 +77,6 @@ jobs:
         if: inputs.version != ''
         working-directory: greener-spring-boot-gradle-plugin
         run: |
-          sed -i "s/0.1.0-SNAPSHOT/${{ inputs.version }}/g" build.gradle.kts
           ./gradlew publishAllPublicationsToStagingRepository
 
       - name: Release
@@ -87,7 +89,8 @@ jobs:
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
-        run: ./gradlew publishPlugins
+        run: |
+          ./gradlew publishPlugins
 
       # ── Logs ─────────────────────────────────────────────────────────────────
       - name: JReleaser output

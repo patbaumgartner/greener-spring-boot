@@ -1,4 +1,4 @@
-# Copilot Instructions — greener-spring-boot
+# Copilot Instructions - greener-spring-boot
 
 ## Project Overview
 
@@ -20,12 +20,13 @@ power samples, compare against a stored baseline, and generate console + HTML re
 
 ```
 com.patbaumgartner.greener.core
-├── baseline/        BaselineManager — load / save energy-baseline.json
-├── comparator/      EnergyComparator — diff report vs baseline
+├── baseline/        BaselineManager - load / save energy-baseline.json
+├── comparator/      EnergyComparator - diff report vs baseline
 ├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults
-├── downloader/      JoularCoreDownloader — auto-download Joular Core binaries
+├── downloader/      JoularCoreDownloader - auto-download Joular Core binaries
 ├── model/           EnergyReport, EnergyBaseline, EnergyMeasurement,
-│                    ComparisonResult, WorkloadStats, PowerSource (enum)
+│                    ComparisonResult, WorkloadStats, AggregatedRunEntry,
+│                    PowerSource (enum)
 ├── reader/          JoularCoreResultReader, JoularJxResultReader
 ├── reporter/        ConsoleReporter, HtmlReporter
 └── runner/          ApplicationRunner, JoularCoreRunner, TrainingRunner,
@@ -34,14 +35,20 @@ com.patbaumgartner.greener.core
 
 ### Key Classes
 
-- **`PluginDefaults`** — shared utility used by both Maven and Gradle plugins
-  for `buildRunId()` and `resolvePowerSource(boolean vmMode)`.
-- **`PowerSource`** — enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
+- **`PluginDefaults`** - shared utility used by both Maven and Gradle plugins
+  for `buildRunId()`, `resolvePowerSource(boolean vmMode)`, `normalise(String)`,
+  `buildEffectiveAppArgs(List)`, `autoDetectJar(Path, String...)`, and
+  `formatBaselineUpdateSummary(...)`.
+- **`PowerSource`** - enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
   with `detect(boolean vmMode)` and `fromString(String)`.
-- **`ExternalToolOutputParser`** — extracts request counts from stdout of
+- **`ExternalToolOutputParser`** - extracts request counts from stdout of
   oha, wrk, wrk2, bombardier, ab, k6, Gatling, and Locust.
-- **`TrainingRunner`** — supports external scripts, inline commands, and a
-  built-in HTTP loader; captures stdout for `ExternalToolOutputParser`.
+- **`TrainingRunner`** - supports external scripts and inline commands;
+  captures stdout for `ExternalToolOutputParser`.
+- **`HtmlReporter`** - generates self-contained HTML reports; supports
+  single-tool and multi-tool aggregated reports via `generateAggregatedReport()`.
+- **`AggregatedRunEntry`** - record combining tool name, report, workload
+  stats, and comparison for multi-tool aggregated reports.
 
 ## Build & Test
 
@@ -56,16 +63,16 @@ cd greener-spring-boot-gradle-plugin && ./gradlew build --no-daemon
 
 ## Coding Conventions
 
-- **Java 17** — use records, sealed classes, pattern matching where appropriate.
-- **Spring Java Format** — the formatter is enforced via `spring-javaformat-maven-plugin`.
+- **Java 17** - use records, sealed classes, pattern matching where appropriate.
+- **Spring Java Format** - the formatter is enforced via `spring-javaformat-maven-plugin`.
   Use tab-based indentation consistent with the formatter output.
-- **Builder-style setters** — configuration classes (`JoularCoreConfig`, `TrainingConfig`)
+- **Builder-style setters** - configuration classes (`JoularCoreConfig`, `TrainingConfig`)
   use fluent `return this` setters, not JavaBean setters.
-- **Records for value objects** — `EnergyBaseline`, `EnergyMeasurement`, `EnergyReport`,
-  `ComparisonResult`, `WorkloadStats` are all records.
-- **Logging** — use `java.util.logging.Logger` in core; Maven uses `getLog()`, Gradle uses
+- **Records for value objects** - `EnergyBaseline`, `EnergyMeasurement`, `EnergyReport`,
+  `ComparisonResult`, `WorkloadStats`, `AggregatedRunEntry` are all records.
+- **Logging** - use `java.util.logging.Logger` in core; Maven uses `getLog()`, Gradle uses
   `getLogger().lifecycle()`.
-- **No Lombok** — the project does not use Lombok.
+- **No Lombok** - the project does not use Lombok.
 
 ## Testing
 
@@ -92,12 +99,12 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 ## Dependencies
 
 - **Jackson** for JSON serialization of baselines.
-- **JUnit Jupiter / JUnit 6** for testing.
+- **JUnit 6** for testing.
 - Dependency updates are managed via **Renovate** (`renovate.json5`) and **Dependabot** (`.github/dependabot.yml`).
 
 ## CI / GitHub Actions
 
-- **Pin actions by full commit SHA** — never use mutable tags like `@v6`.
+- **Pin actions by full commit SHA** - never use mutable tags like `@v6`.
   Keep the version tag as a trailing comment for readability.
   Example: `uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6`
 - **Renovate** manages SHA digest updates for GitHub Actions (`github-actions` manager).
@@ -105,11 +112,21 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 
 ## Key Design Decisions
 
-1. **Process-level monitoring first** — Joular Core monitors the Spring Boot JVM by PID;
+1. **Process-level monitoring first** - Joular Core monitors the Spring Boot JVM by PID;
    JoularJX (method-level) is an optional add-on.
-2. **External workload tools preferred** — the built-in HTTP loader is a fallback;
-   real measurements should use oha, wrk, k6, Gatling, etc.
-3. **VM mode** — for CI/CD and VMs without RAPL, a CPU-time × TDP estimator writes
+2. **External workload tools only** - measurements use oha, wrk, k6, Gatling, etc.
+   via `externalTrainingScriptFile` or `externalTrainingCommand`.
+3. **VM mode** - for CI/CD and VMs without RAPL, a CPU-time × TDP estimator writes
    power values to a file that Joular Core reads in `--vm` mode.
-4. **Auto-download** — Joular Core binaries are auto-downloaded from GitHub Releases
+4. **Auto-download** - Joular Core binaries are auto-downloaded from GitHub Releases
    and cached in `~/.greener/cache/joularcore/`.
+
+## Changelog & Versioning
+
+- **CHANGELOG.md** must be updated before every release with all notable changes
+  grouped under the new version heading.
+- After a release, bump the version in all `pom.xml` files and `gradle.properties`
+  to the next `-SNAPSHOT` version.
+- Follow [Keep a Changelog](https://keepachangelog.com/) format with sections:
+  `Added`, `Changed`, `Removed`, `Fixed`.
+- The current development version is maintained as `## [Unreleased]` at the top.

@@ -4,7 +4,8 @@
 
 | Version       | Supported |
 | ------------- | --------- |
-| 0.1.x (SNAPSHOT) | ✅ Yes |
+| 0.2.x         | ✅ Yes |
+| 0.1.x         | ✅ Yes |
 
 ## Reporting a Vulnerability
 
@@ -17,7 +18,7 @@ Instead, use one of the following channels:
 
 2. **Email**: [pat.baumgartner@gmail.com](mailto:pat.baumgartner@gmail.com)
 
-Please include as much detail as possible — steps to reproduce, affected versions, and potential impact.
+Please include as much detail as possible - steps to reproduce, affected versions, and potential impact.
 
 **Response commitments:**
 
@@ -32,7 +33,6 @@ Please include as much detail as possible — steps to reproduce, affected versi
 - CSV parsing and energy baseline comparison logic
 - Joular Core binary auto-download mechanism
 - Process management and lifecycle handling
-- Built-in HTTP loader
 
 ### Out of Scope
 

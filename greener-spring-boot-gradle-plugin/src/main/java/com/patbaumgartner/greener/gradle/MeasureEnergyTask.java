@@ -19,6 +19,7 @@ import com.patbaumgartner.greener.core.runner.JoularCoreRunner;
 import com.patbaumgartner.greener.core.runner.TrainingRunner;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
@@ -33,11 +34,8 @@ import org.gradle.work.DisableCachingByDefault;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Gradle task that measures the energy consumption of a Spring Boot application
@@ -62,14 +60,6 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract RegularFileProperty getSpringBootJar();
 
     /**
-     * HTTP port the Spring Boot application listens on.
-     * 
-     * @return the application port property
-     */
-    @Input
-    public abstract Property<Integer> getApplicationPort();
-
-    /**
      * Full path to the Joular Core binary (optional; auto-downloaded when absent).
      * 
      * @return the Joular Core binary path property
@@ -82,7 +72,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     /**
      * Joular Core release version to download when
      * {@link #getJoularCoreBinaryPath()} is not set. See
-     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core
+     * releases</a>
      * for available versions.
      * 
      * @return the Joular Core version property
@@ -99,7 +90,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<String> getJoularCoreComponent();
 
     /**
-     * Base URL of the Spring Boot application used by the built-in HTTP loader.
+     * Base URL of the Spring Boot application.
      * 
      * @return the base URL property
      */
@@ -107,16 +98,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<String> getBaseUrl();
 
     /**
-     * Relative URL paths exercised during the training run.
-     * 
-     * @return the training paths property
-     */
-    @Input
-    public abstract ListProperty<String> getTrainingPaths();
-
-    /**
-     * Number of HTTP requests per second issued by the built-in HTTP loader
-     * during the training run.
+     * Number of HTTP requests per second (passed as {@code RPS} environment
+     * variable).
      * 
      * @return the requests per second property
      */
@@ -124,8 +107,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Integer> getRequestsPerSecond();
 
     /**
-     * Optional external command used as the training workload instead of the
-     * built-in HTTP loader (e.g. {@code k6 run script.js}). The {@code APP_URL}
+     * Optional external command used as the training workload
+     * (e.g. {@code k6 run script.js}). The {@code APP_URL}
      * environment variable is set to {@link #getBaseUrl()}.
      * 
      * @return the external training command property
@@ -158,7 +141,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      *
      * <p>
      * In VM mode Joular Core cannot read RAPL counters directly and instead
-     * reads the VM's total power from a file written by the host — see
+     * reads the VM's total power from a file written by the host - see
      * {@link #getVmPowerFilePath()}. The host must write the VM's instantaneous
      * power (Watts) to that file once per second.
      * 
@@ -247,7 +230,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      */
     @OutputDirectory
     @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getReportOutputDir();
+    public abstract DirectoryProperty getReportOutputDir();
 
     /**
      * Runs the energy measurement workflow.
@@ -259,8 +242,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         File springBootJarFile;
         if (getSpringBootJar().isPresent()) {
             springBootJarFile = getSpringBootJar().get().getAsFile();
-        }
-        else {
+        } else {
             springBootJarFile = autoDetectSpringBootJar();
         }
         if (!springBootJarFile.exists()) {
@@ -283,8 +265,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         getLogger().lifecycle("Starting Spring Boot application: " + springBootJarFile);
 
         // Enable health probes so /actuator/health/readiness is available
-        List<String> effectiveAppArgs = new ArrayList<>();
-        effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+        List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(null);
 
         Process appProcess = appRunner.start(
                 springBootJarFile.toPath(),
@@ -349,6 +330,11 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                 reportDir);
         getLogger().lifecycle("HTML report: " + htmlReport);
 
+        // Save latest report so that updateEnergyBaseline can promote it
+        Path latestReportPath = reportDir.resolve("latest-energy-report.json");
+        baselineManager.saveBaseline(report, null, null, latestReportPath);
+        getLogger().lifecycle("Latest energy report saved to: " + latestReportPath);
+
         if (getFailOnRegression().get() && comparison.isFailed()) {
             throw new GradleException(String.format(
                     "Energy regression: %.2f%% increase exceeds threshold %.1f%%. Report: %s",
@@ -373,10 +359,6 @@ public abstract class MeasureEnergyTask extends DefaultTask {
             if (extCmd != null && !extCmd.isBlank()) {
                 config.externalCommand(extCmd);
             }
-        }
-
-        if (!getTrainingPaths().get().isEmpty()) {
-            config.paths(getTrainingPaths().get());
         }
 
         return new TrainingRunner().run(config);
@@ -423,31 +405,21 @@ public abstract class MeasureEnergyTask extends DefaultTask {
      * single executable jar, excluding sources, javadoc, and test jars.
      */
     private File autoDetectSpringBootJar() {
-        File libsDir = getProject().getLayout().getBuildDirectory().getAsFile().get().toPath()
-                .resolve("libs").toFile();
+        Path libsDir = getProject().getLayout().getBuildDirectory().getAsFile().get().toPath()
+                .resolve("libs");
 
-        if (!libsDir.isDirectory()) {
-            throw new GradleException("springBootJar not configured and build/libs/ not found: "
-                    + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
+        try {
+            Optional<File> jar = PluginDefaults.autoDetectJar(libsDir, "-plain.jar");
+            if (jar.isEmpty()) {
+                throw new GradleException("springBootJar not configured and build/libs/ not found: "
+                        + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
+            }
+            getLogger().lifecycle("Auto-detected Spring Boot jar: " + jar.get());
+            return jar.get();
+        } catch (IllegalStateException e) {
+            throw new GradleException(
+                    e.getMessage() + ". Run 'bootJar' first or set springBootJar explicitly.");
         }
-
-        File[] jars = libsDir.listFiles((dir, name) -> name.endsWith(".jar")
-                && !name.endsWith("-sources.jar") && !name.endsWith("-javadoc.jar")
-                && !name.endsWith("-tests.jar") && !name.endsWith("-plain.jar")
-                && !name.contains(".original"));
-
-        if (jars == null || jars.length == 0) {
-            throw new GradleException("No jar found in " + libsDir
-                    + ". Run 'bootJar' first or set springBootJar explicitly.");
-        }
-        if (jars.length > 1) {
-            throw new GradleException("Multiple jars found in " + libsDir + ": "
-                    + Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
-                    + ". Set springBootJar explicitly to select one.");
-        }
-
-        getLogger().lifecycle("Auto-detected Spring Boot jar: " + jars[0]);
-        return jars[0];
     }
 
 }

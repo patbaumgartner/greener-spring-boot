@@ -1,8 +1,11 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.util.Locale;
+
 /**
  * Describes how the energy data was obtained during a measurement run.
  */
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName") // record-style accessors
 public enum PowerSource {
 
 	/**
@@ -73,7 +76,7 @@ public enum PowerSource {
 		if (value == null || value.isBlank()) {
 			return UNKNOWN;
 		}
-		return switch (value.strip().toLowerCase()) {
+		return switch (value.strip().toLowerCase(Locale.ENGLISH)) {
 			case "rapl" -> RAPL;
 			case "vm-file", "scaphandre" -> VM_FILE;
 			case "ci-estimated", "estimated" -> ESTIMATED;

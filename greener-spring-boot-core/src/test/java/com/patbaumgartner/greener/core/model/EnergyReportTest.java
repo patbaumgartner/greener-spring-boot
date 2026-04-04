@@ -51,13 +51,13 @@ class EnergyReportTest {
 	}
 
 	@Test
-	void topMethods_returnsDescendingByEnergy() {
+	void topMeasurements_returnsDescendingByEnergy() {
 		List<EnergyMeasurement> measurements = List.of(new EnergyMeasurement("low", 1.0),
 				new EnergyMeasurement("high", 30.0), new EnergyMeasurement("mid", 10.0));
 
 		EnergyReport report = EnergyReport.of("run", NOW, 60, measurements);
 
-		List<EnergyMeasurement> top = report.topMethods(2);
+		List<EnergyMeasurement> top = report.topMeasurements(2);
 
 		assertThat(top).hasSize(2);
 		assertThat(top.get(0).methodName()).isEqualTo("high");
@@ -65,10 +65,10 @@ class EnergyReportTest {
 	}
 
 	@Test
-	void topMethods_requestMoreThanAvailable_returnsAll() {
+	void topMeasurements_requestMoreThanAvailable_returnsAll() {
 		EnergyReport report = EnergyReport.of("run", NOW, 60, List.of(new EnergyMeasurement("only", 5.0)));
 
-		assertThat(report.topMethods(10)).hasSize(1);
+		assertThat(report.topMeasurements(10)).hasSize(1);
 	}
 
 }

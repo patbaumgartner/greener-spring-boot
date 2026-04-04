@@ -13,6 +13,33 @@
 
 set -eu
 
+# ── Auto-install wrk if not found ─────────────────────────────────────────────
+if ! command -v wrk >/dev/null 2>&1; then
+    echo "wrk not found — installing …"
+    OS="$(uname -s)"
+    case "${OS}" in
+        Linux)
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -qq && sudo apt-get install -y -qq wrk
+            else
+                echo "[ERR] apt-get not found. Install wrk manually."; exit 1
+            fi
+            ;;
+        Darwin)
+            if command -v brew >/dev/null 2>&1; then
+                brew install wrk
+            else
+                echo "[ERR] Homebrew not found. Install wrk manually."; exit 1
+            fi
+            ;;
+        MINGW*|MSYS*)
+            echo "[ERR] wrk has no pre-built Windows binary. Use WSL or another tool."; exit 1
+            ;;
+        *)  echo "[ERR] Unsupported OS: ${OS}"; exit 1 ;;
+    esac
+    echo "wrk installed: $(wrk --version 2>&1 | head -1)"
+fi
+
 APP_URL="${APP_URL:-http://localhost:8080}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"

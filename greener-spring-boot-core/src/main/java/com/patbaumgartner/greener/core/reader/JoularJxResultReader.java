@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -21,7 +22,9 @@ import java.util.stream.Stream;
  * of Joular Core. When only Joular Core is used (process-level monitoring), this reader
  * is not invoked.
  *
- * <h2>Expected directory structure</h2> <pre>
+ * <h2>Expected directory structure</h2>
+ *
+ * <pre>
  * joularjx-results/
  *   {appName}-{PID}-{timestamp}/
  *     app/total/methods/
@@ -30,7 +33,9 @@ import java.util.stream.Stream;
  *       *.csv   ← total energy for ALL methods
  * </pre>
  *
- * <h2>CSV format</h2> <pre>
+ * <h2>CSV format</h2>
+ *
+ * <pre>
  * fully.qualified.ClassName.methodName,energyInJoules
  * </pre>
  */
@@ -52,17 +57,17 @@ public class JoularJxResultReader {
 	public EnergyReport readResults(Path joularJxResultsRoot, String runId, long durationSeconds) throws IOException {
 
 		if (!Files.isDirectory(joularJxResultsRoot)) {
-			LOG.warning("JoularJX results directory does not exist: " + joularJxResultsRoot);
+			LOG.log(Level.WARNING, () -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
 		Path runDir = findLatestRunDirectory(joularJxResultsRoot);
 		if (runDir == null) {
-			LOG.warning("No JoularJX run directory found under: " + joularJxResultsRoot);
+			LOG.log(Level.WARNING, () -> "No JoularJX run directory found under: " + joularJxResultsRoot);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
-		LOG.info("Reading JoularJX results from: " + runDir);
+		LOG.log(Level.INFO, () -> "Reading JoularJX results from: " + runDir);
 
 		// Prefer filtered 'app' results; fall back to 'all'
 		Path methodsDir = runDir.resolve("app/total/methods");
@@ -79,21 +84,23 @@ public class JoularJxResultReader {
 						measurements.addAll(parseCsv(csv));
 					}
 					catch (IOException e) {
-						LOG.warning("Failed to parse CSV file " + csv + ": " + e.getMessage());
+						LOG.log(Level.WARNING, () -> "Failed to parse CSV file " + csv + ": " + e.getMessage());
 					}
 				});
 			}
 		}
 		else {
-			LOG.warning("JoularJX methods directory not found under: " + runDir);
+			LOG.log(Level.WARNING, () -> "JoularJX methods directory not found under: " + runDir);
 		}
 
-		LOG.info("Read " + measurements.size() + " method measurements from JoularJX results");
+		LOG.log(Level.INFO, () -> "Read " + measurements.size() + " method measurements from JoularJX results");
 		return EnergyReport.of(runId, Instant.now(), durationSeconds, measurements);
 	}
 
+	private static final int CSV_COLUMN_COUNT = 2;
+
 	/**
-	 * Parses a single JoularJX total-energy CSV file.
+	 * Parses a single JoularJX CSV file into energy measurements.
 	 *
 	 * <p>
 	 * Supports the standard two-column format: {@code methodName,energyJoules}.
@@ -103,12 +110,12 @@ public class JoularJxResultReader {
 		List<EnergyMeasurement> measurements = new ArrayList<>();
 
 		for (String line : lines) {
-			line = line.strip();
-			if (line.isEmpty() || line.startsWith("#")) {
+			String trimmedLine = line.strip();
+			if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
 				continue;
 			}
-			String[] parts = line.split(",", 2);
-			if (parts.length == 2) {
+			String[] parts = trimmedLine.split(",", 2);
+			if (parts.length == CSV_COLUMN_COUNT) {
 				try {
 					String method = parts[0].strip();
 					double energy = Double.parseDouble(parts[1].strip());
@@ -117,7 +124,7 @@ public class JoularJxResultReader {
 					}
 				}
 				catch (NumberFormatException e) {
-					LOG.fine("Skipping non-numeric line in " + csvFile + ": " + line);
+					LOG.log(Level.FINE, () -> "Skipping non-numeric line in " + csvFile + ": " + trimmedLine);
 				}
 			}
 		}

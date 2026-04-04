@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Negative tests for `ExternalToolOutputParser` covering malformed and partial output
+- `TrainingConfigTest` with tests for defaults, fluent setters, and edge cases
+- Scaphandre Windows installer link in README hardware requirements
+- Simulation scripts section in README "Supported CI systems"
+- Changelog and versioning instructions in copilot-instructions.md
+
+### Changed
+
+- Expanded "Supported CI systems" table in README with GitLab CI and Jenkins rows
+- `baseUrl` and `requestsPerSecond` parameter descriptions clarified as env vars for external scripts
+
+### Removed
+
+- Built-in HTTP loader (`TrainingRunner.runBuiltInHttpLoader()`) - use external scripts instead
+- `trainingPaths` parameter from Maven and Gradle plugins
+- `paths` and `concurrency` fields from `TrainingConfig`
+- `WorkloadStats.builtIn()` factory method
+
+### Fixed
+
+- CodeQL `NumberFormatException` alerts in `ExternalToolOutputParser` (safe parsing helpers)
+- CodeQL relative-path-command alert in `TrainingRunner` (absolute path resolution)
+- Em dashes replaced with standard dashes in all documentation files
+
 ## [0.1.0] - 2026-04-03
 
 ### Added
@@ -14,7 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Energy measurement of Spring Boot applications via [Joular Core](https://github.com/joular/joularcore)
 - Maven plugin with `greener:measure` and `greener:update-baseline` goals
 - Gradle plugin with `measureEnergy` and `updateEnergyBaseline` tasks
-- Built-in HTTP loader for basic workload generation
 - External workload script support for custom load profiles
 - Example workload scripts for eight popular load-testing tools: oha, wrk, wrk2, k6, Apache Benchmark (ab), bombardier, Locust, and Gatling
 - Energy baseline comparison with configurable threshold to detect regressions

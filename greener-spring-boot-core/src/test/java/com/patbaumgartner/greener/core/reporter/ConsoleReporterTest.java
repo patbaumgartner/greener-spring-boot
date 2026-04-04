@@ -17,7 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ConsoleReporterTest {
 
-	private final ConsoleReporter reporter = new ConsoleReporter();
+	private final ByteArrayOutputStream capture = new ByteArrayOutputStream();
+
+	private final ConsoleReporter reporter = new ConsoleReporter(10, new PrintStream(capture));
 
 	@Test
 	void report_printsEnergyData() {
@@ -27,7 +29,8 @@ class ConsoleReporterTest {
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 125.0, 0, List.of(), false,
 				10.0);
 
-		String output = captureStdout(() -> reporter.report(report, comparison));
+		reporter.report(report, comparison);
+		String output = capture.toString();
 
 		assertThat(output).contains("Energy Consumption Report");
 		assertThat(output).contains("run-1");
@@ -41,12 +44,13 @@ class ConsoleReporterTest {
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 50.0, 0, List.of(), false,
 				10.0);
 
-		WorkloadStats stats = WorkloadStats.builtIn(1000, 5, 60);
+		WorkloadStats stats = WorkloadStats.external("oha", 1000, 5, 60);
 
-		String output = captureStdout(() -> reporter.report(report, comparison, stats));
+		reporter.report(report, comparison, stats);
+		String output = capture.toString();
 
 		assertThat(output).contains("Use-Case Energy");
-		assertThat(output).contains("built-in");
+		assertThat(output).contains("oha");
 		assertThat(output).contains("1000 total");
 	}
 
@@ -56,7 +60,8 @@ class ConsoleReporterTest {
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 0, 0, List.of(), false,
 				10.0);
 
-		String output = captureStdout(() -> reporter.report(report, comparison, null, PowerSource.RAPL));
+		reporter.report(report, comparison, null, PowerSource.RAPL);
+		String output = capture.toString();
 
 		assertThat(output).contains("RAPL");
 	}
@@ -68,7 +73,8 @@ class ConsoleReporterTest {
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0,
 				List.of(new ComparisonResult.MethodComparison("app", 100.0, 120.0, 20.0)), true, 10.0);
 
-		String output = captureStdout(() -> reporter.report(report, comparison));
+		reporter.report(report, comparison);
+		String output = capture.toString();
 
 		assertThat(output).contains("Baseline comparison");
 		assertThat(output).contains("REGRESSED");
@@ -80,22 +86,10 @@ class ConsoleReporterTest {
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 0, 0, List.of(), false,
 				10.0);
 
-		String output = captureStdout(() -> reporter.report(report, comparison));
+		reporter.report(report, comparison);
+		String output = capture.toString();
 
 		assertThat(output).contains("No energy data recorded");
-	}
-
-	private String captureStdout(Runnable action) {
-		PrintStream original = System.out;
-		ByteArrayOutputStream capture = new ByteArrayOutputStream();
-		System.setOut(new PrintStream(capture));
-		try {
-			action.run();
-		}
-		finally {
-			System.setOut(original);
-		}
-		return capture.toString();
 	}
 
 }

@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -12,12 +13,18 @@ import java.util.Set;
  *
  * <h2>Tool names</h2>
  * <ul>
- * <li>{@code built-in} — the built-in Java HTTP loader</li>
- * <li>{@code wrk} — <a href="https://github.com/wg/wrk">wrk</a></li>
- * <li>{@code wrk2} — <a href="https://github.com/giltene/wrk2">wrk2</a></li>
- * <li>{@code oha} — <a href="https://github.com/hatoo/oha">oha</a></li>
- * <li>{@code gatling} — <a href="https://gatling.io">Gatling</a></li>
- * <li>{@code custom} — any other external command or script</li>
+ * <li>{@code oha} - <a href="https://github.com/hatoo/oha">oha</a></li>
+ * <li>{@code wrk} - <a href="https://github.com/wg/wrk">wrk</a></li>
+ * <li>{@code wrk2} - <a href="https://github.com/giltene/wrk2">wrk2</a></li>
+ * <li>{@code bombardier} -
+ * <a href="https://github.com/codesenberg/bombardier">bombardier</a></li>
+ * <li>{@code ab} -
+ * <a href="https://httpd.apache.org/docs/current/programs/ab.html">Apache
+ * Benchmark</a></li>
+ * <li>{@code k6} - <a href="https://k6.io">k6</a> (scenario-based)</li>
+ * <li>{@code gatling} - <a href="https://gatling.io">Gatling</a> (scenario-based)</li>
+ * <li>{@code locust} - <a href="https://locust.io">Locust</a> (scenario-based)</li>
+ * <li>{@code custom} - any other external command or script</li>
  * </ul>
  *
  * <p>
@@ -35,11 +42,6 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 		if (durationSeconds < 0) {
 			throw new IllegalArgumentException("durationSeconds must be >= 0");
 		}
-	}
-
-	/** Factory for the built-in HTTP loader with known request counts. */
-	public static WorkloadStats builtIn(long totalRequests, long failedRequests, long durationSeconds) {
-		return new WorkloadStats("built-in", totalRequests, failedRequests, durationSeconds);
 	}
 
 	/** Factory for an external tool with unknown request counts. */
@@ -100,7 +102,7 @@ public record WorkloadStats(String tool, long totalRequests, long failedRequests
 	 * {@code "req/s"}.
 	 */
 	public String throughputUnit() {
-		return SCENARIO_TOOLS.contains(tool.toLowerCase()) ? "scenarios/s" : "req/s";
+		return SCENARIO_TOOLS.contains(tool.toLowerCase(Locale.ENGLISH)) ? "scenarios/s" : "req/s";
 	}
 
 }

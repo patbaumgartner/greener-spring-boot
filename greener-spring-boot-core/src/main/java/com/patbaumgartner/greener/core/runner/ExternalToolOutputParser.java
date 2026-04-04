@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.runner;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +29,28 @@ import java.util.regex.Pattern;
 public class ExternalToolOutputParser {
 
 	private static final long UNKNOWN = -1L;
+
+	private static final int HTTP_CLIENT_ERROR_THRESHOLD = 400;
+
+	private static final int BOMBARDIER_CLIENT_ERROR_CLASS = 4;
+
+	private static int safeParseInt(String value) {
+		try {
+			return Integer.parseInt(value);
+		}
+		catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	private static long safeParseLong(String value) {
+		try {
+			return Long.parseLong(value);
+		}
+		catch (NumberFormatException e) {
+			return 0;
+		}
+	}
 
 	// oha: "[200] 49820 responses"
 	private static final Pattern OHA_STATUS = Pattern.compile("^\\s*\\[(\\d{3})]\\s+(\\d+)\\s+responses",
@@ -70,9 +93,9 @@ public class ExternalToolOutputParser {
 	private static final Pattern LOCUST_AGGREGATED = Pattern.compile("^\\s*Aggregated\\s+(\\d+)\\s+(\\d+)",
 			Pattern.MULTILINE);
 
-	private long totalRequests = UNKNOWN;
+	private long parsedTotalRequests = UNKNOWN;
 
-	private long failedRequests = UNKNOWN;
+	private long parsedFailedRequests = UNKNOWN;
 
 	/**
 	 * Parses the combined stdout of a load-testing tool.
@@ -84,7 +107,7 @@ public class ExternalToolOutputParser {
 			return;
 		}
 
-		switch (toolName.toLowerCase()) {
+		switch (toolName.toLowerCase(Locale.ENGLISH)) {
 			case "oha" -> parseOha(output);
 			case "wrk", "wrk2" -> parseWrk(output);
 			case "bombardier" -> parseBombardier(output);
@@ -97,15 +120,15 @@ public class ExternalToolOutputParser {
 	}
 
 	public long totalRequests() {
-		return totalRequests;
+		return parsedTotalRequests;
 	}
 
 	public long failedRequests() {
-		return failedRequests;
+		return parsedFailedRequests;
 	}
 
 	public boolean hasResults() {
-		return totalRequests >= 0;
+		return parsedTotalRequests >= 0;
 	}
 
 	// ---- Tool-specific parsers ----
@@ -117,28 +140,28 @@ public class ExternalToolOutputParser {
 		Matcher m = OHA_STATUS.matcher(output);
 		while (m.find()) {
 			found = true;
-			int status = Integer.parseInt(m.group(1));
-			long count = Long.parseLong(m.group(2));
+			int status = safeParseInt(m.group(1));
+			long count = safeParseLong(m.group(2));
 			total += count;
-			if (status >= 400) {
+			if (status >= HTTP_CLIENT_ERROR_THRESHOLD) {
 				failed += count;
 			}
 		}
 		if (found) {
-			totalRequests = total;
-			failedRequests = failed;
+			parsedTotalRequests = total;
+			parsedFailedRequests = failed;
 		}
 	}
 
 	private void parseWrk(String output) {
 		Matcher m = WRK_REQUESTS.matcher(output);
 		if (m.find()) {
-			totalRequests = Long.parseLong(m.group(1));
-			failedRequests = 0;
+			parsedTotalRequests = safeParseLong(m.group(1));
+			parsedFailedRequests = 0;
 
 			Matcher nonSuccess = WRK_NON_SUCCESS.matcher(output);
 			if (nonSuccess.find()) {
-				failedRequests = Long.parseLong(nonSuccess.group(1));
+				parsedFailedRequests = safeParseLong(nonSuccess.group(1));
 			}
 		}
 	}
@@ -150,28 +173,28 @@ public class ExternalToolOutputParser {
 		Matcher m = BOMBARDIER_STATUS.matcher(output);
 		while (m.find()) {
 			found = true;
-			int statusClass = Integer.parseInt(m.group(1));
-			long count = Long.parseLong(m.group(2));
+			int statusClass = safeParseInt(m.group(1));
+			long count = safeParseLong(m.group(2));
 			total += count;
-			if (statusClass >= 4) {
+			if (statusClass >= BOMBARDIER_CLIENT_ERROR_CLASS) {
 				failed += count;
 			}
 		}
 		if (found) {
-			totalRequests = total;
-			failedRequests = failed;
+			parsedTotalRequests = total;
+			parsedFailedRequests = failed;
 		}
 	}
 
 	private void parseAb(String output) {
 		Matcher m = AB_TOTAL.matcher(output);
 		if (m.find()) {
-			totalRequests = Long.parseLong(m.group(1));
-			failedRequests = 0;
+			parsedTotalRequests = safeParseLong(m.group(1));
+			parsedFailedRequests = 0;
 
 			Matcher fm = AB_FAILED.matcher(output);
 			if (fm.find()) {
-				failedRequests = Long.parseLong(fm.group(1));
+				parsedFailedRequests = safeParseLong(fm.group(1));
 			}
 		}
 	}
@@ -179,17 +202,17 @@ public class ExternalToolOutputParser {
 	private void parseK6(String output) {
 		Matcher m = K6_REQS.matcher(output);
 		if (m.find()) {
-			totalRequests = Long.parseLong(m.group(1));
-			failedRequests = 0;
+			parsedTotalRequests = safeParseLong(m.group(1));
+			parsedFailedRequests = 0;
 
 			Matcher fm = K6_FAILED.matcher(output);
 			if (fm.find()) {
-				failedRequests = Long.parseLong(fm.group(1));
+				parsedFailedRequests = safeParseLong(fm.group(1));
 			}
 			else {
 				Matcher fc = K6_FAILED_COMPACT.matcher(output);
 				if (fc.find()) {
-					failedRequests = Long.parseLong(fc.group(1));
+					parsedFailedRequests = safeParseLong(fc.group(1));
 				}
 			}
 		}
@@ -198,16 +221,16 @@ public class ExternalToolOutputParser {
 	private void parseGatling(String output) {
 		Matcher m = GATLING_REQUEST_COUNT.matcher(output);
 		if (m.find()) {
-			totalRequests = Long.parseLong(m.group(1));
-			failedRequests = Long.parseLong(m.group(3));
+			parsedTotalRequests = safeParseLong(m.group(1));
+			parsedFailedRequests = safeParseLong(m.group(3));
 		}
 	}
 
 	private void parseLocust(String output) {
 		Matcher m = LOCUST_AGGREGATED.matcher(output);
 		if (m.find()) {
-			totalRequests = Long.parseLong(m.group(1));
-			failedRequests = Long.parseLong(m.group(2));
+			parsedTotalRequests = safeParseLong(m.group(1));
+			parsedFailedRequests = safeParseLong(m.group(2));
 		}
 	}
 

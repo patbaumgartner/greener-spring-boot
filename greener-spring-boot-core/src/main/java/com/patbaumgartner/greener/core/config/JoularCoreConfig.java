@@ -24,6 +24,7 @@ import java.util.Map;
  *
  * @see <a href="https://github.com/joular/joularcore">joular/joularcore on GitHub</a>
  */
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName") // fluent builder setters
 public class JoularCoreConfig {
 
 	/** Default version used when auto-downloading Joular Core. */
@@ -62,20 +63,6 @@ public class JoularCoreConfig {
 	 * to keep plugin output readable.
 	 */
 	private boolean silent = true;
-
-	/**
-	 * Whether to use Joular Core also as the power backend for JoularJX (when JoularJX is
-	 * enabled for method-level monitoring). Maps to {@code joular-core=true} in JoularJX
-	 * {@code config.properties}.
-	 */
-	private boolean useWithJoularJx = false;
-
-	/**
-	 * Path to the Joular Core shared-memory ring buffer file. Only relevant when
-	 * {@link #useWithJoularJx} is {@code true} and JoularJX is configured with
-	 * {@code joular-core-ring-buffer=true}.
-	 */
-	private Path ringBufferPath;
 
 	/**
 	 * Enable VM (virtual machine) mode.
@@ -117,61 +104,85 @@ public class JoularCoreConfig {
 
 	// ---- Builder-style setters ----
 
+	/**
+	 * Sets the path to the joularcore binary. @param binaryPath binary path @return this
+	 */
 	public JoularCoreConfig binaryPath(Path binaryPath) {
 		this.binaryPath = binaryPath;
 		return this;
 	}
 
+	/**
+	 * Sets the version to auto-download. @param version release tag @return this
+	 */
 	public JoularCoreConfig version(String version) {
 		this.version = version;
 		return this;
 	}
 
+	/**
+	 * Sets the hardware component to monitor ({@code cpu}, {@code gpu},
+	 * {@code all}). @param component component name @return this
+	 */
 	public JoularCoreConfig component(String component) {
 		this.component = component;
 		return this;
 	}
 
+	/**
+	 * Sets the PID of the process to monitor. @param pid process ID @return this
+	 */
 	public JoularCoreConfig pid(long pid) {
 		this.pid = pid;
 		return this;
 	}
 
+	/**
+	 * Sets the application name to monitor (alternative to PID). @param appName
+	 * application name @return this
+	 */
 	public JoularCoreConfig appName(String appName) {
 		this.appName = appName;
 		return this;
 	}
 
+	/** Sets the CSV output path. @param outputCsvPath file path @return this */
 	public JoularCoreConfig outputCsvPath(Path outputCsvPath) {
 		this.outputCsvPath = outputCsvPath;
 		return this;
 	}
 
+	/**
+	 * Sets whether to suppress terminal output ({@code -s} flag). @param silent true to
+	 * suppress @return this
+	 */
 	public JoularCoreConfig silent(boolean silent) {
 		this.silent = silent;
 		return this;
 	}
 
-	public JoularCoreConfig useWithJoularJx(boolean useWithJoularJx) {
-		this.useWithJoularJx = useWithJoularJx;
-		return this;
-	}
-
-	public JoularCoreConfig ringBufferPath(Path ringBufferPath) {
-		this.ringBufferPath = ringBufferPath;
-		return this;
-	}
-
+	/**
+	 * Enables VM mode for environments without RAPL access. @param vmMode true to
+	 * enable @return this
+	 */
 	public JoularCoreConfig vmMode(boolean vmMode) {
 		this.vmMode = vmMode;
 		return this;
 	}
 
+	/**
+	 * Sets the path to the VM power file (host-written). @param vmPowerFilePath file
+	 * path @return this
+	 */
 	public JoularCoreConfig vmPowerFilePath(Path vmPowerFilePath) {
 		this.vmPowerFilePath = vmPowerFilePath;
 		return this;
 	}
 
+	/**
+	 * Sets extra CLI arguments appended to the joularcore invocation. @param extraArgs
+	 * extra arguments @return this
+	 */
 	public JoularCoreConfig extraArgs(List<String> extraArgs) {
 		this.extraArgs = new ArrayList<>(extraArgs);
 		return this;
@@ -250,14 +261,6 @@ public class JoularCoreConfig {
 
 	public boolean isSilent() {
 		return silent;
-	}
-
-	public boolean isUseWithJoularJx() {
-		return useWithJoularJx;
-	}
-
-	public Path getRingBufferPath() {
-		return ringBufferPath;
 	}
 
 	public boolean isVmMode() {

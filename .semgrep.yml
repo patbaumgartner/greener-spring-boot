@@ -1,0 +1,65 @@
+rules:
+  # ---- Security ----
+
+  - id: avoid-runtime-exec
+    patterns:
+      - pattern: Runtime.getRuntime().exec(...)
+    message: >
+      Avoid Runtime.exec() — use ProcessBuilder for safer process execution
+      with explicit argument separation.
+    languages: [java]
+    severity: WARNING
+
+  - id: no-hardcoded-credentials
+    patterns:
+      - pattern: |
+          $TYPE $VAR = "...";
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|secret|token|apikey|api_key)
+    message: >
+      Possible hardcoded credential in variable '$VAR'. Use environment
+      variables or a secrets manager instead.
+    languages: [java]
+    severity: ERROR
+
+  - id: no-system-exit
+    pattern: System.exit(...)
+    message: >
+      Avoid System.exit() in library code — it terminates the entire JVM.
+      Throw an exception instead and let the caller decide.
+    languages: [java]
+    severity: WARNING
+
+  # ---- Code quality ----
+
+  - id: prefer-assertj-over-junit-assert
+    patterns:
+      - pattern-either:
+          - pattern: org.junit.jupiter.api.Assertions.assertEquals(...)
+          - pattern: org.junit.jupiter.api.Assertions.assertTrue(...)
+          - pattern: org.junit.jupiter.api.Assertions.assertFalse(...)
+          - pattern: org.junit.jupiter.api.Assertions.assertNull(...)
+          - pattern: org.junit.jupiter.api.Assertions.assertNotNull(...)
+    message: >
+      Use AssertJ assertions (assertThat(...)) instead of JUnit Assertions
+      for richer failure messages and fluent API.
+    languages: [java]
+    severity: INFO
+
+  - id: no-printStackTrace
+    pattern: $E.printStackTrace(...)
+    message: >
+      Avoid printStackTrace() — use a logger (java.util.logging.Logger) for
+      proper log management.
+    languages: [java]
+    severity: WARNING
+
+  - id: no-wildcard-imports
+    pattern: |
+      import $PACKAGE.*;
+    message: >
+      Avoid wildcard imports — use explicit imports for clarity and to
+      prevent naming conflicts.
+    languages: [java]
+    severity: INFO

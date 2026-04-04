@@ -1,0 +1,12 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: com.patbaumgartner.greener/CodeQuality
+displayName: Greener Spring Boot Code Quality
+description: >
+  Combined recipe for static analysis, Java API best practices,
+  and common code improvements. Run with:
+    mvn rewrite:dryRun   (preview changes)
+    mvn rewrite:run      (apply changes)
+recipeList:
+  - org.openrewrite.staticanalysis.CommonStaticAnalysis
+  - org.openrewrite.staticanalysis.JavaApiBestPractices

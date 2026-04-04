@@ -10,10 +10,87 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-green)](https://spring.io/projects/spring-boot)
-[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.1.0--SNAPSHOT-orange)](https://central.sonatype.com/)
+[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.2.0-orange)](https://central.sonatype.com/)
 [![GitHub issues](https://img.shields.io/github/issues/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/issues)
 [![GitHub stars](https://img.shields.io/github/stars/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/stargazers)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+---
+
+## Quickstart
+
+### Maven
+
+```xml
+<!-- Add to your Spring Boot project's pom.xml -->
+<plugin>
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>greener-spring-boot-maven-plugin</artifactId>
+  <version>0.2.0</version>
+  <configuration>
+    <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
+  </configuration>
+</plugin>
+```
+
+```bash
+mvn package greener:measure
+```
+
+### Gradle
+
+```kotlin
+// Add to build.gradle.kts
+plugins {
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
+}
+
+greener {
+    externalTrainingCommand = "oha -n 500 -c 10 \${APP_URL}/actuator/health"
+}
+```
+
+```bash
+./gradlew bootJar measureEnergy
+```
+
+You'll get an HTML energy report in `target/greener-reports/` (Maven) or `build/greener-reports/` (Gradle).
+
+> **Note**: An external workload tool is required. The example above uses [oha](https://github.com/hatoo/oha).
+> See `examples/workloads/` for scripts using wrk, k6, Gatling, and others.
+
+---
+
+## Who is this for?
+
+| Role | Value |
+|---|---|
+| **Developer** | Find energy regressions before merge - catch inefficient code in PRs |
+| **Platform engineer** | Add an energy policy gate to CI - automated, no manual testing |
+| **Engineering manager** | Reduce compute cost drift over time - extra CPU watts = recurring cloud spend |
+
+> **ROI example**: a 12% energy regression on a service handling 10k req/s translates to ~€1,200/year in additional cloud compute costs per instance.
+
+<details>
+<summary><strong>More ROI scenarios</strong></summary>
+
+| Scenario | Regression | Scale | Estimated annual cost impact |
+|---|---|---|---|
+| Internal API (5 instances) | +8% CPU | 2k req/s | ~€480/year |
+| Customer-facing service (20 instances) | +15% CPU | 10k req/s | ~€9,600/year |
+| Batch processing pipeline | +25% CPU | 4h nightly jobs | ~€2,100/year |
+| Microservice fleet (50 services) | +5% avg | mixed | ~€15,000/year |
+
+**How to estimate your own impact**:
+1. Run `greener:measure` to establish a baseline energy value (in joules).
+2. Introduce a change and re-measure - note the delta percentage.
+3. Multiply the delta by your per-instance cloud compute cost × number of instances.
+
+Beyond cost, each watt saved reduces your carbon footprint.  At a typical European
+grid intensity of ~300 g CO₂/kWh, a 10 W reduction across 20 instances saves
+~525 kg CO₂/year.
+
+</details>
 
 ---
 
@@ -39,9 +116,8 @@ flowchart TB
     J -- Yes --> L["❌ Build fails <i>(if failOnRegression=true)</i>"]
 
     subgraph workload["Training workload options"]
-        W1["Built-in HTTP loader"]
-        W2["External script<br/><i>oha, wrk, k6, gatling, …</i>"]
-        W3["External command<br/><i>any CLI tool</i>"]
+        W1["External script<br/><i>oha, wrk, k6, gatling, …</i>"]
+        W2["External command<br/><i>any CLI tool</i>"]
     end
     workload -.-> E
 
@@ -93,9 +169,9 @@ greener-spring-boot/
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <configuration>
-    <!-- springBootJar is auto-detected from target/ — set only if needed -->
+    <!-- springBootJar is auto-detected from target/ - set only if needed -->
     <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
 
     <!-- Training workload -->
@@ -130,13 +206,11 @@ mvn greener:update-baseline
 | Parameter | Default | Description |
 |---|---|---|
 | `springBootJar` | *(auto-detected)* | Path to the Spring Boot fat-jar; auto-detected from `target/` if not set |
-| `applicationPort` | `8080` | HTTP port |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
 | `joularCoreVersion` | `0.0.1-alpha-11` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
-| `baseUrl` | `http://localhost:8080` | Base URL for training HTTP requests |
-| `trainingPaths` | `/`, `/actuator/health`, … | URL paths exercised |
-| `requestsPerSecond` | `5` | HTTP request rate |
+| `baseUrl` | `http://localhost:8080` | Base URL passed to external scripts as `APP_URL` env var |
+| `requestsPerSecond` | `5` | Requests per second passed to external scripts as `RPS` env var |
 | `externalTrainingCommand` | *(none)* | External load test command (e.g. `k6 run`) |
 | `externalTrainingScriptFile` | *(none)* | Path to an external shell script (e.g. `examples/workloads/oha/run.sh`) |
 | `vmMode` | `false` | Enable Joular Core VM mode (no direct RAPL; reads power from `vmPowerFilePath`) |
@@ -159,7 +233,7 @@ mvn greener:update-baseline
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.1.0"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
 }
 
 greener {
@@ -193,7 +267,7 @@ Runs on every PR.  Restores the `main` baseline, measures energy on the PR
 code, and posts a comparison comment:
 
 ```
-⚡ greener-spring-boot — Energy Report
+⚡ greener-spring-boot - Energy Report
 ─────────────────────────────────────
   Baseline (main): 1234.56 J
   Current (PR):    1289.33 J
@@ -211,7 +285,7 @@ All CI pipelines detect the best available power source automatically:
 | **CPU-time × TDP** ← CI default | `/proc/stat` readable (any Linux) | ★★ estimated |
 
 On GitHub-hosted runners, GitLab shared runners, and Jenkins agents without
-direct hardware access, the third option runs automatically — no configuration
+direct hardware access, the third option runs automatically - no configuration
 needed.  Results are reproducible on the same runner type and valid for
 **relative comparisons** between commits.
 
@@ -225,10 +299,21 @@ For absolute energy accuracy, use a self-hosted bare-metal runner or configure
 | CI System | Config file | Notes |
 |---|---|---|
 | **GitHub Actions** | `.github/workflows/energy-baseline.yml` / `energy-comparison.yml` | Posts comparison as PR comment |
+| **GitLab CI** | Use Maven/Gradle in your `.gitlab-ci.yml` | Same CLI commands; estimator script for shared runners |
+| **Jenkins** | Pipeline step calling `mvn greener:measure` | Self-hosted runners can use RAPL directly |
 | **Local / WSL2** | Run the Maven plugin directly | `mvn greener:measure` with `vmMode=true` and the estimator script |
 
-The plugin itself is CI-agnostic — use it in any pipeline that can run Maven or Gradle.
+The plugin itself is CI-agnostic - use it in any pipeline that can run Maven or Gradle.
 The `ci-cpu-energy-estimator.sh` script works on any Linux with `/proc/stat`.
+
+### Simulation scripts
+
+The `examples/` directory provides ready-to-use simulation scripts:
+
+- **`local-simulation.sh` / `local-simulation.ps1`** - runs a single-tool energy measurement locally (uses `oha` by default).
+- **`all-tools-simulation.sh` / `all-tools-simulation.ps1`** - runs measurements with all supported workload tools (oha, wrk, wrk2, bombardier, ab, k6, Gatling, Locust) and generates an aggregated comparison report.
+
+These scripts handle the full lifecycle: building the project, starting the estimator, running the measurement, and generating reports.
 
 ---
 
@@ -237,8 +322,71 @@ The `ci-cpu-energy-estimator.sh` script works on any Linux with `/proc/stat`.
 | Platform | Requirement |
 |---|---|
 | Linux | Intel/AMD CPU with RAPL; `powercap` files readable (`sudo` or ACL) |
-| Windows | [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) installed |
+| Windows | [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) installed; easiest via [Scaphandre installer](https://github.com/hubblo-org/scaphandre/releases/download/v1.0.0/scaphandre_v1.0.0_installer.exe) |
 | macOS | `powermetrics` (pre-installed); run with `sudo` or configure `sudoers` |
+
+---
+
+## Troubleshooting
+
+### Permission denied reading RAPL counters
+
+On Linux, RAPL energy counters require read access to `/sys/class/powercap/intel-rapl/...`.
+As a non-root user, grant access:
+
+```bash
+sudo chmod -R a+r /sys/class/powercap/intel-rapl/
+```
+
+Or use a `udev` rule for persistence across reboots.  On VMs or CI, RAPL is
+unavailable - the plugin falls back to CPU-time × TDP estimation automatically.
+
+### Application does not start within timeout
+
+Increase `startupTimeoutSeconds` (default 120 s):
+
+```xml
+<startupTimeoutSeconds>180</startupTimeoutSeconds>
+```
+
+Check that the health endpoint is reachable at `http://localhost:<port>/actuator/health/readiness`.
+The plugin automatically enables Spring Boot health probes via
+`--management.endpoint.health.probes.enabled=true`.
+
+### "No jar found" error
+
+The plugin auto-detects the Spring Boot fat-jar from `target/` (Maven) or
+`build/libs/` (Gradle).  Ensure the jar is built first:
+
+```bash
+mvn package         # Maven
+./gradlew bootJar   # Gradle
+```
+
+If multiple jars exist, set the jar path explicitly:
+
+```xml
+<springBootJar>${project.build.directory}/myapp.jar</springBootJar>
+```
+
+### Energy results vary between runs
+
+Some variance (±5%) is normal due to CPU background activity and thermal
+throttling.  For more stable results:
+
+- Use `vmMode=true` with the CPU-time × TDP estimator for relative comparisons.
+- Increase `measureDurationSeconds` (longer windows smooth out fluctuations).
+- Set a reasonable `threshold` (e.g. 10%) to avoid false-positive regressions.
+- Close unrelated CPU-intensive processes during measurement.
+
+### Joular Core download fails
+
+The plugin auto-downloads Joular Core from [GitHub Releases](https://github.com/joular/joularcore/releases)
+into `~/.greener/cache/joularcore/`.  If the download fails:
+
+- Check internet connectivity and proxy/firewall settings.
+- Download manually and set `joularCoreBinaryPath` to the local path.
+- Verify the binary is executable: `chmod +x joularcore`.
 
 ---
 
@@ -266,4 +414,4 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 - see [LICENSE](LICENSE).

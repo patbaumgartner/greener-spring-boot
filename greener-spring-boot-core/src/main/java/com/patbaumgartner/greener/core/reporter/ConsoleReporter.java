@@ -7,6 +7,7 @@ import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 
+import java.io.PrintStream;
 import java.util.Comparator;
 import java.util.List;
 
@@ -23,12 +24,19 @@ public class ConsoleReporter {
 
 	private final int topN;
 
+	private final PrintStream out;
+
 	public ConsoleReporter() {
 		this(10);
 	}
 
 	public ConsoleReporter(int topN) {
+		this(topN, System.out);
+	}
+
+	public ConsoleReporter(int topN, PrintStream out) {
 		this.topN = topN;
+		this.out = out;
 	}
 
 	/** Reports energy measurements without workload stats. */
@@ -44,74 +52,74 @@ public class ConsoleReporter {
 	/** Reports energy measurements including power source assumptions. */
 	public void report(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource) {
-		System.out.println();
-		System.out.println(LINE);
-		System.out.println(" greener-spring-boot - Energy Consumption Report");
-		System.out.println(LINE);
-		System.out.printf(" Run ID      : %s%n", current.runId());
-		System.out.printf(" Timestamp   : %s%n", current.timestamp());
-		System.out.printf(" Duration    : %d s%n", current.durationSeconds());
-		System.out.printf(" Total Energy: %.2f J%n", current.totalEnergyJoules());
+		out.println();
+		out.println(LINE);
+		out.println(" greener-spring-boot - Energy Consumption Report");
+		out.println(LINE);
+		out.printf(" Run ID      : %s%n", current.runId());
+		out.printf(" Timestamp   : %s%n", current.timestamp());
+		out.printf(" Duration    : %d s%n", current.durationSeconds());
+		out.printf(" Total Energy: %.2f J%n", current.totalEnergyJoules());
 
 		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
-			System.out.printf(" Power Source : %s%n", powerSource.label());
-			System.out.printf("               %s%n", powerSource.description());
+			out.printf(" Power Source : %s%n", powerSource.label());
+			out.printf("               %s%n", powerSource.description());
 		}
 
-		System.out.println(THIN_LINE);
+		out.println(THIN_LINE);
 
 		// Use-case energy section
 		if (workloadStats != null) {
 			printWorkloadStats(workloadStats, current.totalEnergyJoules());
-			System.out.println(THIN_LINE);
+			out.println(THIN_LINE);
 		}
 
 		if (!current.measurements().isEmpty()) {
-			System.out.printf(" Top %d measurements by energy consumption:%n", topN);
-			System.out.printf("   %-55s  %10s%n", "Name", "Joules");
-			System.out.println("   " + "-".repeat(68));
-			current.topMethods(topN)
-				.forEach(m -> System.out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
+			out.printf(" Top %d measurements by energy consumption:%n", topN);
+			out.printf("   %-55s  %10s%n", "Name", "Joules");
+			out.println("   " + "-".repeat(68));
+			current.topMeasurements(topN)
+				.forEach(m -> out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
 		}
 		else {
-			System.out.println(" No energy data recorded.");
-			System.out.println(" Hint: Joular Core requires hardware power counters (RAPL on Linux/Windows,");
-			System.out.println("       powermetrics on macOS) or a VM power file in VM mode.");
-			System.out.println("       Ensure the binary is accessible and has sufficient permissions.");
+			out.println(" No energy data recorded.");
+			out.println(" Hint: Joular Core requires hardware power counters (RAPL on Linux/Windows,");
+			out.println("       powermetrics on macOS) or a VM power file in VM mode.");
+			out.println("       Ensure the binary is accessible and has sufficient permissions.");
 		}
 
-		System.out.println(THIN_LINE);
+		out.println(THIN_LINE);
 
 		if (comparison != null) {
 			printComparison(comparison);
 		}
 
-		System.out.println(LINE);
-		System.out.println();
+		out.println(LINE);
+		out.println();
 	}
 
 	private void printWorkloadStats(WorkloadStats stats, double totalEnergyJoules) {
-		System.out.println(" Use-Case Energy:");
-		System.out.printf("   Tool         : %s%n", stats.tool());
-		System.out.printf("   Duration     : %d s%n", stats.durationSeconds());
+		out.println(" Use-Case Energy:");
+		out.printf("   Tool         : %s%n", stats.tool());
+		out.printf("   Duration     : %d s%n", stats.durationSeconds());
 
 		if (stats.hasRequestCounts()) {
-			System.out.printf("   Requests     : %d total, %d failed (%.1f%%)%n", stats.totalRequests(),
+			out.printf("   Requests     : %d total, %d failed (%.1f%%)%n", stats.totalRequests(),
 					Math.max(0, stats.failedRequests()),
 					Double.isNaN(stats.failureRatePercent()) ? 0.0 : stats.failureRatePercent());
-			System.out.printf("   Throughput   : %.1f %s%n", stats.requestsPerSecond(), stats.throughputUnit());
+			out.printf("   Throughput   : %.1f %s%n", stats.requestsPerSecond(), stats.throughputUnit());
 		}
 		else {
-			System.out.println("   Requests     : N/A (external tool - counts not captured)");
+			out.println("   Requests     : N/A (external tool - counts not captured)");
 		}
 
 		double mjPerReq = stats.energyPerRequestMillijoules(totalEnergyJoules);
 		if (!Double.isNaN(mjPerReq)) {
-			System.out.printf("   Energy/Req   : %.3f mJ%n", mjPerReq);
+			out.printf("   Energy/Req   : %.3f mJ%n", mjPerReq);
 		}
 		else if (stats.durationSeconds() > 0) {
 			double wattsAvg = totalEnergyJoules / stats.durationSeconds();
-			System.out.printf("   Avg Power    : %.2f W  (energy/req unavailable - no request count)%n", wattsAvg);
+			out.printf("   Avg Power    : %.2f W  (energy/req unavailable - no request count)%n", wattsAvg);
 		}
 	}
 
@@ -119,8 +127,8 @@ public class ConsoleReporter {
 		ComparisonStatus status = comparison.overallStatus();
 
 		if (status == ComparisonStatus.NO_BASELINE) {
-			System.out.println(" Baseline: No baseline found - this run will be saved as the new baseline.");
-			System.out.println(THIN_LINE);
+			out.println(" Baseline: No baseline found - this run will be saved as the new baseline.");
+			out.println(THIN_LINE);
 			return;
 		}
 
@@ -130,15 +138,15 @@ public class ConsoleReporter {
 			default -> "~ UNCHANGED";
 		};
 
-		System.out.printf(" Baseline comparison:%n");
-		System.out.printf("   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
-		System.out.printf("   Current Total  : %.2f J%n", comparison.currentTotalJoules());
-		System.out.printf("   Delta          : %+.2f%%%n", comparison.totalDeltaPercent());
-		System.out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
-		System.out.printf("   Status         : %s%n", arrow);
+		out.printf(" Baseline comparison:%n");
+		out.printf("   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
+		out.printf("   Current Total  : %.2f J%n", comparison.currentTotalJoules());
+		out.printf("   Delta          : %+.2f%%%n", comparison.totalDeltaPercent());
+		out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
+		out.printf("   Status         : %s%n", arrow);
 
 		if (comparison.isFailed()) {
-			System.out.printf("%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
+			out.printf("%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
 					comparison.totalDeltaPercent(), comparison.threshold());
 		}
 
@@ -150,16 +158,15 @@ public class ConsoleReporter {
 			.toList();
 
 		if (!regressions.isEmpty()) {
-			System.out.println();
-			System.out.printf("   Top regressed entries (delta > %.1f%%):%n", comparison.threshold());
-			System.out.printf("   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
-			System.out.println("   " + "-".repeat(80));
-			regressions
-				.forEach(mc -> System.out.printf("   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
-						mc.baselineEnergyJoules(), mc.currentEnergyJoules(), mc.deltaPercent()));
+			out.println();
+			out.printf("   Top regressed entries (delta > %.1f%%):%n", comparison.threshold());
+			out.printf("   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
+			out.println("   " + "-".repeat(80));
+			regressions.forEach(mc -> out.printf("   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
+					mc.baselineEnergyJoules(), mc.currentEnergyJoules(), mc.deltaPercent()));
 		}
 
-		System.out.println(THIN_LINE);
+		out.println(THIN_LINE);
 	}
 
 	private String truncate(String s, int maxLen) {

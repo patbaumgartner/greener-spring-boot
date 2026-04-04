@@ -27,11 +27,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
@@ -58,7 +55,7 @@ import java.util.stream.Collectors;
  * <plugin>
  *   <groupId>com.patbaumgartner</groupId>
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
- *   <version>0.1.0</version>
+ *   <version>0.2.0</version>
  *   <configuration>
  *     <!-- optional — auto-detected from ${project.build.directory} when omitted -->
  *     <springBootJar>${project.build.directory}/myapp.jar</springBootJar>
@@ -87,10 +84,6 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	/** Build output directory used for auto-detecting the Spring Boot fat-jar. */
 	@Parameter(defaultValue = "${project.build.directory}", readonly = true)
 	private File buildDirectory;
-
-	/** HTTP port the Spring Boot application listens on. */
-	@Parameter(property = "greener.applicationPort", defaultValue = "8080")
-	private int applicationPort;
 
 	/** Additional JVM arguments passed when starting the Spring Boot process. */
 	@Parameter
@@ -126,25 +119,20 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 	// ---- Training workload ----
 
-	/** Base URL of the Spring Boot application used by the built-in HTTP loader. */
+	/** Base URL of the Spring Boot application. */
 	@Parameter(property = "greener.baseUrl", defaultValue = "http://localhost:8080")
 	private String baseUrl;
 
 	/**
-	 * Relative URL paths exercised during the training run. Defaults to common Spring
-	 * Petclinic endpoints when not configured.
+	 * Number of HTTP requests per second (passed as {@code RPS} environment variable).
 	 */
-	@Parameter
-	private List<String> trainingPaths;
-
-	/** Number of HTTP requests per second issued during the training run. */
 	@Parameter(property = "greener.requestsPerSecond", defaultValue = "5")
 	private int requestsPerSecond;
 
 	/**
-	 * Optional external command used as the training workload instead of the built-in
-	 * HTTP loader (e.g. {@code k6 run script.js}). The {@code APP_URL} environment
-	 * variable is set to {@link #baseUrl}.
+	 * Optional external command used as the training workload (e.g.
+	 * {@code k6 run script.js}). The {@code APP_URL} environment variable is set to
+	 * {@link #baseUrl}.
 	 */
 	@Parameter(property = "greener.externalTrainingCommand")
 	private String externalTrainingCommand;
@@ -279,11 +267,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		getLog().info("Starting Spring Boot application: " + springBootJar);
 
 		// Enable health probes so /actuator/health/readiness is available
-		List<String> effectiveAppArgs = new ArrayList<>();
-		if (appArgs != null) {
-			effectiveAppArgs.addAll(appArgs);
-		}
-		effectiveAppArgs.add("--management.endpoint.health.probes.enabled=true");
+		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(appArgs);
 
 		Process appProcess = appRunner.start(springBootJar.toPath(), null, null, workingDir, jvmArgs, effectiveAppArgs);
 
@@ -386,19 +370,13 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl)
 			.requestsPerSecond(requestsPerSecond)
 			.warmupDurationSeconds(warmupDurationSeconds)
-			.measureDurationSeconds(measureDurationSeconds)
-			.startupTimeoutSeconds(startupTimeoutSeconds)
-			.healthCheckPath(healthCheckPath);
+			.measureDurationSeconds(measureDurationSeconds);
 
 		if (externalTrainingScriptFile != null && externalTrainingScriptFile.exists()) {
 			config.externalScriptFile(externalTrainingScriptFile.getAbsolutePath());
 		}
 		else if (externalTrainingCommand != null && !externalTrainingCommand.isBlank()) {
 			config.externalCommand(externalTrainingCommand);
-		}
-
-		if (trainingPaths != null && !trainingPaths.isEmpty()) {
-			config.paths(trainingPaths);
 		}
 
 		return config;
@@ -417,31 +395,25 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 	}
 
-	/**
-	 * Auto-detects the Spring Boot fat-jar in the build output directory. Looks for a
-	 * single executable jar, excluding sources and javadoc jars.
-	 */
 	private File autoDetectSpringBootJar() throws MojoExecutionException {
 		if (buildDirectory == null || !buildDirectory.isDirectory()) {
 			throw new MojoExecutionException("springBootJar not configured and build directory not found: "
 					+ buildDirectory + ". Set <springBootJar> explicitly.");
 		}
 
-		File[] jars = buildDirectory.listFiles((dir, name) -> name.endsWith(".jar") && !name.endsWith("-sources.jar")
-				&& !name.endsWith("-javadoc.jar") && !name.endsWith("-tests.jar") && !name.contains(".original"));
-
-		if (jars == null || jars.length == 0) {
-			throw new MojoExecutionException("No jar found in " + buildDirectory
-					+ ". Run 'mvn package' first or set <springBootJar> explicitly.");
+		try {
+			Optional<File> jar = PluginDefaults.autoDetectJar(buildDirectory.toPath());
+			if (jar.isEmpty()) {
+				throw new MojoExecutionException("springBootJar not configured and build directory not found: "
+						+ buildDirectory + ". Set <springBootJar> explicitly.");
+			}
+			getLog().info("Auto-detected Spring Boot jar: " + jar.get());
+			return jar.get();
 		}
-		if (jars.length > 1) {
-			throw new MojoExecutionException("Multiple jars found in " + buildDirectory + ": "
-					+ Arrays.stream(jars).map(File::getName).collect(Collectors.joining(", "))
-					+ ". Set <springBootJar> explicitly to select one.");
+		catch (IllegalStateException e) {
+			throw new MojoExecutionException(
+					e.getMessage() + ". Run 'mvn package' first or set <springBootJar> explicitly.");
 		}
-
-		getLog().info("Auto-detected Spring Boot jar: " + jars[0]);
-		return jars[0];
 	}
 
 }

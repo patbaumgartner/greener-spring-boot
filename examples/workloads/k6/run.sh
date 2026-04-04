@@ -25,6 +25,51 @@
 
 set -eu
 
+# ── Auto-install k6 if not found ──────────────────────────────────────────────
+K6_VERSION="${K6_VERSION:-0.56.0}"
+if ! command -v k6 >/dev/null 2>&1; then
+    echo "k6 not found — installing v${K6_VERSION} …"
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+    case "${OS}" in
+        Linux)
+            case "${ARCH}" in
+                x86_64)  K6_ARCH="amd64" ;;
+                aarch64) K6_ARCH="arm64" ;;
+                *)       echo "[ERR] Unsupported architecture: ${ARCH}"; exit 1 ;;
+            esac
+            INSTALL_DIR="${HOME}/.local/bin"
+            mkdir -p "${INSTALL_DIR}"
+            TMP_TAR="$(mktemp).tar.gz"
+            curl -fsSL -o "${TMP_TAR}" \
+                "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-linux-${K6_ARCH}.tar.gz"
+            tar -xzf "${TMP_TAR}" --strip-components=1 -C "${INSTALL_DIR}" "k6-v${K6_VERSION}-linux-${K6_ARCH}/k6"
+            chmod +x "${INSTALL_DIR}/k6"
+            export PATH="${INSTALL_DIR}:${PATH}"
+            rm -f "${TMP_TAR}"
+            ;;
+        Darwin)
+            if command -v brew >/dev/null 2>&1; then
+                brew install k6
+            else
+                echo "[ERR] Homebrew not found. Install k6 manually."; exit 1
+            fi
+            ;;
+        MINGW*|MSYS*)
+            INSTALL_DIR="${HOME}/.local/bin"
+            mkdir -p "${INSTALL_DIR}"
+            TMP_ZIP="$(mktemp).zip"
+            curl -fsSL -o "${TMP_ZIP}" \
+                "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-windows-amd64.zip"
+            unzip -o -j "${TMP_ZIP}" "k6-v${K6_VERSION}-windows-amd64/k6.exe" -d "${INSTALL_DIR}"
+            export PATH="${INSTALL_DIR}:${PATH}"
+            rm -f "${TMP_ZIP}"
+            ;;
+        *)  echo "[ERR] Unsupported OS: ${OS}"; exit 1 ;;
+    esac
+    echo "k6 installed: $(k6 version)"
+fi
+
 APP_URL="${APP_URL:-http://localhost:8080}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"

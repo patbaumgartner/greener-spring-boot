@@ -11,7 +11,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -19,7 +21,9 @@ import java.util.logging.Logger;
  * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> from
  * GitHub Releases and caches it locally.
  *
- * <h2>Release URL pattern</h2> <pre>
+ * <h2>Release URL pattern</h2>
+ *
+ * <pre>
  * https://github.com/joular/joularcore/releases/download/v{VERSION}/joularcore{-PLATFORM}
  * </pre>
  *
@@ -38,6 +42,8 @@ public class JoularCoreDownloader {
 	private static final Logger LOG = Logger.getLogger(JoularCoreDownloader.class.getName());
 
 	private static final String RELEASE_URL_TEMPLATE = "https://github.com/joular/joularcore/releases/download/v%s/%s";
+
+	private static final int HTTP_OK = 200;
 
 	private final HttpClient httpClient;
 
@@ -66,13 +72,13 @@ public class JoularCoreDownloader {
 		Path binaryFile = cacheDir.resolve(assetName);
 
 		if (Files.exists(binaryFile)) {
-			LOG.info("Using cached Joular Core from: " + binaryFile);
+			LOG.log(Level.INFO, () -> "Using cached Joular Core from: " + binaryFile);
 			ensureExecutable(binaryFile);
 			return binaryFile;
 		}
 
 		String url = String.format(RELEASE_URL_TEMPLATE, version, assetName);
-		LOG.info("Downloading Joular Core " + version + " from: " + url);
+		LOG.log(Level.INFO, () -> "Downloading Joular Core " + version + " from: " + url);
 
 		HttpRequest request = HttpRequest.newBuilder()
 			.uri(URI.create(url))
@@ -82,7 +88,7 @@ public class JoularCoreDownloader {
 
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
-		if (response.statusCode() != 200) {
+		if (response.statusCode() != HTTP_OK) {
 			throw new IOException("Failed to download Joular Core from " + url + " — HTTP " + response.statusCode()
 					+ ". Check that version " + version + " exists at "
 					+ "https://github.com/joular/joularcore/releases");
@@ -95,7 +101,7 @@ public class JoularCoreDownloader {
 		Files.move(tmpFile, binaryFile, StandardCopyOption.REPLACE_EXISTING);
 		ensureExecutable(binaryFile);
 
-		LOG.info("Joular Core " + version + " downloaded to: " + binaryFile);
+		LOG.log(Level.INFO, () -> "Joular Core " + version + " downloaded to: " + binaryFile);
 		return binaryFile;
 	}
 
@@ -104,8 +110,8 @@ public class JoularCoreDownloader {
 	 * @throws UnsupportedOperationException if the platform is not recognised
 	 */
 	public static String resolveAssetName() {
-		String os = System.getProperty("os.name", "").toLowerCase();
-		String arch = System.getProperty("os.arch", "").toLowerCase();
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH);
+		String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ENGLISH);
 
 		String platform;
 		String ext = "";
@@ -135,7 +141,7 @@ public class JoularCoreDownloader {
 		}
 		else {
 			archSuffix = "x86_64"; // best-effort fallback
-			LOG.warning("Unrecognised architecture '" + arch + "' — assuming x86_64");
+			LOG.log(Level.WARNING, () -> "Unrecognised architecture '" + arch + "' — assuming x86_64");
 		}
 
 		return "joularcore-" + platform + "-" + archSuffix + ext;

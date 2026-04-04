@@ -1,6 +1,7 @@
 package com.patbaumgartner.greener.maven;
 
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
+import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import org.apache.maven.plugin.AbstractMojo;
@@ -93,21 +94,19 @@ public class UpdateBaselineMojo extends AbstractMojo {
 				}
 				report = existing.get().report();
 			}
-			manager.saveBaseline(report, normalise(commitSha), normalise(branch), baselineFile.toPath());
+			manager.saveBaseline(report, PluginDefaults.normalise(commitSha), PluginDefaults.normalise(branch),
+					baselineFile.toPath());
 
-			getLog().info("Energy baseline updated: " + baselineFile);
-			getLog().info("  commit : " + normalise(commitSha));
-			getLog().info("  branch : " + normalise(branch));
-			getLog().info("  energy : " + String.format("%.2f J", report.totalEnergyJoules()));
+			for (String line : PluginDefaults.formatBaselineUpdateSummary(baselineFile.toPath(),
+					PluginDefaults.normalise(commitSha), PluginDefaults.normalise(branch),
+					report.totalEnergyJoules())) {
+				getLog().info(line);
+			}
 
 		}
 		catch (IOException e) {
 			throw new MojoExecutionException("Failed to update energy baseline: " + e.getMessage(), e);
 		}
-	}
-
-	private String normalise(String s) {
-		return (s == null || s.isBlank() || s.startsWith("${")) ? null : s;
 	}
 
 }

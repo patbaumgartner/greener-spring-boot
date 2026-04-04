@@ -1,15 +1,9 @@
 package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputFile;
-
-import org.gradle.api.tasks.OutputDirectory;
-
-import java.util.List;
 
 import javax.inject.Inject;
 
@@ -20,7 +14,7 @@ import javax.inject.Inject;
  * 
  * <pre>{@code
  * greener {
- *     // Optional — auto-detected from build/libs/ when omitted
+ *     // Optional - auto-detected from build/libs/ when omitted
  *     springBootJar = file("build/libs/myapp.jar")
  *
  *     // Joular Core
@@ -28,16 +22,15 @@ import javax.inject.Inject;
  *     joularCoreVersion    = "0.0.1-alpha-11"
  *     joularCoreComponent  = "cpu"   // "cpu" | "gpu" | "all"
  *
- *     // VM mode (virtualised environments — no direct RAPL access)
+ *     // VM mode (virtualised environments - no direct RAPL access)
  *     vmMode         = true
  *     vmPowerFilePath = file("/tmp/vm-power.txt")  // host writes watts here every second
  *
  *     // Training workload
  *     baseUrl                    = "http://localhost:8080"
- *     trainingPaths              = listOf("/", "/owners", "/vets")
  *     requestsPerSecond          = 5
- *     externalTrainingScriptFile = file("examples/workloads/oha/run.sh")  // optional
- *     externalTrainingCommand    = "k6 run load-test.js"                  // optional fallback
+ *     externalTrainingScriptFile = file("examples/workloads/oha/run.sh")  // required
+ *     externalTrainingCommand    = "k6 run load-test.js"                  // alternative to script
  *     warmupDurationSeconds      = 30
  *     measureDurationSeconds     = 60
  *     startupTimeoutSeconds      = 120
@@ -58,12 +51,10 @@ public abstract class GreenerExtension {
      */
     @Inject
     public GreenerExtension() {
-        getApplicationPort().convention(8080);
         getJoularCoreVersion().convention(JoularCoreConfig.DEFAULT_VERSION);
         getJoularCoreComponent().convention("cpu");
         getVmMode().convention(false);
         getBaseUrl().convention("http://localhost:8080");
-        getTrainingPaths().convention(List.of("/", "/actuator/health"));
         getRequestsPerSecond().convention(5);
         getWarmupDurationSeconds().convention(30);
         getMeasureDurationSeconds().convention(60);
@@ -79,36 +70,24 @@ public abstract class GreenerExtension {
      * 
      * @return the Spring Boot jar property
      */
-    @InputFile
-    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getSpringBootJar();
-
-    /**
-     * HTTP port the Spring Boot application listens on.
-     * 
-     * @return the application port property
-     */
-    @Input
-    public abstract Property<Integer> getApplicationPort();
 
     /**
      * Full path to the Joular Core binary (optional; auto-downloaded when absent).
      * 
      * @return the Joular Core binary path property
      */
-    @InputFile
-    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getJoularCoreBinaryPath();
 
     /**
      * Joular Core release version to download when
      * {@link #getJoularCoreBinaryPath()} is unset. See
-     * <a href="https://github.com/joular/joularcore/releases">Joular Core releases</a>
+     * <a href="https://github.com/joular/joularcore/releases">Joular Core
+     * releases</a>
      * for available versions.
      * 
      * @return the Joular Core version property
      */
-    @Input
     public abstract Property<String> getJoularCoreVersion();
 
     /**
@@ -116,42 +95,29 @@ public abstract class GreenerExtension {
      * 
      * @return the Joular Core component property
      */
-    @Input
     public abstract Property<String> getJoularCoreComponent();
 
     /**
-     * Base URL of the Spring Boot application used by the built-in HTTP loader.
+     * Base URL of the Spring Boot application.
      * 
      * @return the base URL property
      */
-    @Input
     public abstract Property<String> getBaseUrl();
 
     /**
-     * Relative URL paths exercised during the training run.
-     * 
-     * @return the training paths property
-     */
-    @Input
-    public abstract ListProperty<String> getTrainingPaths();
-
-    /**
-     * Requests per second issued during the training run.
+     * Requests per second (passed as {@code RPS} environment variable).
      * 
      * @return the requests per second property
      */
-    @Input
     public abstract Property<Integer> getRequestsPerSecond();
 
     /**
-     * Optional external command used as the training workload instead of the
-     * built-in HTTP loader (e.g. {@code k6 run script.js}). The {@code APP_URL}
+     * Optional external command used as the training workload
+     * (e.g. {@code k6 run script.js}). The {@code APP_URL}
      * environment variable is set to {@link #getBaseUrl()}.
      * 
      * @return the external training command property
      */
-    @Input
-    @org.gradle.api.tasks.Optional
     public abstract Property<String> getExternalTrainingCommand();
 
     /**
@@ -168,18 +134,15 @@ public abstract class GreenerExtension {
      * 
      * @return the external training script file property
      */
-    @InputFile
-    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getExternalTrainingScriptFile();
 
     /**
-     * Enable Joular Core VM mode — for virtualised environments where RAPL
+     * Enable Joular Core VM mode - for virtualised environments where RAPL
      * counters are not directly accessible. The host must write the VM's
      * instantaneous power in Watts to {@link #getVmPowerFilePath()} every second.
      * 
      * @return the VM mode property
      */
-    @Input
     public abstract Property<Boolean> getVmMode();
 
     /**
@@ -188,8 +151,6 @@ public abstract class GreenerExtension {
      * 
      * @return the VM power file path property
      */
-    @InputFile
-    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getVmPowerFilePath();
 
     /**
@@ -198,7 +159,6 @@ public abstract class GreenerExtension {
      * 
      * @return the warmup duration property
      */
-    @Input
     public abstract Property<Integer> getWarmupDurationSeconds();
 
     /**
@@ -206,7 +166,6 @@ public abstract class GreenerExtension {
      * 
      * @return the measure duration property
      */
-    @Input
     public abstract Property<Integer> getMeasureDurationSeconds();
 
     /**
@@ -214,7 +173,6 @@ public abstract class GreenerExtension {
      * 
      * @return the startup timeout property
      */
-    @Input
     public abstract Property<Integer> getStartupTimeoutSeconds();
 
     /**
@@ -222,7 +180,6 @@ public abstract class GreenerExtension {
      * 
      * @return the health check path property
      */
-    @Input
     public abstract Property<String> getHealthCheckPath();
 
     /**
@@ -230,8 +187,6 @@ public abstract class GreenerExtension {
      * 
      * @return the baseline file property
      */
-    @org.gradle.api.tasks.InputFile
-    @org.gradle.api.tasks.Optional
     public abstract RegularFileProperty getBaselineFile();
 
     /**
@@ -240,7 +195,6 @@ public abstract class GreenerExtension {
      * 
      * @return the threshold property
      */
-    @Input
     public abstract Property<Double> getThreshold();
 
     /**
@@ -249,7 +203,6 @@ public abstract class GreenerExtension {
      * 
      * @return the fail on regression property
      */
-    @Input
     public abstract Property<Boolean> getFailOnRegression();
 
     /**
@@ -257,7 +210,5 @@ public abstract class GreenerExtension {
      * 
      * @return the report output directory property
      */
-    @OutputDirectory
-    @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getReportOutputDir();
+    public abstract DirectoryProperty getReportOutputDir();
 }

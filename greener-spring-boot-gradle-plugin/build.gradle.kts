@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.patbaumgartner"
-version = "0.1.0-SNAPSHOT"
+// version is read from gradle.properties
 
 java {
     toolchain {
@@ -21,7 +21,11 @@ repositories {
 }
 
 dependencies {
-    implementation("com.patbaumgartner:greener-spring-boot-core:0.1.0-SNAPSHOT")
+    implementation("com.patbaumgartner:greener-spring-boot-core:${property("coreVersion")}")
+    testImplementation(platform("org.junit:junit-bom:${property("junitBomVersion")}"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.assertj:assertj-core:${property("assertjVersion")}")
 }
 
 gradlePlugin {

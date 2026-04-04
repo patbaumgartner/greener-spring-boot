@@ -27,10 +27,10 @@ import { sleep, check } from 'k6';
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 // All values come from environment variables set by the greener-spring-boot plugin.
-const BASE_URL       = __ENV.APP_URL         || 'http://localhost:8080';
-const WARMUP_SECONDS = parseInt(__ENV.WARMUP_SECONDS  || '30', 10);
-const MEASURE_SECONDS= parseInt(__ENV.MEASURE_SECONDS || '60', 10);
-const RPS            = parseInt(__ENV.RPS             || '20', 10);
+const BASE_URL = __ENV.APP_URL || 'http://localhost:8080';
+const WARMUP_SECONDS = parseInt(__ENV.WARMUP_SECONDS || '30', 10);
+const MEASURE_SECONDS = parseInt(__ENV.MEASURE_SECONDS || '60', 10);
+const RPS = parseInt(__ENV.RPS || '20', 10);
 
 // URLs exercised during the test
 const ENDPOINTS = [
@@ -43,34 +43,40 @@ const ENDPOINTS = [
 
 // ── Scenario definition ───────────────────────────────────────────────────────
 //
-// Two consecutive scenarios run in sequence:
+// Up to two consecutive scenarios run in sequence:
 //   1. warmup   — constant-rate load, no energy recorded (Joular Core not yet active)
 //   2. measure  — constant-rate load, Joular Core records energy
 //
-// The plugin handles starting/stopping Joular Core around the measurement phase;
-// the script just needs to run for WARMUP_SECONDS + MEASURE_SECONDS total.
+// The plugin calls the script twice: once for warmup (MEASURE_SECONDS=0) and once
+// for measurement (WARMUP_SECONDS=0).  Scenarios with duration 0 are omitted so
+// that k6 does not reject a "0s" duration.
+const scenarios = {};
+if (WARMUP_SECONDS > 0) {
+  scenarios.warmup = {
+    executor: 'constant-arrival-rate',
+    duration: `${WARMUP_SECONDS}s`,
+    rate: RPS,
+    timeUnit: '1s',
+    preAllocatedVUs: Math.max(2, Math.ceil(RPS / 5)),
+    maxVUs: Math.max(10, RPS),
+    gracefulStop: '5s',
+  };
+}
+if (MEASURE_SECONDS > 0) {
+  scenarios.measure = {
+    executor: 'constant-arrival-rate',
+    startTime: WARMUP_SECONDS > 0 ? `${WARMUP_SECONDS}s` : '0s',
+    duration: `${MEASURE_SECONDS}s`,
+    rate: RPS,
+    timeUnit: '1s',
+    preAllocatedVUs: Math.max(2, Math.ceil(RPS / 5)),
+    maxVUs: Math.max(10, RPS),
+    gracefulStop: '5s',
+  };
+}
+
 export const options = {
-  scenarios: {
-    warmup: {
-      executor: 'constant-arrival-rate',
-      duration: `${WARMUP_SECONDS}s`,
-      rate: RPS,
-      timeUnit: '1s',
-      preAllocatedVUs: Math.max(2, Math.ceil(RPS / 5)),
-      maxVUs: Math.max(10, RPS),
-      gracefulStop: '5s',
-    },
-    measure: {
-      executor: 'constant-arrival-rate',
-      startTime: `${WARMUP_SECONDS}s`,
-      duration: `${MEASURE_SECONDS}s`,
-      rate: RPS,
-      timeUnit: '1s',
-      preAllocatedVUs: Math.max(2, Math.ceil(RPS / 5)),
-      maxVUs: Math.max(10, RPS),
-      gracefulStop: '5s',
-    },
-  },
+  scenarios,
   thresholds: {
     http_req_failed: ['rate<0.05'],        // <5% error rate
     http_req_duration: ['p(95)<2000'],     // 95th percentile < 2 s

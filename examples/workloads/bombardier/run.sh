@@ -21,6 +21,45 @@
 
 set -eu
 
+# ── Auto-install bombardier if not found ──────────────────────────────────────
+BOMBARDIER_VERSION="${BOMBARDIER_VERSION:-1.2.6}"
+if ! command -v bombardier >/dev/null 2>&1; then
+    echo "bombardier not found — installing ${BOMBARDIER_VERSION} …"
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+    case "${OS}" in
+        Linux)
+            case "${ARCH}" in
+                x86_64)  ASSET="bombardier-linux-amd64" ;;
+                aarch64) ASSET="bombardier-linux-arm64" ;;
+                *)       echo "[ERR] Unsupported architecture: ${ARCH}"; exit 1 ;;
+            esac
+            INSTALL_DIR="${HOME}/.local/bin"
+            mkdir -p "${INSTALL_DIR}"
+            curl -fsSL -o "${INSTALL_DIR}/bombardier" \
+                "https://github.com/codesenberg/bombardier/releases/download/v${BOMBARDIER_VERSION}/${ASSET}"
+            chmod +x "${INSTALL_DIR}/bombardier"
+            export PATH="${INSTALL_DIR}:${PATH}"
+            ;;
+        Darwin)
+            if command -v brew >/dev/null 2>&1; then
+                brew install bombardier
+            else
+                echo "[ERR] Homebrew not found. Install bombardier manually."; exit 1
+            fi
+            ;;
+        MINGW*|MSYS*)
+            INSTALL_DIR="${HOME}/.local/bin"
+            mkdir -p "${INSTALL_DIR}"
+            curl -fsSL -o "${INSTALL_DIR}/bombardier.exe" \
+                "https://github.com/codesenberg/bombardier/releases/download/v${BOMBARDIER_VERSION}/bombardier-windows-amd64.exe"
+            export PATH="${INSTALL_DIR}:${PATH}"
+            ;;
+        *)  echo "[ERR] Unsupported OS: ${OS}"; exit 1 ;;
+    esac
+    echo "bombardier installed: $(bombardier --version 2>&1 | head -1)"
+fi
+
 APP_URL="${APP_URL:-http://localhost:8080}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
@@ -39,10 +78,12 @@ if [ "${WARMUP_SECONDS}" -gt 0 ]; then
         "${BENCH_URL}" || true
 fi
 
-echo "=== bombardier: measurement ${MEASURE_SECONDS}s at ${RPS} req/s ==="
-bombardier \
-    --connections "${CONCURRENCY}" \
-    --rate "${RPS}" \
-    --duration "${MEASURE_SECONDS}s" \
-    --print r \
-    "${BENCH_URL}"
+if [ "${MEASURE_SECONDS}" -gt 0 ]; then
+    echo "=== bombardier: measurement ${MEASURE_SECONDS}s at ${RPS} req/s ==="
+    bombardier \
+        --connections "${CONCURRENCY}" \
+        --rate "${RPS}" \
+        --duration "${MEASURE_SECONDS}s" \
+        --print r \
+        "${BENCH_URL}"
+fi

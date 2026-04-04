@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 # Run all workload examples against a running Spring Petclinic instance.
 #
-# This script iterates over every tool directory, checks whether the tool's
-# binary is available, and runs its run.sh.  Tools that are not installed are
-# skipped.  At the end a summary table is printed.
+# This script iterates over every tool directory and runs its run.sh.
+# Each tool script auto-installs its binary if not already present.
+# At the end a summary table is printed.
 #
 # Usage:
 #   # Start Petclinic first, then:
@@ -38,6 +38,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ── Tool detection ────────────────────────────────────────────────────────────
 # Maps each directory name to the binary that must be on PATH.
+# Note: each tool's run.sh auto-installs if not found.
 tool_binary() {
     case "$1" in
         oha)        echo "oha" ;;
@@ -72,15 +73,6 @@ fi
 
 # ── Run each tool ─────────────────────────────────────────────────────────────
 for tool in ${TOOLS}; do
-    BIN="$(tool_binary "${tool}")"
-
-    if [ -z "${BIN}" ] || ! command -v "${BIN}" >/dev/null 2>&1; then
-        echo "── ${tool}: SKIPPED (${BIN:-binary} not found) ──────────────────────"
-        SKIPPED="${SKIPPED} ${tool}"
-        echo ""
-        continue
-    fi
-
     TOOL_SCRIPT="${SCRIPT_DIR}/${tool}/run.sh"
     if [ ! -f "${TOOL_SCRIPT}" ]; then
         echo "── ${tool}: SKIPPED (run.sh not found) ──────────────────────────────"

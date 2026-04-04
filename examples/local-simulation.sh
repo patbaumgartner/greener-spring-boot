@@ -21,7 +21,7 @@
 #   - Maven
 #   - git, curl, python3 — installed automatically if missing
 #   - Rust toolchain (cargo) — installed automatically if missing
-#   - oha (installed automatically if missing)
+#   - oha (installed automatically by workload script if missing)
 #
 # Usage:
 #   ./examples/local-simulation.sh
@@ -32,7 +32,6 @@
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
-#   OHA_VERSION            oha release version             (default: 1.14.0)
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-local-sim)
@@ -45,7 +44,6 @@ JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-alpha-11}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"
-OHA_VERSION="${OHA_VERSION:-1.14.0}"
 TDP_WATTS="${TDP_WATTS:-100}"
 WORK_DIR="${WORK_DIR:-/tmp/greener-local-sim}"
 
@@ -133,26 +131,6 @@ git clone --depth 1 --branch "${PETCLINIC_VERSION}" \
 banner "Building Spring Petclinic"
 cd "${PETCLINIC_DIR}"
 mvn --batch-mode --no-transfer-progress package -DskipTests
-
-# ── Install oha ──────────────────────────────────────────────────────────────
-banner "Checking oha ${OHA_VERSION}"
-
-if command -v oha >/dev/null 2>&1; then
-    ok "oha already installed: $(oha --version)"
-else
-    info "Installing oha ${OHA_VERSION}..."
-    ARCH="$(uname -m)"
-    case "${ARCH}" in
-        x86_64)  OHA_ARCH="amd64" ;;
-        aarch64) OHA_ARCH="arm64" ;;
-        *)       echo "[ERR] Unsupported architecture: ${ARCH}"; exit 1 ;;
-    esac
-    OHA_URL="https://github.com/hatoo/oha/releases/download/v${OHA_VERSION}/oha-linux-${OHA_ARCH}"
-    curl -fsSL -o "${WORK_DIR}/oha" "${OHA_URL}"
-    chmod +x "${WORK_DIR}/oha"
-    export PATH="${WORK_DIR}:${PATH}"
-    ok "oha installed: $(oha --version)"
-fi
 
 # ── Copy workload scripts ────────────────────────────────────────────────────
 cp -r "${PROJECT_ROOT}/examples" "${PETCLINIC_DIR}/"
@@ -268,7 +246,7 @@ rm -f "${BASELINE_FILE}"
 cd "${PETCLINIC_DIR}"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \
@@ -285,7 +263,7 @@ mvn --batch-mode --no-transfer-progress \
 banner "Promoting Run 1 to baseline"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:update-baseline \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
     -Dgreener.baselineFile="${BASELINE_FILE}" \
     -Dgreener.latestReportFile="${REPORTS_BASELINE}/latest-energy-report.json" \
     -Dgreener.commitSha="${COMMIT_SHA}" \
@@ -305,7 +283,7 @@ print(f'  Commit : ${COMMIT_SHA}')
 banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
 
 mvn --batch-mode --no-transfer-progress \
-    com.patbaumgartner:greener-spring-boot-maven-plugin:0.1.0-SNAPSHOT:measure \
+    com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
     -Dgreener.baseUrl="http://localhost:8080" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \

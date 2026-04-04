@@ -6,19 +6,22 @@ import org.gradle.api.Project;
 /**
  * Gradle plugin entry point for <strong>greener-spring-boot</strong>.
  *
- * <p>Registers the {@link GreenerExtension} DSL block and the two tasks:
+ * <p>
+ * Registers the {@link GreenerExtension} DSL block and the two tasks:
  * <ul>
- *   <li>{@code measureEnergy} — runs the Spring Boot application under
- *       <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
- *       and compares the measured energy against a baseline.</li>
- *   <li>{@code updateEnergyBaseline} — promotes the most recent measurement
- *       result as the new baseline.</li>
+ * <li>{@code measureEnergy} — runs the Spring Boot application under
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular
+ * Core</a>
+ * and compares the measured energy against a baseline.</li>
+ * <li>{@code updateEnergyBaseline} — promotes the most recent measurement
+ * result as the new baseline.</li>
  * </ul>
  *
  * <h2>Minimal {@code build.gradle.kts} configuration</h2>
+ * 
  * <pre>{@code
  * plugins {
- *     id("com.patbaumgartner.greener-spring-boot") version "0.1.0"
+ *     id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
  * }
  *
  * greener {
@@ -40,14 +43,12 @@ public class GreenerPlugin implements Plugin<Project> {
             task.setGroup("greener");
             task.setDescription(
                     "Measures energy consumption of the Spring Boot application using Joular Core "
-                    + "and compares against the stored baseline.");
+                            + "and compares against the stored baseline.");
             task.getSpringBootJar().convention(extension.getSpringBootJar());
-            task.getApplicationPort().convention(extension.getApplicationPort());
             task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
             task.getJoularCoreVersion().convention(extension.getJoularCoreVersion());
             task.getJoularCoreComponent().convention(extension.getJoularCoreComponent());
             task.getBaseUrl().convention(extension.getBaseUrl());
-            task.getTrainingPaths().convention(extension.getTrainingPaths());
             task.getRequestsPerSecond().convention(extension.getRequestsPerSecond());
             task.getExternalTrainingCommand().convention(extension.getExternalTrainingCommand());
             task.getExternalTrainingScriptFile().convention(extension.getExternalTrainingScriptFile());
@@ -67,8 +68,9 @@ public class GreenerPlugin implements Plugin<Project> {
             task.setGroup("greener");
             task.setDescription(
                     "Promotes the most recent energy measurement as the new baseline for "
-                    + "future comparisons.");
+                            + "future comparisons.");
             task.getBaselineFile().convention(extension.getBaselineFile());
+            task.getReportOutputDir().convention(extension.getReportOutputDir());
         });
     }
 }

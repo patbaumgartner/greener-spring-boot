@@ -16,6 +16,7 @@ import java.util.List;
 public record EnergyReport(String runId, Instant timestamp, long durationSeconds, List<EnergyMeasurement> measurements,
 		double totalEnergyJoules) {
 
+	@SuppressWarnings("PMD.UnusedAssignment") // compact constructor field normalization
 	public EnergyReport {
 		measurements = measurements == null ? Collections.emptyList() : Collections.unmodifiableList(measurements);
 		if (totalEnergyJoules < 0) {
@@ -32,11 +33,14 @@ public record EnergyReport(String runId, Instant timestamp, long durationSeconds
 		return new EnergyReport(runId, timestamp, durationSeconds, measurements, total);
 	}
 
-	/** Returns the top {@code n} most energy-consuming entries, sorted descending. */
-	public List<EnergyMeasurement> topMethods(int n) {
+	/**
+	 * Returns the top {@code n} most energy-consuming entries, sorted descending.
+	 */
+	public List<EnergyMeasurement> topMeasurements(int n) {
 		return measurements.stream()
 			.sorted(Comparator.comparingDouble(EnergyMeasurement::energyJoules).reversed())
 			.limit(n)
 			.toList();
 	}
+
 }

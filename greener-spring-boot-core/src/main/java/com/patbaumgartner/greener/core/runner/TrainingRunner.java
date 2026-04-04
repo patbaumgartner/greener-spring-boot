@@ -6,19 +6,12 @@ import com.patbaumgartner.greener.core.model.WorkloadStats;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.ConnectException;
+import java.nio.charset.StandardCharsets;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Locale;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -27,14 +20,12 @@ import java.util.logging.Logger;
  *
  * <p>
  * The training run produces a repeatable, controlled load so that energy measurements
- * across runs are comparable. Three modes are supported, in order of precedence:
+ * across runs are comparable. Two modes are supported, in order of precedence:
  * <ol>
- * <li><b>External script file</b> ({@link TrainingConfig#getExternalScriptFile()}) — runs
+ * <li><b>External script file</b> ({@link TrainingConfig#getExternalScriptFile()}) - runs
  * a shell script from the filesystem; ideal for wrk, wrk2, oha, Gatling, k6, etc.</li>
- * <li><b>Inline external command</b> ({@link TrainingConfig#getExternalCommand()}) — runs
+ * <li><b>Inline external command</b> ({@link TrainingConfig#getExternalCommand()}) - runs
  * a shell command string inline.</li>
- * <li><b>Built-in HTTP loader</b> — sends GET requests at the configured rate using the
- * Java {@link HttpClient}; requires no external tools.</li>
  * </ol>
  *
  * <h2>Environment variables available to external scripts</h2>
@@ -57,13 +48,12 @@ public class TrainingRunner {
 	 * Runs the full training cycle and returns statistics about the workload.
 	 *
 	 * <p>
-	 * <strong>Recommendation</strong>: always provide an {@code externalScriptFile} or
-	 * {@code externalCommand}. The built-in HTTP loader is a last-resort fallback that
-	 * produces less reproducible load patterns and is <em>not recommended</em> for energy
-	 * measurement. Configure one of the scripts from {@code examples/workloads/} instead.
+	 * One of {@code externalScriptFile} or {@code externalCommand} must be configured.
+	 * Use one of the scripts from {@code examples/workloads/} (oha, wrk, k6, Gatling,
+	 * etc.) for accurate, reproducible energy measurements.
 	 * @param config training configuration
 	 * @return {@link WorkloadStats} describing the executed workload
-	 * @throws IOException on I/O error (external command mode)
+	 * @throws IOException on I/O error or when no workload is configured
 	 * @throws InterruptedException if the thread is interrupted
 	 */
 	public WorkloadStats run(TrainingConfig config) throws IOException, InterruptedException {
@@ -77,83 +67,14 @@ public class TrainingRunner {
 			return runExternalCommand(config, command);
 		}
 		else {
-			LOG.warning("No external workload configured - falling back to the built-in HTTP loader. "
-					+ "For accurate, reproducible energy measurements configure "
-					+ "'externalTrainingScriptFile' with one of the scripts from "
-					+ "examples/workloads/ (oha, wrk, wrk2, k6, Gatling, Locust, ...).");
-			return runBuiltInHttpLoader(config);
+			throw new IOException("No external workload configured. "
+					+ "Set 'externalTrainingScriptFile' or 'externalTrainingCommand' "
+					+ "with one of the scripts from examples/workloads/ "
+					+ "(oha, wrk, wrk2, k6, Gatling, Locust, ...).");
 		}
 	}
 
 	// -------------------------------------------------------------------------
-
-	private WorkloadStats runBuiltInHttpLoader(TrainingConfig config) throws InterruptedException {
-		List<String> paths = config.getPaths();
-		if (paths.isEmpty()) {
-			LOG.warning("No training URL paths configured - skipping workload");
-			return WorkloadStats.builtIn(0, 0, config.getTotalDurationSeconds());
-		}
-
-		HttpClient client = HttpClient.newBuilder()
-			.connectTimeout(Duration.ofSeconds(5))
-			.executor(Executors.newFixedThreadPool(config.getConcurrency()))
-			.build();
-
-		int warmup = config.getWarmupDurationSeconds();
-		int measure = config.getMeasureDurationSeconds();
-		int total = warmup + measure;
-
-		LOG.info(String.format("HTTP training workload - %d paths, %d req/s, concurrency %d, %ds warmup + %ds measure",
-				paths.size(), config.getRequestsPerSecond(), config.getConcurrency(), warmup, measure));
-
-		AtomicLong requestCount = new AtomicLong();
-		AtomicLong errorCount = new AtomicLong();
-
-		long intervalNs = 1_000_000_000L / Math.max(1, config.getRequestsPerSecond());
-		int[] pathIdx = { 0 };
-
-		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(config.getConcurrency() + 1);
-
-		scheduler.scheduleAtFixedRate(() -> {
-			String path = paths.get(pathIdx[0] % paths.size());
-			pathIdx[0]++;
-			String url = config.getBaseUrl() + path;
-
-			HttpRequest request = HttpRequest.newBuilder()
-				.uri(URI.create(url))
-				.timeout(Duration.ofSeconds(10))
-				.GET()
-				.build();
-
-			client.sendAsync(request, HttpResponse.BodyHandlers.discarding()).thenAccept(resp -> {
-				requestCount.incrementAndGet();
-				if (resp.statusCode() >= 500)
-					errorCount.incrementAndGet();
-			}).exceptionally(ex -> {
-				errorCount.incrementAndGet();
-				if (!(ex.getCause() instanceof ConnectException)) {
-					LOG.fine("Request to " + url + " failed: " + ex.getMessage());
-				}
-				return null;
-			});
-		}, 0, intervalNs, TimeUnit.NANOSECONDS);
-
-		// Progress logging every 10 s
-		scheduler.scheduleAtFixedRate(
-				() -> LOG.info(String.format("Training: %d req sent, %d errors", requestCount.get(), errorCount.get())),
-				10, 10, TimeUnit.SECONDS);
-
-		try {
-			Thread.sleep((long) total * 1_000);
-		}
-		finally {
-			scheduler.shutdownNow();
-		}
-
-		LOG.info(String.format("Training complete - %d requests, %d errors", requestCount.get(), errorCount.get()));
-
-		return WorkloadStats.builtIn(requestCount.get(), errorCount.get(), total);
-	}
 
 	private WorkloadStats runExternalScript(TrainingConfig config, String scriptFile)
 			throws IOException, InterruptedException {
@@ -174,7 +95,7 @@ public class TrainingRunner {
 		String toolName = deriveToolName(script.getFileName().toString(),
 				script.getParent() != null ? script.getParent().getFileName().toString() : null);
 
-		LOG.info("Running external training script [" + toolName + "]: " + script);
+		LOG.log(Level.INFO, () -> "Running external training script [" + toolName + "]: " + script);
 
 		String[] shellCommand = resolveShellCommand(script.toAbsolutePath().toString());
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -190,14 +111,14 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("Training script exited with code " + exitCode + ": " + script);
 		}
-		LOG.info("Training script [" + toolName + "] completed in " + elapsed + " s");
+		LOG.log(Level.INFO, () -> "Training script [" + toolName + "] completed in " + elapsed + " s");
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
 			throws IOException, InterruptedException {
 
-		LOG.info("Running external training command: " + command);
+		LOG.log(Level.INFO, () -> "Running external training command: " + command);
 
 		String[] shellCommand = resolveShellCommand("-c", command);
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -213,14 +134,16 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("External training command exited with code " + exitCode + ": " + command);
 		}
-		LOG.info("External training command completed in " + elapsed + " s");
+		LOG.log(Level.INFO, () -> "External training command completed in " + elapsed + " s");
 		String toolName = deriveToolName(command, null);
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	// -------------------------------------------------------------------------
 
-	private static final boolean IS_WINDOWS = System.getProperty("os.name", "").toLowerCase().startsWith("win");
+	private static final boolean IS_WINDOWS = System.getProperty("os.name", "")
+		.toLowerCase(Locale.ENGLISH)
+		.startsWith("win");
 
 	/**
 	 * Builds a shell command array appropriate for the current OS.
@@ -244,25 +167,22 @@ public class TrainingRunner {
 	 * for Windows installation directories.
 	 */
 	private String findWindowsShell() throws IOException {
-		// 1. Check if sh is already on PATH
-		try {
-			Process probe = new ProcessBuilder("sh", "--version").redirectErrorStream(true).start();
-			probe.getInputStream().readAllBytes();
-			if (probe.waitFor() == 0) {
-				return "sh";
+		// 1. Check well-known POSIX shell locations on Windows (Git Bash, MSYS2)
+		String[] posixShells = { System.getenv("SystemRoot") + "\\System32\\bash.exe",
+				"C:\\Program Files\\Git\\bin\\sh.exe", "C:\\Program Files (x86)\\Git\\bin\\sh.exe" };
+		for (String shell : posixShells) {
+			if (shell != null && Files.isExecutable(Path.of(shell))) {
+				return shell;
 			}
 		}
-		catch (IOException | InterruptedException ignored) {
-			// sh not on PATH — continue searching
-		}
 
-		// 2. Check well-known Git for Windows locations
+		// 2. Check environment-based Git for Windows locations
 		String[] candidates = { System.getenv("ProgramFiles") + "\\Git\\bin\\sh.exe",
 				System.getenv("ProgramFiles(x86)") + "\\Git\\bin\\sh.exe",
 				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
 		for (String candidate : candidates) {
 			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
-				LOG.info("Using Git Bash shell: " + candidate);
+				LOG.log(Level.INFO, () -> "Using Git Bash shell: " + candidate);
 				return candidate;
 			}
 		}
@@ -283,16 +203,18 @@ public class TrainingRunner {
 	}
 
 	/**
-	 * Reads all output from the process, printing each line to System.out (so the user
-	 * still sees tool output live) and collecting it into a string for parsing.
+	 * Reads all output from the process, forwarding each line to the logger and
+	 * collecting it into a string for parsing.
 	 */
 	private String captureAndForwardOutput(Process process) throws IOException {
 		StringBuilder sb = new StringBuilder();
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				System.out.println(line);
+		try (BufferedReader reader = new BufferedReader(
+				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+			String line = reader.readLine();
+			while (line != null) {
+				LOG.info(line);
 				sb.append(line).append('\n');
+				line = reader.readLine();
 			}
 		}
 		return sb.toString();
@@ -302,8 +224,8 @@ public class TrainingRunner {
 		ExternalToolOutputParser parser = new ExternalToolOutputParser();
 		parser.parse(toolName, output);
 		if (parser.hasResults()) {
-			LOG.info(String.format("Parsed %d total requests (%d failed) from %s output", parser.totalRequests(),
-					parser.failedRequests(), toolName));
+			LOG.log(Level.INFO, () -> String.format("Parsed %d total requests (%d failed) from %s output",
+					parser.totalRequests(), parser.failedRequests(), toolName));
 			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
 		}
 		return WorkloadStats.external(toolName, elapsed);
@@ -318,7 +240,7 @@ public class TrainingRunner {
 	private String deriveToolName(String fileName, String parentDir) {
 		// Build a combined token: parent directory name (e.g. "oha", "wrk2") is the
 		// most reliable signal; fall back to the file name itself.
-		String combined = (fileName + " " + (parentDir != null ? parentDir : "")).toLowerCase();
+		String combined = (fileName + " " + (parentDir != null ? parentDir : "")).toLowerCase(Locale.ENGLISH);
 		if (combined.contains("wrk2"))
 			return "wrk2";
 		if (combined.contains("wrk"))
@@ -339,7 +261,7 @@ public class TrainingRunner {
 			return "hyperfoil";
 		// "ab" is only matched on an exact parent-directory token to avoid collisions
 		// with unrelated path segments that happen to contain the substring "ab".
-		if (parentDir != null && parentDir.equalsIgnoreCase("ab"))
+		if (parentDir != null && "ab".equalsIgnoreCase(parentDir))
 			return "ab";
 		return "script";
 	}

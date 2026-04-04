@@ -3,7 +3,7 @@
 Thank you for taking the time to contribute! 🌱⚡
 
 The following is a set of guidelines for contributing to **greener-spring-boot**.
-These are mostly guidelines, not rules — use your best judgement and feel free to
+These are mostly guidelines, not rules - use your best judgement and feel free to
 propose changes to this document in a pull request.
 
 ---
@@ -61,7 +61,7 @@ Please report unacceptable behaviour to the maintainers.
 |---|---|---|
 | JDK | 17 | Temurin or any OpenJDK distribution |
 | Maven | 3.9 | Used for all Maven modules |
-| Gradle | 8.x | Wrapper is included in `greener-spring-boot-gradle-plugin/` |
+| Gradle | 9.4 | Wrapper is included in `greener-spring-boot-gradle-plugin/` |
 
 ### Clone
 
@@ -131,7 +131,7 @@ mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
 
 ## Submitting a pull request
 
-1. **One concern per PR.** Keep PRs focused — a bug fix should not also refactor
+1. **One concern per PR.** Keep PRs focused - a bug fix should not also refactor
    unrelated code.
 2. **Tests are required.** New behaviour must be covered by tests; bug fixes should
    include a regression test.
@@ -148,7 +148,7 @@ mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
   It produces tab-based indentation for Java source files.
 - Public API methods and classes must have Javadoc.
 - Prefer immutable value objects (`record`) for model classes.
-- Use `java.util.logging` (JUL) — no additional logging frameworks.
+- Use `java.util.logging` (JUL) - no additional logging frameworks.
 - Keep the dependency footprint minimal. Do not add a dependency if the JDK
   already provides the functionality.
 
@@ -156,7 +156,7 @@ mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
 
 ## CI / GitHub Actions
 
-- **Pin actions by full commit SHA** — never reference actions using mutable
+- **Pin actions by full commit SHA** - never reference actions using mutable
   tags like `@v6`. Always use the full 40-character commit SHA and add the
   version tag as a trailing comment:
   ```yaml

@@ -579,4 +579,113 @@ class ExternalToolOutputParserTest {
 		assertThat(parser.hasResults()).isFalse();
 	}
 
+	// ---- negative / malformed input tests ----
+
+	@Test
+	void oha_partialOutput_noResponseLines() {
+		String output = """
+				Summary:
+				  Success rate:	100.00%
+				  Total:	10.0007 secs
+				  Requests/sec:	999.93
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("oha", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void wrk_malformedRequestCount_doesNotThrow() {
+		// Regex won't match non-digit text, so parser should not find results
+		String output = """
+				  abc requests in 60.00s
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("wrk", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void ab_missingCompleteRequests() {
+		String output = """
+				Failed requests:        10
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("ab", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void k6_missingHttpReqs() {
+		String output = """
+				     http_req_failed................: 0.41%  ✓ 51          ✗ 12294
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("k6", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void gatling_malformedRequestCount() {
+		// KO line is present but request count line doesn't match pattern
+		String output = """
+				> request count                                      N/A (OK=N/A    KO=N/A   )
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("gatling", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void locust_missingAggregatedLine() {
+		String output = """
+				GET      /                                                     2345     5(0.21%)
+				GET      /owners                                               1890     3(0.16%)
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("locust", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void bombardier_noStatusLines() {
+		String output = """
+				Bombarding http://localhost:8080/api for 30s using 200 connection(s)
+				Done!
+				Statistics        Avg      Stdev        Max
+				  Reqs/sec     15234.56    2345.67   22345.00
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("bombardier", output);
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void whitespaceOnlyOutput_returnsUnknown() {
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("oha", "   \n\t\n   ");
+
+		assertThat(parser.hasResults()).isFalse();
+	}
+
+	@Test
+	void oha_zeroResponses_parsedCorrectly() {
+		String output = """
+				  [200] 0 responses
+				""";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("oha", output);
+
+		assertThat(parser.hasResults()).isTrue();
+		assertThat(parser.totalRequests()).isZero();
+		assertThat(parser.failedRequests()).isZero();
+	}
+
 }

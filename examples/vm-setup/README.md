@@ -12,14 +12,14 @@ The recommended solutions, from simplest setup to most portable, are:
 
 | Option | Environment | Accuracy |
 |---|---|---|
-| **A** — RAPL MSR passthrough | KVM guest with passthrough | ★★★ high |
-| **B** — Windows RAPL driver | Windows bare-metal (Intel/AMD) | ★★★ high |
-| **C** — Scaphandre virtio-mem | KVM guest + Scaphandre on host | ★★★ highest |
-| **D** — Scaphandre file exporter | KVM guest via virtio-fs / NFS | ★★★ high |
-| **E** — CPU-time × TDP estimation | Any Linux/Windows (CI, WSL2, VMs) | ★★ estimated |
+| **A** - RAPL MSR passthrough | KVM guest with passthrough | ★★★ high |
+| **B** - Windows RAPL driver | Windows bare-metal (Intel/AMD) | ★★★ high |
+| **C** - Scaphandre virtio-mem | KVM guest + Scaphandre on host | ★★★ highest |
+| **D** - Scaphandre file exporter | KVM guest via virtio-fs / NFS | ★★★ high |
+| **E** - CPU-time × TDP estimation | Any Linux/Windows (CI, WSL2, VMs) | ★★ estimated |
 
 > **Important**: Options A–D all rely on real hardware power counters.
-> Option E uses a software model — results are reproducible on the same
+> Option E uses a software model - results are reproducible on the same
 > runner/hardware but not hardware-calibrated.  Only use Option E for
 > relative comparisons between commits; use A–D for absolute accuracy.
 
@@ -41,10 +41,10 @@ KVM Host (bare-metal, Intel/AMD with RAPL)
 
 ---
 
-## Option A — RAPL MSR passthrough (simplest)
+## Option A - RAPL MSR passthrough (simplest)
 
 Some hypervisors allow passing RAPL MSRs through to the guest.  When this works,
-no VM mode is needed at all — Joular Core reads RAPL directly as if on bare metal.
+no VM mode is needed at all - Joular Core reads RAPL directly as if on bare metal.
 
 Requirements:
 - KVM with `msr` module loaded (`modprobe msr`)
@@ -58,16 +58,16 @@ ls /sys/class/powercap/intel-rapl
 ```
 
 ```xml
-<!-- Maven — no VM mode needed -->
+<!-- Maven - no VM mode needed -->
 <vmMode>false</vmMode>
 ```
 
 ---
 
-## Option B — Windows RAPL driver (bare-metal Windows)
+## Option B - Windows RAPL driver (bare-metal Windows)
 
 On bare-metal Windows machines with Intel or AMD CPUs, Joular Core can read
-hardware RAPL counters directly — no VM mode or TDP estimation needed — once
+hardware RAPL counters directly - no VM mode or TDP estimation needed - once
 [Hubblo's Windows RAPL driver](https://github.com/hubblo-org/windows-rapl-driver)
 is installed.
 
@@ -77,7 +77,7 @@ The easiest way to install the signed driver is through the Scaphandre installer
 
 1. Download the installer from the
    [Scaphandre v1.0.0 release](https://github.com/hubblo-org/scaphandre/releases/download/v1.0.0/scaphandre_v1.0.0_installer.exe).
-2. Run `scaphandre_v1.0.0_installer.exe` — this installs and registers the
+2. Run `scaphandre_v1.0.0_installer.exe` - this installs and registers the
    `ScaphandreDrv` kernel driver.
 3. Verify the driver is running:
    ```powershell
@@ -91,12 +91,12 @@ rights.  GPU power is also available via `nvidia-smi` / `amd-smi`.
 ### Plugin configuration (no VM mode)
 
 ```xml
-<!-- Maven — no VM mode needed, RAPL is read directly -->
+<!-- Maven - no VM mode needed, RAPL is read directly -->
 <vmMode>false</vmMode>
 ```
 
 ```kotlin
-// Gradle — no VM mode needed
+// Gradle - no VM mode needed
 vmMode = false
 ```
 
@@ -112,7 +112,7 @@ the CPU-time × TDP software estimation (Option E) automatically.
 
 ---
 
-## Option C — Scaphandre virtio-mem exporter (recommended for KVM)
+## Option C - Scaphandre virtio-mem exporter (recommended for KVM)
 
 Scaphandre's `qemu` exporter uses a shared memory device (virtio-mem) to push
 per-VM power data directly into the guest's address space.  Joular Core reads
@@ -150,7 +150,7 @@ joularcore --vm -p <PID> -c cpu -f output.csv -s
 In the greener-spring-boot plugin:
 
 ```xml
-<!-- Maven — vm-power-file is NOT needed when using virtio-mem -->
+<!-- Maven - vm-power-file is NOT needed when using virtio-mem -->
 <vmMode>true</vmMode>
 ```
 
@@ -161,7 +161,7 @@ vmMode = true
 
 ---
 
-## Option D — Scaphandre file exporter over virtio-fs
+## Option D - Scaphandre file exporter over virtio-fs
 
 Use this when virtio-mem is not available or when you need to share the power
 value via a regular file (e.g. Proxmox, older QEMU versions).
@@ -211,9 +211,9 @@ vmPowerFilePath = file("/mnt/host-power/vm-power.txt")
 
 ---
 
-## Option E — CPU-time × TDP estimation (CI/CD, WSL2, any Linux/Windows VM)
+## Option E - CPU-time × TDP estimation (CI/CD, WSL2, any Linux/Windows VM)
 
-Use this when none of the hardware-backed options above are available — for
+Use this when none of the hardware-backed options above are available - for
 example on GitHub-hosted runners, GitLab shared runners, Jenkins agents,
 WSL2, or any Linux/Windows VM where hardware RAPL access is not available.
 
@@ -278,7 +278,7 @@ Stop-Job $job; Remove-Job $job
 
 ### WSL2 usage
 
-On WSL2, use the Linux script (`ci-cpu-energy-estimator.sh`) — it reads
+On WSL2, use the Linux script (`ci-cpu-energy-estimator.sh`) - it reads
 `/proc/stat` from the WSL2 kernel just like any other Linux environment.
 
 ```bash
@@ -312,7 +312,7 @@ Options C and D.
 1. Install Scaphandre on the Proxmox host node.
 2. Use the `qemu` exporter (Option A) for automatic per-VM power exposure via
    virtio-mem.
-3. The VM ID in Proxmox maps to the QEMU process name — Scaphandre identifies
+3. The VM ID in Proxmox maps to the QEMU process name - Scaphandre identifies
    each VM automatically.
 
 ---
@@ -322,15 +322,17 @@ Options C and D.
 Energy measurement runs automatically in all supported CI systems via the
 CPU-time × TDP estimation (Option D) when no hardware RAPL access is available.
 No configuration is needed on GitHub-hosted runners, GitLab shared runners, or
-standard Jenkins agents — the pipeline detects the best available power source
+standard Jenkins agents - the pipeline detects the best available power source
 at runtime.
 
 See the individual CI configs for details:
 
-- **GitHub Actions** — `.github/workflows/energy-baseline.yml` and
+- **GitHub Actions** - `.github/workflows/energy-baseline.yml` and
   `.github/workflows/energy-comparison.yml`
-- **GitLab CI/CD** — `.gitlab-ci.yml`
-- **Jenkins** — `Jenkinsfile`
+
+The plugin itself is CI-agnostic - use it in any pipeline that can run Maven or
+Gradle. Adapt the GitHub Actions workflow steps for GitLab CI/CD, Jenkins, or
+other CI systems as needed.
 
 For hardware-accurate measurements use a self-hosted bare-metal runner or
 configure Scaphandre on your KVM host (Options A or B above).

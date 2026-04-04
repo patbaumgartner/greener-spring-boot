@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -58,7 +59,7 @@ public class BaselineManager {
 		}
 
 		objectMapper.writeValue(baselineFile.toFile(), baseline);
-		LOG.info("Saved energy baseline to: " + baselineFile);
+		LOG.log(Level.INFO, () -> "Saved energy baseline to: " + baselineFile);
 	}
 
 	/**
@@ -69,13 +70,13 @@ public class BaselineManager {
 	 */
 	public Optional<EnergyBaseline> loadBaseline(Path baselineFile) throws IOException {
 		if (!Files.exists(baselineFile)) {
-			LOG.info("No baseline file found at: " + baselineFile);
+			LOG.log(Level.INFO, () -> "No baseline file found at: " + baselineFile);
 			return Optional.empty();
 		}
 
 		EnergyBaseline baseline = objectMapper.readValue(baselineFile.toFile(), EnergyBaseline.class);
-		LOG.info("Loaded energy baseline from: " + baselineFile + " (created: " + baseline.createdAt() + ", branch: "
-				+ baseline.branch() + ")");
+		LOG.log(Level.INFO, () -> "Loaded energy baseline from: " + baselineFile + " (created: " + baseline.createdAt()
+				+ ", branch: " + baseline.branch() + ")");
 		return Optional.of(baseline);
 	}
 

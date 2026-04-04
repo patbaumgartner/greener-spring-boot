@@ -10,6 +10,7 @@ public record ComparisonResult(ComparisonStatus overallStatus, double baselineTo
 		double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
 		double threshold) {
 
+	@SuppressWarnings("PMD.UnusedAssignment") // compact constructor field normalization
 	public ComparisonResult {
 		methodComparisons = methodComparisons == null ? Collections.emptyList()
 				: Collections.unmodifiableList(methodComparisons);
