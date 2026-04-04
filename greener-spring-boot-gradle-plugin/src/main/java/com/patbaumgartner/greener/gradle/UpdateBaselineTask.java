@@ -18,6 +18,9 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -110,14 +113,14 @@ public abstract class UpdateBaselineTask extends DefaultTask {
             }
             report = latest.get().report();
         }
-        // 2. Try auto-detected latest report from report output dir
+        // 2. Try auto-detected latest report from report output dir subdirectories
         else {
             Path reportDir = resolveReportDir();
-            Path latestReportPath = reportDir.resolve("latest-energy-report.json");
-            if (latestReportPath.toFile().exists()) {
-                Optional<EnergyBaseline> latest = manager.loadBaseline(latestReportPath);
+            Path discovered = discoverLatestReport(reportDir);
+            if (discovered != null) {
+                Optional<EnergyBaseline> latest = manager.loadBaseline(discovered);
                 if (latest.isEmpty()) {
-                    throw new GradleException("Could not read energy report from: " + latestReportPath);
+                    throw new GradleException("Could not read energy report from: " + discovered);
                 }
                 report = latest.get().report();
             }
@@ -155,6 +158,34 @@ public abstract class UpdateBaselineTask extends DefaultTask {
             return getReportOutputDir().get().getAsFile().toPath();
         }
         return getProject().getLayout().getBuildDirectory().getAsFile().get().toPath().resolve("greener-reports");
+    }
+
+    /**
+     * Scans immediate subdirectories of the given directory for
+     * {@code latest-energy-report.json} and returns the most recently modified match.
+     */
+    private Path discoverLatestReport(Path reportDir) throws IOException {
+        if (reportDir == null || !Files.isDirectory(reportDir)) {
+            return null;
+        }
+        Path best = null;
+        long bestModified = Long.MIN_VALUE;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(reportDir)) {
+            for (Path child : stream) {
+                if (!Files.isDirectory(child)) {
+                    continue;
+                }
+                Path candidate = child.resolve("latest-energy-report.json");
+                if (Files.exists(candidate)) {
+                    long modified = Files.getLastModifiedTime(candidate).toMillis();
+                    if (modified > bestModified) {
+                        best = candidate;
+                        bestModified = modified;
+                    }
+                }
+            }
+        }
+        return best;
     }
 
 }

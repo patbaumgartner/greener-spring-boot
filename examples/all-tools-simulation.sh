@@ -9,6 +9,19 @@
 # detected tool once and collects the per-tool energy reports so they can
 # be compared side-by-side.
 #
+# Baseline behaviour:
+#   - Each tool gets its own baseline file under WORK_DIR/baselines/
+#     (e.g. baselines/oha-energy-baseline.json).
+#   - On the first run (or after RESET_BASELINES=true) there is no
+#     baseline, so each tool reports "No baseline".
+#   - After each successful measurement the result is promoted to a
+#     baseline, so subsequent runs compare against the previous result.
+#
+# Report history:
+#   - Each script invocation creates a timestamped report directory
+#     (e.g. greener-reports-20260404-153012/) so previous runs are kept.
+#   - A "latest" symlink always points to the most recent run.
+#
 # Supported tools (auto-installed by each workload script if not present):
 #   oha, wrk, wrk2, bombardier, ab, k6, gatling, locust
 #
@@ -34,6 +47,7 @@
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-all-tools)
+#   RESET_BASELINES        Delete stored baselines first   (default: unset)
 
 set -euo pipefail
 
@@ -52,6 +66,8 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PETCLINIC_DIR="${WORK_DIR}/spring-petclinic"
 CI_POWER_FILE="${WORK_DIR}/ci-power.txt"
 JOULAR_CACHE_DIR="${HOME}/.greener/cache/joularcore"
+BASELINE_DIR="${WORK_DIR}/baselines"
+RUN_TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
 CI_ESTIMATOR_PID=""
 
@@ -59,7 +75,7 @@ CI_ESTIMATOR_PID=""
 TOOLS="oha wrk wrk2 bombardier ab k6 locust gatling"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-info()  { echo "i  $*"; }
+info()  { echo "[ii] $*"; }
 ok()    { echo "[OK] $*"; }
 warn()  { echo "[!!] $*"; }
 banner() {
@@ -93,6 +109,13 @@ mvn --version 2>&1 | head -1
 mkdir -p "${WORK_DIR}"
 
 ok "All preflight checks passed"
+
+# ── Baseline management ──────────────────────────────────────────────────────
+if [ "${RESET_BASELINES:-}" = "true" ] && [ -d "${BASELINE_DIR}" ]; then
+    info "RESET_BASELINES=true — removing stored baselines"
+    rm -rf "${BASELINE_DIR}"
+fi
+mkdir -p "${BASELINE_DIR}"
 
 # ── Build greener-spring-boot plugins ─────────────────────────────────────────
 banner "Building greener-spring-boot plugins"
@@ -219,9 +242,16 @@ if [ "${POWER_SOURCE}" = "vm-file" ] || [ "${POWER_SOURCE}" = "ci-estimated" ]; 
 fi
 
 # ── Run each tool ─────────────────────────────────────────────────────────────
+# Each invocation gets a timestamped report directory so previous runs are
+# preserved.  A "latest" symlink always points to the most recent run.
+# Per-tool baselines are stored in BASELINE_DIR and persist across runs.
+REPORTS_DIR="${WORK_DIR}/greener-reports-${RUN_TIMESTAMP}"
 PASSED=""
 FAILED=""
 SKIPPED=""
+
+COMMIT_SHA="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null || echo "unknown")"
+BRANCH="$(git -C "${PROJECT_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
 
 for tool in ${TOOLS}; do
     TOOL_SCRIPT="${PETCLINIC_DIR}/examples/workloads/${tool}/run.sh"
@@ -230,9 +260,14 @@ for tool in ${TOOLS}; do
         continue
     fi
 
-    REPORTS_DIR="${WORK_DIR}/greener-reports-${tool}"
+    TOOL_BASELINE="${BASELINE_DIR}/${tool}-energy-baseline.json"
 
     banner "Measuring with ${tool}"
+    if [ -f "${TOOL_BASELINE}" ]; then
+        info "Baseline found for ${tool} — comparison will be performed"
+    else
+        info "No baseline for ${tool} — first run, no comparison"
+    fi
 
     cd "${PETCLINIC_DIR}"
     if mvn --batch-mode --no-transfer-progress \
@@ -244,27 +279,42 @@ for tool in ${TOOLS}; do
         -Dgreener.measureDurationSeconds="${MEASURE_SECONDS}" \
         -Dgreener.requestsPerSecond=20 \
         -Dgreener.healthCheckPath=/actuator/health/readiness \
+        -Dgreener.baselineFile="${TOOL_BASELINE}" \
+        -Dgreener.threshold="${THRESHOLD}" \
         -Dgreener.failOnRegression=false \
         -Dgreener.reportOutputDir="${REPORTS_DIR}" \
         ${VM_FLAGS}; then
         PASSED="${PASSED} ${tool}"
-        ok "${tool} measurement complete → ${REPORTS_DIR}/"
+        ok "${tool} measurement complete → ${REPORTS_DIR}/${tool}/"
+
+        # Promote this result as the new baseline for the next run
+        mvn --batch-mode --no-transfer-progress \
+            com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
+            -Dgreener.baselineFile="${TOOL_BASELINE}" \
+            -Dgreener.latestReportFile="${REPORTS_DIR}/${tool}/latest-energy-report.json" \
+            -Dgreener.commitSha="${COMMIT_SHA}" \
+            -Dgreener.branch="${BRANCH}" || warn "Failed to update baseline for ${tool}"
     else
         FAILED="${FAILED} ${tool}"
         warn "${tool} measurement failed"
     fi
 done
 
+# ── Symlink latest reports ────────────────────────────────────────────────────
+LATEST_LINK="${WORK_DIR}/greener-reports-latest"
+rm -f "${LATEST_LINK}"
+ln -s "${REPORTS_DIR}" "${LATEST_LINK}"
+info "Latest reports linked: ${LATEST_LINK} → ${REPORTS_DIR}"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 banner "All-Tools Summary"
 
 echo ""
-printf "  %-12s  %-10s  %s\n" "TOOL" "STATUS" "REPORT"
+printf "  %-12s  %-10s  %s\n" "TOOL" "STATUS" "ENERGY"
 printf "  %-12s  %-10s  %s\n" "────────────" "──────────" "──────────────────────────────────"
 
 for tool in ${TOOLS}; do
-    REPORTS_DIR="${WORK_DIR}/greener-reports-${tool}"
-    REPORT_JSON="${REPORTS_DIR}/latest-energy-report.json"
+    REPORT_JSON="${REPORTS_DIR}/${tool}/latest-energy-report.json"
     if echo "${PASSED}" | grep -qw "${tool}"; then
         ENERGY="—"
         if [ -f "${REPORT_JSON}" ] && command -v python3 >/dev/null 2>&1; then
@@ -286,7 +336,14 @@ for t in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
 echo ""
 echo "  Passed: ${PASS_COUNT}  |  Failed: ${FAIL_COUNT}  |  Skipped: ${SKIP_COUNT}"
 echo ""
-echo "  Reports saved under: ${WORK_DIR}/greener-reports-*/"
+echo "  Reports saved under: ${REPORTS_DIR}/"
+echo "  Baselines saved under: ${BASELINE_DIR}/"
+echo "  Latest symlink: ${LATEST_LINK}"
+
+AGGREGATED_REPORT="${REPORTS_DIR}/greener-aggregated-report.html"
+if [ -f "${AGGREGATED_REPORT}" ]; then
+    echo "  Aggregated report: ${AGGREGATED_REPORT}"
+fi
 
 if [ "${FAIL_COUNT}" -gt 0 ]; then
     exit 1

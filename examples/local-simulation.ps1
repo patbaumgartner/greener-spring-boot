@@ -9,6 +9,17 @@
 # Both measurements happen on the same machine under identical conditions,
 # so the comparison shows how reproducible the results are (expected delta ~ 0 %).
 #
+# Baseline behaviour:
+#   - The baseline is stored at WORK_DIR\energy-baseline.json.
+#   - Run 1 creates the baseline; Run 2 compares against it.
+#   - Set RESET_BASELINES=true to delete the stored baseline before Run 1.
+#
+# Report history:
+#   - Each invocation creates timestamped report directories
+#     (e.g. greener-reports-baseline-20260404-153012\) so previous runs
+#     are preserved.
+#   - A "latest" copy is maintained for convenience.
+#
 # Power source auto-detection (Windows):
 #   1. Hubblo RAPL driver (ScaphandreDrv) -- direct hardware RAPL reading
 #   2. CPU x TDP estimation via Win32_Processor.LoadPercentage
@@ -33,6 +44,7 @@
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-local-sim)
+#   RESET_BASELINES        Delete stored baseline first    (default: unset)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -58,15 +70,16 @@ if (-not $Branch)    { $Branch = "unknown" }
 
 $PetclinicDir      = Join-Path $WorkDir "spring-petclinic"
 $BaselineFile      = Join-Path $WorkDir "energy-baseline.json"
-$ReportsBaseline   = Join-Path $WorkDir "greener-reports-baseline"
-$ReportsComparison = Join-Path $WorkDir "greener-reports-comparison"
+$RunTimestamp       = Get-Date -Format "yyyyMMdd-HHmmss"
+$ReportsBaseline   = Join-Path $WorkDir "greener-reports-baseline-$RunTimestamp"
+$ReportsComparison = Join-Path $WorkDir "greener-reports-comparison-$RunTimestamp"
 $CiPowerFile       = Join-Path $WorkDir "ci-power.txt"
 $JoularCacheDir    = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "joularcore"
 
 $CiEstimatorJob = $null
 
 # -- Helpers -------------------------------------------------------------------
-function Info($msg)   { Write-Output "i  $msg" }
+function Info($msg)   { Write-Output "[ii] $msg" }
 function Ok($msg)     { Write-Output "[OK] $msg" }
 function Warn($msg)   { Write-Output "[!!] $msg" }
 function Banner($msg) {
@@ -109,6 +122,12 @@ Write-Output (& { $ErrorActionPreference = 'SilentlyContinue'; mvn --version 2>&
 
 if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
+}
+
+# -- Baseline management -------------------------------------------------------
+if ($env:RESET_BASELINES -eq "true" -and (Test-Path $BaselineFile)) {
+    Info "RESET_BASELINES=true -- removing stored baseline"
+    Remove-Item $BaselineFile -Force
 }
 
 # -- Build greener-spring-boot plugins -----------------------------------------
@@ -314,7 +333,7 @@ try {
         "--batch-mode", "--no-transfer-progress",
         "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline",
         "-Dgreener.baselineFile=$BaselineFile",
-        "-Dgreener.latestReportFile=$(Join-Path $ReportsBaseline 'latest-energy-report.json')",
+        "-Dgreener.latestReportFile=$(Join-Path $ReportsBaseline 'oha' 'latest-energy-report.json')",
         "-Dgreener.commitSha=$CommitSha",
         "-Dgreener.branch=$Branch"
     )
@@ -355,7 +374,7 @@ try {
 Banner "RESULTS - Baseline vs Comparison"
 
 $baseline   = Get-Content $BaselineFile -Raw | ConvertFrom-Json
-$comparison = Get-Content (Join-Path $ReportsComparison "latest-energy-report.json") -Raw | ConvertFrom-Json
+$comparison = Get-Content (Join-Path $ReportsComparison "oha" "latest-energy-report.json") -Raw | ConvertFrom-Json
 
 $bEnergy = $baseline.report.totalEnergyJoules
 $cEnergy = $comparison.report.totalEnergyJoules
@@ -379,6 +398,16 @@ Write-Output "Reports saved to:"
 Write-Output "  Baseline  : $ReportsBaseline"
 Write-Output "  Comparison: $ReportsComparison"
 Write-Output "  Baseline JSON: $BaselineFile"
+
+# -- Copy latest reports -------------------------------------------------------
+$LatestBaseline   = Join-Path $WorkDir "greener-reports-baseline-latest"
+$LatestComparison = Join-Path $WorkDir "greener-reports-comparison-latest"
+if (Test-Path $LatestBaseline)   { Remove-Item -Recurse -Force $LatestBaseline }
+if (Test-Path $LatestComparison) { Remove-Item -Recurse -Force $LatestComparison }
+Copy-Item -Recurse -Force $ReportsBaseline   $LatestBaseline
+Copy-Item -Recurse -Force $ReportsComparison $LatestComparison
+Info "Latest baseline reports copied to: $LatestBaseline"
+Info "Latest comparison reports copied to: $LatestComparison"
 
 } finally {
     # Run cleanup

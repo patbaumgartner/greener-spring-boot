@@ -72,13 +72,13 @@ public class JoularCoreDownloader {
 		Path binaryFile = cacheDir.resolve(assetName);
 
 		if (Files.exists(binaryFile)) {
-			LOG.log(Level.INFO, () -> "Using cached Joular Core from: " + binaryFile);
+			LOG.log(Level.FINE, () -> "Using cached Joular Core from: " + binaryFile);
 			ensureExecutable(binaryFile);
 			return binaryFile;
 		}
 
 		String url = String.format(RELEASE_URL_TEMPLATE, version, assetName);
-		LOG.log(Level.INFO, () -> "Downloading Joular Core " + version + " from: " + url);
+		LOG.log(Level.FINE, () -> "Downloading Joular Core " + version + " from: " + url);
 
 		HttpRequest request = HttpRequest.newBuilder()
 			.uri(URI.create(url))
@@ -101,7 +101,7 @@ public class JoularCoreDownloader {
 		Files.move(tmpFile, binaryFile, StandardCopyOption.REPLACE_EXISTING);
 		ensureExecutable(binaryFile);
 
-		LOG.log(Level.INFO, () -> "Joular Core " + version + " downloaded to: " + binaryFile);
+		LOG.log(Level.FINE, () -> "Joular Core " + version + " downloaded to: " + binaryFile);
 		return binaryFile;
 	}
 

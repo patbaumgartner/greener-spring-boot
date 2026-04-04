@@ -8,6 +8,19 @@
 # detected tool once and collects the per-tool energy reports so they can
 # be compared side-by-side.
 #
+# Baseline behaviour:
+#   - Each tool gets its own baseline file under WORK_DIR\baselines\
+#     (e.g. baselines\oha-energy-baseline.json).
+#   - On the first run (or after RESET_BASELINES=true) there is no
+#     baseline, so each tool reports "No baseline".
+#   - After each successful measurement the result is promoted to a
+#     baseline, so subsequent runs compare against the previous result.
+#
+# Report history:
+#   - Each script invocation creates a timestamped report directory
+#     (e.g. greener-reports-20260404-153012\) so previous runs are kept.
+#   - A "latest" copy is maintained at greener-reports-latest\.
+#
 # Supported tools (auto-installed by each workload script if not present):
 #   oha, wrk, wrk2, bombardier, ab, k6, gatling, locust
 #
@@ -33,6 +46,7 @@
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-all-tools)
+#   RESET_BASELINES        Delete stored baselines first   (default: unset)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -55,6 +69,8 @@ $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
 $PetclinicDir      = Join-Path $WorkDir "spring-petclinic"
 $CiPowerFile       = Join-Path $WorkDir "ci-power.txt"
 $JoularCacheDir    = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "joularcore"
+$BaselineDir       = Join-Path $WorkDir "baselines"
+$RunTimestamp       = Get-Date -Format "yyyyMMdd-HHmmss"
 
 $CiEstimatorJob = $null
 
@@ -62,7 +78,7 @@ $CiEstimatorJob = $null
 $ToolList = @("oha", "wrk", "wrk2", "bombardier", "ab", "k6", "locust", "gatling")
 
 # -- Helpers -------------------------------------------------------------------
-function Info($msg)   { Write-Output "i  $msg" }
+function Info($msg)   { Write-Output "[ii] $msg" }
 function Ok($msg)     { Write-Output "[OK] $msg" }
 function Warn($msg)   { Write-Output "[!!] $msg" }
 function Banner($msg) {
@@ -108,6 +124,15 @@ if (-not (Test-Path $WorkDir)) {
 }
 
 Ok "All preflight checks passed"
+
+# -- Baseline management -------------------------------------------------------
+if ($env:RESET_BASELINES -eq "true" -and (Test-Path $BaselineDir)) {
+    Info "RESET_BASELINES=true -- removing stored baselines"
+    Remove-Item -Recurse -Force $BaselineDir
+}
+if (-not (Test-Path $BaselineDir)) {
+    New-Item -ItemType Directory -Path $BaselineDir -Force | Out-Null
+}
 
 # -- Build greener-spring-boot plugins -----------------------------------------
 Banner "Building greener-spring-boot plugins"
@@ -271,9 +296,18 @@ if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
 }
 
 # -- Run each tool -------------------------------------------------------------
+# Each invocation gets a timestamped report directory so previous runs are
+# preserved.  A "latest" copy is maintained for convenience.
+# Per-tool baselines are stored in BaselineDir and persist across runs.
+$ReportsDir = Join-Path $WorkDir "greener-reports-$RunTimestamp"
 $Passed  = @()
 $Failed  = @()
 $Skipped = @()
+
+$CommitSha = try { git -C $ProjectRoot rev-parse HEAD 2>$null } catch { "unknown" }
+$Branch    = try { git -C $ProjectRoot rev-parse --abbrev-ref HEAD 2>$null } catch { "unknown" }
+if (-not $CommitSha) { $CommitSha = "unknown" }
+if (-not $Branch)    { $Branch = "unknown" }
 
 foreach ($tool in $ToolList) {
     $ToolScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") $tool) "run.sh"
@@ -282,9 +316,14 @@ foreach ($tool in $ToolList) {
         continue
     }
 
-    $ReportsDir = Join-Path $WorkDir "greener-reports-$tool"
+    $ToolBaseline = Join-Path $BaselineDir "$tool-energy-baseline.json"
 
     Banner "Measuring with $tool"
+    if (Test-Path $ToolBaseline) {
+        Info "Baseline found for $tool -- comparison will be performed"
+    } else {
+        Info "No baseline for $tool -- first run, no comparison"
+    }
 
     Push-Location $PetclinicDir
     try {
@@ -298,18 +337,40 @@ foreach ($tool in $ToolList) {
             "-Dgreener.measureDurationSeconds=$MeasureSeconds",
             "-Dgreener.requestsPerSecond=20",
             "-Dgreener.healthCheckPath=/actuator/health/readiness",
+            "-Dgreener.baselineFile=$ToolBaseline",
+            "-Dgreener.threshold=$Threshold",
             "-Dgreener.failOnRegression=false",
             "-Dgreener.reportOutputDir=$ReportsDir"
         ) + $VmFlags
 
         Invoke-Cmd "$tool measurement" mvn $MvnArgs
         $Passed += $tool
-        Ok "$tool measurement complete -> $ReportsDir\"
+        Ok "$tool measurement complete -> $ReportsDir\$tool\"
+
+        # Promote this result as the new baseline for the next run
+        try {
+            Invoke-Cmd "$tool baseline update" mvn @(
+                "--batch-mode", "--no-transfer-progress",
+                "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline",
+                "-Dgreener.baselineFile=$ToolBaseline",
+                "-Dgreener.latestReportFile=$(Join-Path (Join-Path $ReportsDir $tool) 'latest-energy-report.json')",
+                "-Dgreener.commitSha=$CommitSha",
+                "-Dgreener.branch=$Branch"
+            )
+        } catch {
+            Warn "Failed to update baseline for ${tool}: $($_.Exception.Message)"
+        }
     } catch {
         $Failed += $tool
         Warn "$tool measurement failed: $($_.Exception.Message)"
     } finally { Pop-Location }
 }
+
+# -- Copy latest reports -------------------------------------------------------
+$LatestDir = Join-Path $WorkDir "greener-reports-latest"
+if (Test-Path $LatestDir) { Remove-Item -Recurse -Force $LatestDir }
+Copy-Item -Recurse -Force $ReportsDir $LatestDir
+Info "Latest reports copied to: $LatestDir"
 
 # -- Summary ------------------------------------------------------------------
 Banner "All-Tools Summary"
@@ -319,8 +380,7 @@ Write-Output ("  {0,-12}  {1,-10}  {2}" -f "TOOL", "STATUS", "ENERGY")
 Write-Output ("  {0,-12}  {1,-10}  {2}" -f ("─" * 12), ("─" * 10), ("─" * 34))
 
 foreach ($tool in $ToolList) {
-    $ReportsDir = Join-Path $WorkDir "greener-reports-$tool"
-    $ReportJson = Join-Path $ReportsDir "latest-energy-report.json"
+    $ReportJson = Join-Path (Join-Path $ReportsDir $tool) "latest-energy-report.json"
     if ($Passed -contains $tool) {
         $Energy = "—"
         if (Test-Path $ReportJson) {
@@ -340,7 +400,14 @@ foreach ($tool in $ToolList) {
 Write-Output ""
 Write-Output "  Passed: $($Passed.Count)  |  Failed: $($Failed.Count)  |  Skipped: $($Skipped.Count)"
 Write-Output ""
-Write-Output "  Reports saved under: $WorkDir\greener-reports-*\"
+Write-Output "  Reports saved under: $ReportsDir\"
+Write-Output "  Baselines saved under: $BaselineDir\"
+Write-Output "  Latest copy: $LatestDir\"
+
+$AggregatedReport = Join-Path $ReportsDir "greener-aggregated-report.html"
+if (Test-Path $AggregatedReport) {
+    Write-Output "  Aggregated report: $AggregatedReport"
+}
 
 if ($Failed.Count -gt 0) {
     exit 1

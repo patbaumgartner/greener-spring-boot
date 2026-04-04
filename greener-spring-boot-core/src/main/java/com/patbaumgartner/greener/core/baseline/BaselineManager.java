@@ -75,8 +75,16 @@ public class BaselineManager {
 		}
 
 		EnergyBaseline baseline = objectMapper.readValue(baselineFile.toFile(), EnergyBaseline.class);
-		LOG.log(Level.INFO, () -> "Loaded energy baseline from: " + baselineFile + " (created: " + baseline.createdAt()
-				+ ", branch: " + baseline.branch() + ")");
+		LOG.log(Level.INFO, () -> {
+			StringBuilder sb = new StringBuilder("Loaded energy baseline from: ").append(baselineFile)
+				.append(" (created: ")
+				.append(baseline.createdAt());
+			if (baseline.branch() != null) {
+				sb.append(", branch: ").append(baseline.branch());
+			}
+			sb.append(")");
+			return sb.toString();
+		});
 		return Optional.of(baseline);
 	}
 

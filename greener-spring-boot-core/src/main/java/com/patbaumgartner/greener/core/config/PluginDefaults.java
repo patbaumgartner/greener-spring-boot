@@ -132,8 +132,8 @@ public final class PluginDefaults {
 			double totalEnergyJoules) {
 		List<String> lines = new ArrayList<>();
 		lines.add("Energy baseline updated: " + baselineFile);
-		lines.add("  commit : " + commitSha);
-		lines.add("  branch : " + branch);
+		lines.add("  commit : " + (commitSha != null ? commitSha : "n/a"));
+		lines.add("  branch : " + (branch != null ? branch : "n/a"));
 		lines.add("  energy : " + String.format("%.2f J", totalEnergyJoules));
 		return lines;
 	}

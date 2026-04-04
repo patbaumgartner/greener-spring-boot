@@ -10,6 +10,17 @@
 # Both measurements happen on the same machine under identical conditions,
 # so the comparison shows how reproducible the results are (expected delta ≈ 0 %).
 #
+# Baseline behaviour:
+#   - The baseline is stored at WORK_DIR/energy-baseline.json.
+#   - Run 1 creates the baseline; Run 2 compares against it.
+#   - Set RESET_BASELINES=true to delete the stored baseline before Run 1.
+#
+# Report history:
+#   - Each invocation creates timestamped report directories
+#     (e.g. greener-reports-baseline-20260404-153012/) so previous runs
+#     are preserved.
+#   - A "latest" symlink always points to the most recent run.
+#
 # Power source auto-detection (four tiers):
 #   1. RAPL          — bare-metal Linux with readable powercap
 #   2. WSL + RAPL    — Hubblo RAPL driver on Windows host (CPU x TDP fallback)
@@ -35,6 +46,7 @@
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-local-sim)
+#   RESET_BASELINES        Delete stored baseline first    (default: unset)
 
 set -euo pipefail
 
@@ -54,15 +66,16 @@ BRANCH="$(git -C "${PROJECT_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || ec
 
 PETCLINIC_DIR="${WORK_DIR}/spring-petclinic"
 BASELINE_FILE="${WORK_DIR}/energy-baseline.json"
-REPORTS_BASELINE="${WORK_DIR}/greener-reports-baseline"
-REPORTS_COMPARISON="${WORK_DIR}/greener-reports-comparison"
+RUN_TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+REPORTS_BASELINE="${WORK_DIR}/greener-reports-baseline-${RUN_TIMESTAMP}"
+REPORTS_COMPARISON="${WORK_DIR}/greener-reports-comparison-${RUN_TIMESTAMP}"
 CI_POWER_FILE="${WORK_DIR}/ci-power.txt"
 JOULAR_CACHE_DIR="${HOME}/.greener/cache/joularcore"
 
 CI_ESTIMATOR_PID=""
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-info()  { echo "i  $*"; }
+info()  { echo "[ii] $*"; }
 ok()    { echo "[OK] $*"; }
 warn()  { echo "[!!] $*"; }
 banner() {
@@ -109,6 +122,12 @@ java -version 2>&1 | head -1
 mvn --version 2>&1 | head -1
 
 mkdir -p "${WORK_DIR}"
+
+# ── Baseline management ──────────────────────────────────────────────────────
+if [ "${RESET_BASELINES:-}" = "true" ] && [ -f "${BASELINE_FILE}" ]; then
+    info "RESET_BASELINES=true — removing stored baseline"
+    rm -f "${BASELINE_FILE}"
+fi
 
 # ── Build greener-spring-boot plugins ─────────────────────────────────────────
 banner "Building greener-spring-boot plugins"
@@ -265,7 +284,7 @@ banner "Promoting Run 1 to baseline"
 mvn --batch-mode --no-transfer-progress \
     com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
     -Dgreener.baselineFile="${BASELINE_FILE}" \
-    -Dgreener.latestReportFile="${REPORTS_BASELINE}/latest-energy-report.json" \
+    -Dgreener.latestReportFile="${REPORTS_BASELINE}/oha/latest-energy-report.json" \
     -Dgreener.commitSha="${COMMIT_SHA}" \
     -Dgreener.branch="${BRANCH}"
 
@@ -306,7 +325,7 @@ import json, os
 baseline = json.load(open("${BASELINE_FILE}"))
 b_energy = baseline["report"]["totalEnergyJoules"]
 
-comparison = json.load(open("${REPORTS_COMPARISON}/latest-energy-report.json"))
+comparison = json.load(open("${REPORTS_COMPARISON}/oha/latest-energy-report.json"))
 c_energy = comparison["report"]["totalEnergyJoules"]
 
 delta = c_energy - b_energy
@@ -329,3 +348,12 @@ echo "Reports saved to:"
 echo "  Baseline  : ${REPORTS_BASELINE}/"
 echo "  Comparison: ${REPORTS_COMPARISON}/"
 echo "  Baseline JSON: ${BASELINE_FILE}"
+
+# ── Symlink latest reports ────────────────────────────────────────────────────
+LATEST_BASELINE="${WORK_DIR}/greener-reports-baseline-latest"
+LATEST_COMPARISON="${WORK_DIR}/greener-reports-comparison-latest"
+rm -f "${LATEST_BASELINE}" "${LATEST_COMPARISON}"
+ln -s "${REPORTS_BASELINE}" "${LATEST_BASELINE}"
+ln -s "${REPORTS_COMPARISON}" "${LATEST_COMPARISON}"
+info "Latest baseline reports linked: ${LATEST_BASELINE}"
+info "Latest comparison reports linked: ${LATEST_COMPARISON}"

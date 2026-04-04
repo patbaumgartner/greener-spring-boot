@@ -150,7 +150,8 @@ class PluginDefaultsTest {
 		List<String> lines = PluginDefaults.formatBaselineUpdateSummary(Path.of("baseline.json"), null, null, 0.0);
 
 		assertThat(lines).hasSize(4);
-		assertThat(lines.get(1)).contains("null");
+		assertThat(lines.get(1)).contains("n/a");
+		assertThat(lines.get(2)).contains("n/a");
 		assertThat(lines.get(3)).contains("0.00 J");
 	}
 

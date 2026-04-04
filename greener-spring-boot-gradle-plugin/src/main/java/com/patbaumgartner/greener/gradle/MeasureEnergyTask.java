@@ -1,11 +1,13 @@
 package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
+import com.patbaumgartner.greener.core.baseline.RunEntryStore;
 import com.patbaumgartner.greener.core.comparator.EnergyComparator;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
+import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
@@ -258,11 +260,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         String baseUrl = getBaseUrl().get();
 
         Path reportDir = resolveReportDir();
-        Path workingDir = reportDir.resolve("work");
+        String toolName = resolveToolName();
+        Path runDir = reportDir.resolve(toolName);
+        Path workingDir = runDir.resolve("work");
 
         // Start application
         ApplicationRunner appRunner = new ApplicationRunner();
-        getLogger().lifecycle("Starting Spring Boot application: " + springBootJarFile);
+        getLogger().lifecycle("[greener] Starting application: " + springBootJarFile.getName());
 
         // Enable health probes so /actuator/health/readiness is available
         List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(null);
@@ -272,12 +276,15 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                 null, null,
                 workingDir,
                 null, effectiveAppArgs);
+        getLogger().lifecycle("[greener] Application PID: " + appProcess.pid());
 
         Path outputCsv = workingDir.resolve("joularcore-output.csv");
         WorkloadStats workloadStats = null;
         try {
-            appRunner.waitForStartup(baseUrl, getHealthCheckPath().get(),
+            getLogger().lifecycle("[greener] Waiting for health check ...");
+            appRunner.waitForStartup(appProcess, baseUrl, getHealthCheckPath().get(),
                     getStartupTimeoutSeconds().get());
+            getLogger().lifecycle("[greener] Application is ready");
 
             File vmPowerFile = getVmPowerFilePath().isPresent()
                     ? getVmPowerFilePath().get().getAsFile()
@@ -293,19 +300,19 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                     .vmPowerFilePath(vmPowerFile != null ? vmPowerFile.toPath() : null);
 
             JoularCoreRunner joularCoreRunner = new JoularCoreRunner();
-            getLogger().lifecycle("Starting Joular Core (monitoring PID " + appProcess.pid() + ")");
+            getLogger().lifecycle("[greener] Starting Joular Core (PID " + appProcess.pid() + ")");
             joularCoreRunner.start(joularCoreConfig);
 
             try {
                 if (warmup > 0) {
-                    getLogger().lifecycle("Warmup: " + warmup + " s ...");
+                    getLogger().lifecycle("[greener] Warmup phase: " + warmup + " s ...");
                     runTraining(baseUrl, warmup, 0);
                     joularCoreRunner.stop();
                     Files.deleteIfExists(outputCsv);
                     joularCoreRunner.start(joularCoreConfig);
                 }
 
-                getLogger().lifecycle("Measuring energy: " + measure + " s ...");
+                getLogger().lifecycle("[greener] Measurement phase: " + measure + " s ...");
                 workloadStats = runTraining(baseUrl, 0, measure);
 
             } finally {
@@ -315,6 +322,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         } finally {
             appRunner.stop(appProcess);
         }
+        getLogger().lifecycle("[greener] Processing results ...");
         String appId = springBootJarFile.getName().replace(".jar", "");
         JoularCoreResultReader resultReader = new JoularCoreResultReader();
         EnergyReport report = resultReader.readResults(outputCsv, PluginDefaults.buildRunId(), measure, appId);
@@ -326,14 +334,28 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
         PowerSource powerSource = PluginDefaults.resolvePowerSource(getVmMode().get());
         new ConsoleReporter().report(report, comparison, workloadStats, powerSource);
-        Path htmlReport = new HtmlReporter().generateReport(report, comparison, workloadStats, powerSource,
-                reportDir);
-        getLogger().lifecycle("HTML report: " + htmlReport);
+        HtmlReporter htmlReporter = new HtmlReporter();
+        Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
+                runDir);
+        getLogger().lifecycle("[greener] HTML report: " + htmlReport);
 
         // Save latest report so that updateEnergyBaseline can promote it
-        Path latestReportPath = reportDir.resolve("latest-energy-report.json");
+        Path latestReportPath = runDir.resolve("latest-energy-report.json");
         baselineManager.saveBaseline(report, null, null, latestReportPath);
-        getLogger().lifecycle("Latest energy report saved to: " + latestReportPath);
+
+        // Save run entry for aggregation
+        RunEntryStore runEntryStore = new RunEntryStore();
+        AggregatedRunEntry runEntry = new AggregatedRunEntry(toolName, report, workloadStats, comparison);
+        runEntryStore.save(runEntry, runDir.resolve(RunEntryStore.RUN_ENTRY_FILE));
+
+        // Generate aggregated report if multiple runs exist
+        List<AggregatedRunEntry> allEntries = runEntryStore.loadAll(reportDir);
+        if (allEntries.size() > 1) {
+            Path aggregatedReport = htmlReporter.generateAggregatedReport(allEntries, powerSource,
+                    reportDir);
+            getLogger().lifecycle("[greener] Aggregated report ("
+                    + allEntries.size() + " runs): " + aggregatedReport);
+        }
 
         if (getFailOnRegression().get() && comparison.isFailed()) {
             throw new GradleException(String.format(
@@ -364,17 +386,38 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         return new TrainingRunner().run(config);
     }
 
+    /**
+     * Derives a tool name from the configured training script or command.
+     */
+    private String resolveToolName() {
+        if (getExternalTrainingScriptFile().isPresent()) {
+            File scriptFile = getExternalTrainingScriptFile().get().getAsFile();
+            if (scriptFile.exists()) {
+                String fileName = scriptFile.getName();
+                String parentDir = scriptFile.getParentFile() != null
+                        ? scriptFile.getParentFile().getName()
+                        : null;
+                return TrainingRunner.deriveToolName(fileName, parentDir);
+            }
+        }
+        String extCmd = getExternalTrainingCommand().getOrNull();
+        if (extCmd != null && !extCmd.isBlank()) {
+            return TrainingRunner.deriveToolName(extCmd, null);
+        }
+        return "measurement";
+    }
+
     private Path resolveJoularCoreBinary() throws Exception {
         RegularFileProperty binaryProp = getJoularCoreBinaryPath();
         if (binaryProp.isPresent()) {
             File f = binaryProp.get().getAsFile();
             if (f.exists()) {
-                getLogger().lifecycle("Using Joular Core binary: " + f);
+                getLogger().lifecycle("[greener] Using Joular Core binary: " + f);
                 return f.toPath();
             }
         }
         String version = getJoularCoreVersion().get();
-        getLogger().lifecycle("Auto-downloading Joular Core " + version + " ...");
+        getLogger().lifecycle("[greener] Downloading Joular Core " + version + " ...");
         return new JoularCoreDownloader().download(version, JoularCoreDownloader.defaultCacheDir());
     }
 
@@ -414,7 +457,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
                 throw new GradleException("springBootJar not configured and build/libs/ not found: "
                         + libsDir + ". Set springBootJar explicitly or run 'bootJar' first.");
             }
-            getLogger().lifecycle("Auto-detected Spring Boot jar: " + jar.get());
+            getLogger().lifecycle("[greener] Auto-detected Spring Boot jar: " + jar.get());
             return jar.get();
         } catch (IllegalStateException e) {
             throw new GradleException(

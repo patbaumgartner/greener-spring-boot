@@ -95,7 +95,7 @@ public class TrainingRunner {
 		String toolName = deriveToolName(script.getFileName().toString(),
 				script.getParent() != null ? script.getParent().getFileName().toString() : null);
 
-		LOG.log(Level.INFO, () -> "Running external training script [" + toolName + "]: " + script);
+		LOG.log(Level.FINE, () -> "Running external training script [" + toolName + "]: " + script);
 
 		String[] shellCommand = resolveShellCommand(script.toAbsolutePath().toString());
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -111,14 +111,14 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("Training script exited with code " + exitCode + ": " + script);
 		}
-		LOG.log(Level.INFO, () -> "Training script [" + toolName + "] completed in " + elapsed + " s");
+		LOG.log(Level.FINE, () -> "Training script [" + toolName + "] completed in " + elapsed + " s");
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
 			throws IOException, InterruptedException {
 
-		LOG.log(Level.INFO, () -> "Running external training command: " + command);
+		LOG.log(Level.FINE, () -> "Running external training command: " + command);
 
 		String[] shellCommand = resolveShellCommand("-c", command);
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -134,7 +134,7 @@ public class TrainingRunner {
 		if (exitCode != 0) {
 			throw new IOException("External training command exited with code " + exitCode + ": " + command);
 		}
-		LOG.log(Level.INFO, () -> "External training command completed in " + elapsed + " s");
+		LOG.log(Level.FINE, () -> "External training command completed in " + elapsed + " s");
 		String toolName = deriveToolName(command, null);
 		return buildExternalStats(toolName, output, elapsed);
 	}
@@ -182,7 +182,7 @@ public class TrainingRunner {
 				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
 		for (String candidate : candidates) {
 			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
-				LOG.log(Level.INFO, () -> "Using Git Bash shell: " + candidate);
+				LOG.log(Level.FINE, () -> "Using Git Bash shell: " + candidate);
 				return candidate;
 			}
 		}
@@ -203,8 +203,9 @@ public class TrainingRunner {
 	}
 
 	/**
-	 * Reads all output from the process, forwarding each line to the logger and
-	 * collecting it into a string for parsing.
+	 * Reads all output from the process and collects it into a string for parsing. Lines
+	 * are logged at {@code FINE} level to avoid flooding the console with external tool
+	 * output.
 	 */
 	private String captureAndForwardOutput(Process process) throws IOException {
 		StringBuilder sb = new StringBuilder();
@@ -212,7 +213,7 @@ public class TrainingRunner {
 				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
 			String line = reader.readLine();
 			while (line != null) {
-				LOG.info(line);
+				LOG.fine(line);
 				sb.append(line).append('\n');
 				line = reader.readLine();
 			}
@@ -224,7 +225,7 @@ public class TrainingRunner {
 		ExternalToolOutputParser parser = new ExternalToolOutputParser();
 		parser.parse(toolName, output);
 		if (parser.hasResults()) {
-			LOG.log(Level.INFO, () -> String.format("Parsed %d total requests (%d failed) from %s output",
+			LOG.log(Level.FINE, () -> String.format("Parsed %d total requests (%d failed) from %s output",
 					parser.totalRequests(), parser.failedRequests(), toolName));
 			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
 		}
@@ -236,8 +237,11 @@ public class TrainingRunner {
 	 * Checks are ordered from most-specific to least-specific to avoid false positives
 	 * (e.g. "wrk2" before "wrk"). Falls back to {@code "script"} when nothing
 	 * recognisable is found.
+	 * @param fileName script file name (e.g. {@code run.sh})
+	 * @param parentDir parent directory name (e.g. {@code oha}, {@code wrk2})
+	 * @return a short tool name such as {@code oha}, {@code wrk}, or {@code script}
 	 */
-	private String deriveToolName(String fileName, String parentDir) {
+	public static String deriveToolName(String fileName, String parentDir) {
 		// Build a combined token: parent directory name (e.g. "oha", "wrk2") is the
 		// most reliable signal; fall back to the file name itself.
 		String combined = (fileName + " " + (parentDir != null ? parentDir : "")).toLowerCase(Locale.ENGLISH);

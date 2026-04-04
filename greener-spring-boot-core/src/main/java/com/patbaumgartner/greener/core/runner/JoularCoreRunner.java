@@ -56,7 +56,7 @@ public class JoularCoreRunner {
 		Files.createDirectories(config.getOutputCsvPath().getParent());
 
 		List<String> command = config.buildCommand(config.getBinaryPath());
-		LOG.log(Level.INFO, () -> "Starting Joular Core: " + String.join(" ", command));
+		LOG.log(Level.FINE, () -> "Joular Core command: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).inheritIO();
 
@@ -64,7 +64,7 @@ public class JoularCoreRunner {
 		Map<String, String> vmEnv = config.buildVmEnvironment();
 		if (!vmEnv.isEmpty()) {
 			pb.environment().putAll(vmEnv);
-			LOG.log(Level.INFO, () -> "Joular Core VM mode - environment: " + vmEnv);
+			LOG.log(Level.FINE, () -> "VM mode environment: " + vmEnv);
 		}
 
 		if (config.isSilent()) {
@@ -75,7 +75,7 @@ public class JoularCoreRunner {
 		}
 
 		joularCoreProcess = pb.start();
-		LOG.log(Level.INFO, () -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
+		LOG.log(Level.FINE, () -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
 	}
 
 	/**
@@ -90,16 +90,16 @@ public class JoularCoreRunner {
 			return;
 		}
 
-		LOG.log(Level.INFO, () -> "Stopping Joular Core (PID " + joularCoreProcess.pid() + ") ...");
+		LOG.log(Level.FINE, () -> "Stopping Joular Core (PID " + joularCoreProcess.pid() + ")");
 		joularCoreProcess.destroy();
 
 		boolean exited = joularCoreProcess.waitFor(15, TimeUnit.SECONDS);
 		if (!exited) {
-			LOG.warning("Joular Core did not stop in 15 s - force-killing");
+			LOG.warning("Joular Core did not stop in 15 s — force-killing");
 			joularCoreProcess.destroyForcibly();
 		}
 		else {
-			LOG.info("Joular Core stopped cleanly");
+			LOG.log(Level.FINE, "Joular Core stopped");
 		}
 	}
 

@@ -75,34 +75,41 @@ public class ApplicationRunner {
 			command.addAll(appArgs);
 		}
 
-		LOG.log(Level.INFO, () -> "Starting application: " + String.join(" ", command));
+		LOG.log(Level.FINE, () -> "Command: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).directory(workingDir.toFile())
 			.redirectOutput(workingDir.resolve("app-stdout.log").toFile())
 			.redirectError(workingDir.resolve("app-stderr.log").toFile());
 
 		Process process = pb.start();
-		LOG.log(Level.INFO, () -> "Application started with PID " + process.pid());
+		LOG.log(Level.FINE, () -> "Application started with PID " + process.pid());
 		return process;
 	}
 
 	/**
 	 * Blocks until the application's health-check endpoint returns HTTP 2xx, or until
 	 * {@code timeoutSeconds} elapses.
-	 * @throws RuntimeException if the application does not become healthy in time
+	 * @param process the application process to monitor for early exit
+	 * @throws RuntimeException if the application does not become healthy in time or
+	 * exits prematurely
 	 */
 	@SuppressWarnings("PMD.CloseResource") // HttpClient is not AutoCloseable in Java 17
-	public void waitForStartup(String baseUrl, String healthPath, int timeoutSeconds)
+	public void waitForStartup(Process process, String baseUrl, String healthPath, int timeoutSeconds)
 			throws IOException, InterruptedException {
 
 		String healthUrl = baseUrl + healthPath;
-		LOG.log(Level.INFO, () -> "Waiting for application at: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
+		LOG.log(Level.FINE, () -> "Polling health endpoint: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
 
 		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
 		long deadline = System.currentTimeMillis() + (long) timeoutSeconds * 1_000;
 
 		while (System.currentTimeMillis() < deadline) {
+			if (!process.isAlive()) {
+				throw new RuntimeException(
+						"Application process (PID " + process.pid() + ") exited prematurely with code "
+								+ process.exitValue() + ". Check app-stdout.log and app-stderr.log for details.");
+			}
 			try {
 				HttpRequest request = HttpRequest.newBuilder()
 					.uri(URI.create(healthUrl))
@@ -113,7 +120,7 @@ public class ApplicationRunner {
 				HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
 				if (response.statusCode() >= 200 && response.statusCode() < 300) {
-					LOG.log(Level.INFO, () -> "Application is ready (HTTP " + response.statusCode() + ")");
+					LOG.log(Level.FINE, () -> "Health check passed (HTTP " + response.statusCode() + ")");
 					return;
 				}
 			}
@@ -136,16 +143,16 @@ public class ApplicationRunner {
 			return;
 		}
 
-		LOG.log(Level.INFO, () -> "Stopping application (PID " + process.pid() + ") ...");
+		LOG.log(Level.FINE, () -> "Stopping application (PID " + process.pid() + ")");
 		process.destroy();
 
 		boolean exited = process.waitFor(30, TimeUnit.SECONDS);
 		if (!exited) {
-			LOG.warning("Application did not stop in 30 s - force-killing");
+			LOG.warning("Application did not stop in 30 s — force-killing");
 			process.destroyForcibly();
 		}
 		else {
-			LOG.log(Level.INFO, () -> "Application stopped (exit code " + process.exitValue() + ")");
+			LOG.log(Level.FINE, () -> "Application stopped (exit code " + process.exitValue() + ")");
 		}
 	}
 
