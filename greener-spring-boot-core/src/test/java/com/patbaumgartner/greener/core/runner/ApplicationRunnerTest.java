@@ -11,7 +11,7 @@ class ApplicationRunnerTest {
 	@Test
 	void waitForStartup_processExitedPrematurely_throwsImmediately() throws Exception {
 		// Start a process that exits immediately
-		Process process = new ProcessBuilder("false").start();
+		Process process = new ProcessBuilder("/usr/bin/false").start();
 		process.waitFor();
 
 		assertThatThrownBy(() -> runner.waitForStartup(process, "http://localhost:19999", "/actuator/health", 5))
@@ -25,7 +25,7 @@ class ApplicationRunnerTest {
 		// Start a process that stays alive but does not listen on the port
 		Process process;
 		try {
-			process = new ProcessBuilder("sleep", "30").start();
+			process = new ProcessBuilder("/usr/bin/sleep", "30").start();
 		}
 		catch (Exception ex) {
 			// skip if sleep not available

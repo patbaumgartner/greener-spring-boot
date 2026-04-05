@@ -6,7 +6,7 @@ This document describes all quality gates enforced in the greener-spring-boot pr
 
 | Gate | Tool | Scope | Enforcement |
 |---|---|---|---|
-| **Unit tests** | JUnit 6 + AssertJ | core, maven-plugin, gradle-plugin | `mvn verify` / `./gradlew build` - build fails on test failure |
+| **Unit tests** | JUnit Jupiter + AssertJ | core, maven-plugin, gradle-plugin | `mvn verify` / `./gradlew build` - build fails on test failure |
 | **Code coverage** | JaCoCo | core | `jacoco:check` - minimum 50% line coverage |
 | **Code formatting** | Spring Java Format | all Maven modules | Enforced via `spring-javaformat-maven-plugin` |
 | **SpotBugs** | SpotBugs Maven Plugin | core | `spotbugs:check` - high-confidence bugs fail build |

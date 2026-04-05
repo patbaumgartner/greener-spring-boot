@@ -16,7 +16,7 @@ Instead, use one of the following channels:
 1. **GitHub Private Security Advisory** (preferred):
    [https://github.com/patbaumgartner/greener-spring-boot/security/advisories/new](https://github.com/patbaumgartner/greener-spring-boot/security/advisories/new)
 
-2. **Email**: [pat.baumgartner@gmail.com](mailto:pat.baumgartner@gmail.com)
+2. **Email**: [contact@patbaumgartner.com](mailto:contact@patbaumgartner.com)
 
 Please include as much detail as possible - steps to reproduce, affected versions, and potential impact.
 

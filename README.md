@@ -26,7 +26,7 @@
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.0-SNAPSHOT</version>
   <configuration>
     <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
   </configuration>
@@ -46,7 +46,7 @@ plugins {
 }
 
 greener {
-    externalTrainingCommand = "oha -n 500 -c 10 \${APP_URL}/actuator/health"
+    externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")
 }
 ```
 
@@ -169,7 +169,7 @@ greener-spring-boot/
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.0-SNAPSHOT</version>
   <configuration>
     <!-- springBootJar is auto-detected from target/ - set only if needed -->
     <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
@@ -271,17 +271,20 @@ plugins {
 }
 
 greener {
-    springBootJar = file("build/libs/myapp.jar")
-    jvmArgs = listOf("-Xmx512m")
-    appArgs = listOf("--server.port=8080")
-    measureDurationSeconds = 60
-    threshold = 10.0
-    failOnRegression = false
-    autoUpdateBaseline = false     // auto-promote measurement to baseline
-    timestampReports = false       // append timestamp to report dir
-    latestReportFile = file("build/greener-reports/oha/latest-energy-report.json") // used by updateEnergyBaseline
+    springBootJar.set(file("build/libs/myapp.jar"))
+    jvmArgs.set(listOf("-Xmx512m"))
+    appArgs.set(listOf("--server.port=8080"))
+    measureDurationSeconds.set(60)
+    threshold.set(10.0)
+    failOnRegression.set(false)
+    autoUpdateBaseline.set(false)     // auto-promote measurement to baseline
+    timestampReports.set(false)       // append timestamp to report dir
+    latestReportFile.set(file("build/greener-reports/oha/latest-energy-report.json")) // used by updateEnergyBaseline
 }
 ```
+
+All `greener { }` extension properties correspond to the Maven parameters listed above.
+Both plugins share identical configuration options and defaults.
 
 ### Run it
 

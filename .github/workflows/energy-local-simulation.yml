@@ -177,7 +177,7 @@ jobs:
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
             -Dgreener.baselineFile=/tmp/energy-baseline.json \
-            -Dgreener.latestReportFile=/tmp/greener-reports-baseline/latest-energy-report.json \
+            -Dgreener.reportOutputDir=/tmp/greener-reports-baseline \
             -Dgreener.commitSha=${{ github.sha }} \
             -Dgreener.branch=${{ github.ref_name }}
 
@@ -239,7 +239,7 @@ jobs:
           b_energy = baseline["report"]["totalEnergyJoules"]
 
           # Read comparison report (latest-energy-report.json from run 2)
-          comparison = json.load(open("/tmp/greener-reports-comparison/latest-energy-report.json"))
+          comparison = json.load(open("/tmp/greener-reports-comparison/oha/latest-energy-report.json"))
           c_energy = comparison["report"]["totalEnergyJoules"]
 
           delta = c_energy - b_energy

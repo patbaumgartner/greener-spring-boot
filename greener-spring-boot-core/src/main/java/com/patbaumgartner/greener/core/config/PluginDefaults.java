@@ -198,7 +198,7 @@ public final class PluginDefaults {
 			LOG.log(Level.WARNING, "Symbolic links not supported on this platform. Skipping latest link.");
 		}
 		catch (IOException e) {
-			LOG.log(Level.WARNING, "Could not create latest symlink: " + e.getMessage());
+			LOG.log(Level.WARNING, () -> "Could not create latest symlink: " + e.getMessage());
 		}
 	}
 

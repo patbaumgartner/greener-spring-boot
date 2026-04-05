@@ -73,6 +73,7 @@ class GreenerPluginTest {
         assertThat(ext.getHealthCheckPath().get()).isEqualTo("/actuator/health/readiness");
         assertThat(ext.getThreshold().get()).isEqualTo(10.0);
         assertThat(ext.getFailOnRegression().get()).isFalse();
+        assertThat(ext.getSkip().get()).isFalse();
     }
 
     @Test
@@ -87,6 +88,7 @@ class GreenerPluginTest {
         assertThat(task.getMeasureDurationSeconds().get()).isEqualTo(60);
         assertThat(task.getThreshold().get()).isEqualTo(10.0);
         assertThat(task.getFailOnRegression().get()).isFalse();
+        assertThat(task.getSkip().get()).isFalse();
     }
 
     // ---- H4: Task-level tests ----
@@ -170,6 +172,21 @@ class GreenerPluginTest {
 
         MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
         assertThat(task.getExternalTrainingCommand().get()).isEqualTo("oha -n 1000 http://localhost:8080/");
+    }
+
+    @Test
+    void skipConventionPropagatesFromExtension() {
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+        GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+        ext.getSkip().set(true);
+
+        MeasureEnergyTask measureTask = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+        assertThat(measureTask.getSkip().get()).isTrue();
+
+        UpdateBaselineTask updateTask = (UpdateBaselineTask) project.getTasks().getByName("updateEnergyBaseline");
+        assertThat(updateTask.getSkip().get()).isTrue();
     }
 
     @Test

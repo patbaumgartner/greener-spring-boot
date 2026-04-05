@@ -102,7 +102,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 ## Dependencies
 
 - **Jackson** for JSON serialization of baselines.
-- **JUnit 6** for testing.
+- **JUnit Jupiter** for testing.
 - Dependency updates are managed via **Renovate** (`renovate.json5`) and **Dependabot** (`.github/dependabot.yml`).
 
 ## CI / GitHub Actions

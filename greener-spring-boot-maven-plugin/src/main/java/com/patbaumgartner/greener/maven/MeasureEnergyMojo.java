@@ -58,7 +58,7 @@ import java.io.IOException;
  * <plugin>
  *   <groupId>com.patbaumgartner</groupId>
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
- *   <version>0.2.0</version>
+ *   <version>0.2.0-SNAPSHOT</version>
  *   <configuration>
  *     <!-- optional — auto-detected from ${project.build.directory} when omitted -->
  *     <springBootJar>${project.build.directory}/myapp.jar</springBootJar>

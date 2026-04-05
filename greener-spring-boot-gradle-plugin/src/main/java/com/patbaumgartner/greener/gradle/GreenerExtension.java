@@ -51,6 +51,9 @@ import javax.inject.Inject;
  *     timestampReports.set(false)    // append timestamp, create latest symlink
  *     commitSha.set("...")           // git SHA recorded in baseline (auto-detected from GITHUB_SHA)
  *     branch.set("...")              // branch recorded in baseline (auto-detected from GITHUB_REF_NAME)
+ *
+ *     // Skip execution
+ *     skip.set(false)
  * }
  * }</pre>
  */
@@ -74,6 +77,7 @@ public abstract class GreenerExtension {
         getFailOnRegression().convention(false);
         getAutoUpdateBaseline().convention(false);
         getTimestampReports().convention(false);
+        getSkip().convention(false);
     }
 
     /**
@@ -277,4 +281,11 @@ public abstract class GreenerExtension {
      * @return the timestamp reports property
      */
     public abstract Property<Boolean> getTimestampReports();
+
+    /**
+     * When {@code true}, plugin execution is skipped entirely.
+     * 
+     * @return the skip property
+     */
+    public abstract Property<Boolean> getSkip();
 }

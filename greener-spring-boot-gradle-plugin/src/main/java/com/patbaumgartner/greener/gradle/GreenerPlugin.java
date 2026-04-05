@@ -2,6 +2,7 @@ package com.patbaumgartner.greener.gradle;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.provider.ProviderFactory;
 
 /**
  * Gradle plugin entry point for <strong>greener-spring-boot</strong>.
@@ -48,6 +49,11 @@ public class GreenerPlugin implements Plugin<Project> {
         extension.getBaselineFile().convention(project.getLayout().getProjectDirectory().file("energy-baseline.json"));
         extension.getReportOutputDir().convention(project.getLayout().getBuildDirectory().dir("greener-reports"));
 
+        // Default commitSha/branch from environment variables (same as Maven's ${env.GITHUB_SHA})
+        ProviderFactory providers = project.getProviders();
+        extension.getCommitSha().convention(providers.environmentVariable("GITHUB_SHA"));
+        extension.getBranch().convention(providers.environmentVariable("GITHUB_REF_NAME"));
+
         configureMeasureEnergyTask(project, extension);
         configureUpdateBaselineTask(project, extension);
     }
@@ -82,6 +88,7 @@ public class GreenerPlugin implements Plugin<Project> {
             task.getCommitSha().convention(extension.getCommitSha());
             task.getBranch().convention(extension.getBranch());
             task.getTimestampReports().convention(extension.getTimestampReports());
+            task.getSkip().convention(extension.getSkip());
         });
     }
 
@@ -96,6 +103,7 @@ public class GreenerPlugin implements Plugin<Project> {
             task.getReportOutputDir().convention(extension.getReportOutputDir());
             task.getCommitSha().convention(extension.getCommitSha());
             task.getBranch().convention(extension.getBranch());
+            task.getSkip().convention(extension.getSkip());
         });
     }
 }

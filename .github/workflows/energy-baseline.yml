@@ -198,7 +198,7 @@ jobs:
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:update-baseline \
             -Dgreener.baselineFile=/tmp/energy-baseline.json \
-            -Dgreener.latestReportFile=/tmp/greener-reports/latest-energy-report.json \
+            -Dgreener.reportOutputDir=/tmp/greener-reports \
             -Dgreener.commitSha=${{ github.sha }} \
             -Dgreener.branch=${{ github.ref_name }}
 

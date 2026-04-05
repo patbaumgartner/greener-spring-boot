@@ -311,12 +311,25 @@ public abstract class MeasureEnergyTask extends DefaultTask {
     public abstract Property<Boolean> getTimestampReports();
 
     /**
+     * When {@code true}, the task execution is skipped entirely.
+     * 
+     * @return the skip property
+     */
+    @Input
+    public abstract Property<Boolean> getSkip();
+
+    /**
      * Runs the energy measurement workflow.
      * 
      * @throws Exception if measurement fails
      */
     @TaskAction
     public void measureEnergy() throws Exception {
+        if (getSkip().get()) {
+            getLogger().lifecycle("[greener] measureEnergy skipped (skip=true)");
+            return;
+        }
+
         File springBootJarFile;
         if (getSpringBootJar().isPresent()) {
             springBootJarFile = getSpringBootJar().get().getAsFile();
@@ -427,11 +440,6 @@ public abstract class MeasureEnergyTask extends DefaultTask {
         if (getAutoUpdateBaseline().get()) {
             String sha = PluginDefaults.normalise(getCommitSha().getOrNull());
             String branchName = PluginDefaults.normalise(getBranch().getOrNull());
-            if (sha == null)
-                sha = PluginDefaults.normalise(getProviders().environmentVariable("GITHUB_SHA").getOrNull());
-            if (branchName == null)
-                branchName = PluginDefaults
-                        .normalise(getProviders().environmentVariable("GITHUB_REF_NAME").getOrNull());
             File baselineFileValue = getBaselineFile().isPresent()
                     ? getBaselineFile().get().getAsFile()
                     : getLayout().getProjectDirectory().file("energy-baseline.json").getAsFile();

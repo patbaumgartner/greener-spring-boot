@@ -107,12 +107,25 @@ public abstract class UpdateBaselineTask extends DefaultTask {
     public abstract Property<String> getBranch();
 
     /**
+     * When {@code true}, the task execution is skipped entirely.
+     * 
+     * @return the skip property
+     */
+    @Input
+    public abstract Property<Boolean> getSkip();
+
+    /**
      * Promotes the most recent measurement as the new energy baseline.
      * 
      * @throws Exception if the baseline cannot be loaded or saved
      */
     @TaskAction
     public void updateBaseline() throws Exception {
+        if (getSkip().get()) {
+            getLogger().lifecycle("[greener] updateEnergyBaseline skipped (skip=true)");
+            return;
+        }
+
         File baselineFileValue = getBaselineFile().isPresent()
                 ? getBaselineFile().get().getAsFile()
                 : getLayout().getProjectDirectory().file("energy-baseline.json").getAsFile();
@@ -149,9 +162,9 @@ public abstract class UpdateBaselineTask extends DefaultTask {
             else {
                 Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFileValue.toPath());
                 if (existing.isEmpty()) {
-                    throw new GradleException(
-                            "No energy report found. Run 'measureEnergy' first to generate a measurement, "
-                                    + "or set latestReportFile explicitly.");
+                    getLogger().warn("No energy report to promote to baseline. "
+                            + "Run 'measureEnergy' first, or set latestReportFile explicitly.");
+                    return;
                 }
                 report = existing.get().report();
             }
@@ -159,12 +172,6 @@ public abstract class UpdateBaselineTask extends DefaultTask {
 
         String sha = PluginDefaults.normalise(getCommitSha().getOrNull());
         String branch = PluginDefaults.normalise(getBranch().getOrNull());
-
-        // Fallback to environment variables
-        if (sha == null)
-            sha = PluginDefaults.normalise(getProviders().environmentVariable("GITHUB_SHA").getOrNull());
-        if (branch == null)
-            branch = PluginDefaults.normalise(getProviders().environmentVariable("GITHUB_REF_NAME").getOrNull());
 
         manager.saveBaseline(report, sha, branch, baselineFileValue.toPath());
 

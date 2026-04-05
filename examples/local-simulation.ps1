@@ -302,10 +302,10 @@ Banner "RUN 1 - BASELINE"
 # Remove any stale baseline so Run 1 reports "No baseline"
 if (Test-Path $BaselineFile) { Remove-Item $BaselineFile -Force }
 
+$OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"
+
 Push-Location $PetclinicDir
 try {
-    $OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"
-
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
         "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",

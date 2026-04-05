@@ -197,7 +197,7 @@ jobs:
           fi
 
           # Read current energy from the plugin's report JSON
-          REPORT_JSON=/tmp/greener-reports/latest-energy-report.json
+          REPORT_JSON=$(find /tmp/greener-reports -name latest-energy-report.json -type f 2>/dev/null | head -1)
           CURRENT_ENERGY=""
           if [ -f "${REPORT_JSON}" ]; then
             CURRENT_ENERGY=$(python3 -c "
@@ -221,7 +221,7 @@ jobs:
           " 2>/dev/null || echo "")
           fi
 
-          REPORT=/tmp/greener-reports/greener-energy-report.html
+          REPORT=$(find /tmp/greener-reports -name greener-energy-report.html -type f 2>/dev/null | head -1)
           [ -f "${REPORT}" ] && echo "REPORT_EXISTS=true"  >> "$GITHUB_ENV" \
                              || echo "REPORT_EXISTS=false" >> "$GITHUB_ENV"
 
