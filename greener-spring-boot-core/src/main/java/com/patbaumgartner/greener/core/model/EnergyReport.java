@@ -16,7 +16,6 @@ import java.util.List;
 public record EnergyReport(String runId, Instant timestamp, long durationSeconds, List<EnergyMeasurement> measurements,
 		double totalEnergyJoules) {
 
-	@SuppressWarnings("PMD.UnusedAssignment") // compact constructor field normalization
 	public EnergyReport {
 		measurements = measurements == null ? Collections.emptyList() : Collections.unmodifiableList(measurements);
 		if (totalEnergyJoules < 0) {

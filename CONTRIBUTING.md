@@ -144,7 +144,8 @@ mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
 ## Coding conventions
 
 - **Java 17** language features are fine.
-- Formatting is enforced by **Spring Java Format** (`spring-javaformat-maven-plugin`).
+- Formatting is enforced by **Spring Java Format** in both Maven (`spring-javaformat:validate`
+  during `mvn verify`) and Gradle (`checkFormat` during `./gradlew build`).
   It produces tab-based indentation for Java source files.
 - Public API methods and classes must have Javadoc.
 - Prefer immutable value objects (`record`) for model classes.

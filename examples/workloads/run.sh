@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # Run all workload examples against a running Spring Petclinic instance.
 #
 # This script iterates over every tool directory and runs its run.sh.
@@ -21,7 +21,7 @@
 #   MEASURE_SECONDS  Measurement duration  (default: 15)
 #   RPS              Requests per second   (default: 10)
 
-set -eu
+set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 APP_URL="${APP_URL:-http://localhost:8080}"
@@ -99,9 +99,9 @@ echo "  Summary"
 echo "═══════════════════════════════════════════════════════════════════════"
 
 PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
-for t in ${PASSED}; do PASS_COUNT=$((PASS_COUNT + 1)); done
-for t in ${FAILED}; do FAIL_COUNT=$((FAIL_COUNT + 1)); done
-for t in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
+for _ in ${PASSED}; do PASS_COUNT=$((PASS_COUNT + 1)); done
+for _ in ${FAILED}; do FAIL_COUNT=$((FAIL_COUNT + 1)); done
+for _ in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
 
 [ -n "${PASSED}" ]  && echo "  ✅ Passed  (${PASS_COUNT}):${PASSED}"
 [ -n "${FAILED}" ]  && echo "  ❌ Failed  (${FAIL_COUNT}):${FAILED}"

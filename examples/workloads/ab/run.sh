@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # Apache Bench (ab) workload script for Spring Petclinic
 #
 # ab is the simplest possible HTTP load generator — it ships with every Apache
@@ -23,7 +23,7 @@
 #   macOS:                  already installed (part of macOS)
 #   RHEL/CentOS:            sudo yum install httpd-tools
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install ab if not found ──────────────────────────────────────────────
 if ! command -v ab >/dev/null 2>&1; then

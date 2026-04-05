@@ -4,12 +4,17 @@ This directory contains ready-to-use load-test scripts for popular HTTP benchmar
 tools.  Pass any of them to the greener-spring-boot plugin via
 `externalTrainingScriptFile` to use them as the energy measurement workload.
 
- > **Tip**: configure an `externalTrainingScriptFile` to get reproducible load
+> **Tip**: configure an `externalTrainingScriptFile` to get reproducible load
 > patterns.  Pick the tool that best matches your environment from the table below.
 
 > **Auto-install**: each tool's `run.sh` script automatically installs the tool
 > if it is not already present on the system.  No manual pre-installation is
 > required - just run the script and it will handle the rest.
+
+> **Platform note**: the individual `run.sh` scripts in each tool directory are
+> Linux/macOS only.  On Windows, use the main simulation scripts
+> (`examples/all-tools-simulation.ps1` or `examples/local-simulation.ps1`) which
+> handle tool installation and execution natively in PowerShell.
 
 ---
 
@@ -227,6 +232,6 @@ and feed it to Joular Core via `--vm --vm-power-file`.
 > meaningless and cannot be used to compare code changes.
 
 See [`examples/vm-setup/README.md`](../vm-setup/README.md) for a complete setup
-guide covering Scaphandre virtio-mem (Option A), file-based export (Option B), and
-RAPL MSR passthrough (Option C).
+guide covering RAPL MSR passthrough (Option A), Scaphandre virtio-mem (Option C),
+and Scaphandre file export (Option D).
 

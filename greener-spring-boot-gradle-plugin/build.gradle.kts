@@ -1,11 +1,25 @@
 plugins {
     `java-gradle-plugin`
     `maven-publish`
-    id("com.gradle.plugin-publish") version "2.1.1"
+    `jacoco`
+    `pmd`
+    id("com.gradle.plugin-publish")
+    id("io.spring.javaformat")
+    id("se.patrikerdes.use-latest-versions")
+    id("com.github.ben-manes.versions")
+    id("com.github.spotbugs")
+    id("org.openrewrite.rewrite")
 }
 
 group = "com.patbaumgartner"
 // version is read from gradle.properties
+
+val coreVersion: String by project
+val junitBomVersion: String by project
+val assertjVersion: String by project
+val rewriteStaticAnalysisVersion: String by project
+val jacocoVersion: String by project
+val pmdVersion: String by project
 
 java {
     toolchain {
@@ -21,11 +35,12 @@ repositories {
 }
 
 dependencies {
-    implementation("com.patbaumgartner:greener-spring-boot-core:${property("coreVersion")}")
-    testImplementation(platform("org.junit:junit-bom:${property("junitBomVersion")}"))
+    implementation("com.patbaumgartner:greener-spring-boot-core:$coreVersion")
+    testImplementation(platform("org.junit:junit-bom:$junitBomVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.assertj:assertj-core:${property("assertjVersion")}")
+    testImplementation("org.assertj:assertj-core:$assertjVersion")
+    rewrite("org.openrewrite.recipe:rewrite-static-analysis:$rewriteStaticAnalysisVersion")
 }
 
 gradlePlugin {
@@ -44,6 +59,60 @@ gradlePlugin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+jacoco {
+    toolVersion = jacocoVersion
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.35".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+pmd {
+    toolVersion = pmdVersion
+    ruleSetFiles = files("../pmd-ruleset.xml")
+    isConsoleOutput = true
+    isIgnoreFailures = false
+}
+
+tasks.named<Pmd>("pmdTest") {
+    enabled = false
+}
+
+spotbugs {
+    effort.set(com.github.spotbugs.snom.Effort.MAX)
+    reportLevel.set(com.github.spotbugs.snom.Confidence.HIGH)
+}
+
+rewrite {
+    activeRecipe("com.patbaumgartner.greener/CodeQuality")
+}
+
+tasks.withType<com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask> {
+    rejectVersionIf {
+        val dominated = "(?i).*[-_.]?(alpha|beta|b|rc|cr|m|ea)[-_.]?[0-9]*$"
+        candidate.version.matches(Regex(dominated))
+    }
 }
 
 tasks.named<ProcessResources>("processResources") {

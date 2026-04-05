@@ -310,7 +310,7 @@ Proxmox VE uses QEMU/KVM.  Scaphandre works the same way as described in
 Options C and D.
 
 1. Install Scaphandre on the Proxmox host node.
-2. Use the `qemu` exporter (Option A) for automatic per-VM power exposure via
+2. Use the `qemu` exporter (Option C) for automatic per-VM power exposure via
    virtio-mem.
 3. The VM ID in Proxmox maps to the QEMU process name - Scaphandre identifies
    each VM automatically.
@@ -320,7 +320,7 @@ Options C and D.
 ## CI / CD
 
 Energy measurement runs automatically in all supported CI systems via the
-CPU-time × TDP estimation (Option D) when no hardware RAPL access is available.
+CPU-time × TDP estimation (Option E) when no hardware RAPL access is available.
 No configuration is needed on GitHub-hosted runners, GitLab shared runners, or
 standard Jenkins agents - the pipeline detects the best available power source
 at runtime.
@@ -335,8 +335,8 @@ Gradle. Adapt the GitHub Actions workflow steps for GitLab CI/CD, Jenkins, or
 other CI systems as needed.
 
 For hardware-accurate measurements use a self-hosted bare-metal runner or
-configure Scaphandre on your KVM host (Options A or B above).
+configure Scaphandre on your KVM host (Options C or D above).
 
-> **Note**: Option D results are reproducible on the same runner/hardware but
+> **Note**: Option E results are reproducible on the same runner/hardware but
 > not hardware-calibrated.  For research or production comparisons that need
-> absolute accuracy, use Options A, B, or C.
+> absolute accuracy, use Options A, B, C, or D.

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # oha workload script for Spring Petclinic
 #
 # oha is a tiny, fast HTTP load generator written in Rust with a real-time TUI.
@@ -18,7 +18,7 @@
 #   macOS (Homebrew):    brew install oha
 #   GitHub releases:     https://github.com/hatoo/oha/releases
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install oha if not found ─────────────────────────────────────────────
 OHA_VERSION="${OHA_VERSION:-1.14.0}"

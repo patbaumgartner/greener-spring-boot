@@ -1,6 +1,11 @@
 package com.patbaumgartner.greener.core.reporter;
 
-import com.microsoft.playwright.*;
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Playwright;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.ComparisonResult.MethodComparison;
@@ -8,7 +13,11 @@ import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;

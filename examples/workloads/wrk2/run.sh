@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # wrk2 workload script for Spring Petclinic
 #
 # wrk2 uses a closed-loop constant throughput model (-R <rps>) which is
@@ -12,7 +12,7 @@
 #
 # Install wrk2: https://github.com/giltene/wrk2
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install wrk2 if not found ────────────────────────────────────────────
 if ! command -v wrk2 >/dev/null 2>&1; then

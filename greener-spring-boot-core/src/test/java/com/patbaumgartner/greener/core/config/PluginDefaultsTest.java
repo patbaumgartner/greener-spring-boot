@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.config;
 
+import com.patbaumgartner.greener.core.model.PowerSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -228,6 +229,84 @@ class PluginDefaultsTest {
 
 		Path link = tempDir.resolve("reports-latest");
 		assertThat(Files.readSymbolicLink(link)).isEqualTo(newDir);
+	}
+
+	// ---- validateMeasureDuration ----
+
+	@Test
+	void validateMeasureDurationAcceptsPositiveValue() {
+		PluginDefaults.validateMeasureDuration(30);
+	}
+
+	@Test
+	void validateMeasureDurationRejectsZero() {
+		assertThatThrownBy(() -> PluginDefaults.validateMeasureDuration(0)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("measureDurationSeconds must be > 0");
+	}
+
+	@Test
+	void validateMeasureDurationRejectsNegative() {
+		assertThatThrownBy(() -> PluginDefaults.validateMeasureDuration(-5))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("measureDurationSeconds must be > 0");
+	}
+
+	// ---- validateExternalScript ----
+
+	@Test
+	void validateExternalScriptAcceptsNull() {
+		PluginDefaults.validateExternalScript(null);
+	}
+
+	@Test
+	void validateExternalScriptAcceptsExistingFile() throws Exception {
+		File script = tempDir.resolve("run.sh").toFile();
+		Files.createFile(script.toPath());
+		PluginDefaults.validateExternalScript(script);
+	}
+
+	@Test
+	void validateExternalScriptRejectsMissingFile() {
+		File missing = tempDir.resolve("nonexistent.sh").toFile();
+		assertThatThrownBy(() -> PluginDefaults.validateExternalScript(missing))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("externalTrainingScriptFile does not exist");
+	}
+
+	// ---- buildRunId ----
+
+	@Test
+	void buildRunId_returnsTimestampWhenNoGithubSha() {
+		String runId = PluginDefaults.buildRunId();
+		assertThat(runId).isNotNull().isNotBlank();
+	}
+
+	// ---- resolvePowerSource ----
+
+	@Test
+	void resolvePowerSource_vmModeTrue_returnsVmOrEstimated() {
+		PowerSource source = PluginDefaults.resolvePowerSource(true);
+		assertThat(source).isNotNull();
+	}
+
+	@Test
+	void resolvePowerSource_vmModeFalse_returnsDetected() {
+		PowerSource source = PluginDefaults.resolvePowerSource(false);
+		assertThat(source).isNotNull();
+	}
+
+	// ---- resolveToolName edge cases ----
+
+	@Test
+	void resolveToolNameWithBlankCommand() {
+		assertThat(PluginDefaults.resolveToolName(null, "   ")).isEqualTo("measurement");
+	}
+
+	@Test
+	void resolveToolNameWithNonExistentScriptFallsToCommand() {
+		File nonExistent = tempDir.resolve("does-not-exist.sh").toFile();
+		String result = PluginDefaults.resolveToolName(nonExistent, "wrk http://localhost:8080");
+		assertThat(result).isEqualTo("wrk");
 	}
 
 }

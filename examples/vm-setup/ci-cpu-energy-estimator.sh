@@ -43,7 +43,7 @@
 #   # … run energy measurement …
 #   kill $ESTIMATOR_PID
 
-set -eu
+set -euo pipefail
 
 OUTPUT_FILE="${1:?Usage: $0 <output-file> [tdp-watts]}"
 TDP="${2:-100}"

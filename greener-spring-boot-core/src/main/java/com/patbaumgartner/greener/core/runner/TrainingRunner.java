@@ -97,7 +97,7 @@ public class TrainingRunner {
 
 		LOG.log(Level.FINE, () -> "Running external training script [" + toolName + "]: " + script);
 
-		String[] shellCommand = resolveShellCommand(script.toAbsolutePath().toString());
+		String[] shellCommand = resolveScriptCommand(script.toAbsolutePath().toString());
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
 		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
@@ -146,9 +146,25 @@ public class TrainingRunner {
 		.startsWith("win");
 
 	/**
+	 * Builds a command array for executing script files.
+	 * <p>
+	 * On Linux/macOS, scripts are executed directly so that the OS honours their shebang
+	 * line (e.g. {@code #!/usr/bin/env bash}). On Windows, the method locates
+	 * {@code sh.exe} from Git for Windows to run the script through a POSIX shell.
+	 * @param scriptPath the absolute path of the script file to execute
+	 * @return a command array suitable for {@link ProcessBuilder}
+	 */
+	private String[] resolveScriptCommand(String scriptPath) throws IOException {
+		if (IS_WINDOWS) {
+			return new String[] { findWindowsShell(), scriptPath };
+		}
+		return new String[] { scriptPath };
+	}
+
+	/**
 	 * Builds a shell command array appropriate for the current OS.
 	 * <p>
-	 * On Linux/macOS, scripts are invoked via {@code /bin/sh}. On Windows, the method
+	 * On Linux/macOS, commands are invoked via {@code /bin/sh}. On Windows, the method
 	 * locates {@code sh.exe} from Git for Windows (which is required by the project) so
 	 * that POSIX shell scripts can be executed unchanged.
 	 * @param args the arguments to pass after the shell executable

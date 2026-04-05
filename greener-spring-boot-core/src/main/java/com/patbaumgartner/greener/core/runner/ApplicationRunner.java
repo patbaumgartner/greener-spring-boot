@@ -93,7 +93,6 @@ public class ApplicationRunner {
 	 * @throws RuntimeException if the application does not become healthy in time or
 	 * exits prematurely
 	 */
-	@SuppressWarnings("PMD.CloseResource") // HttpClient is not AutoCloseable in Java 17
 	public void waitForStartup(Process process, String baseUrl, String healthPath, int timeoutSeconds)
 			throws IOException, InterruptedException {
 

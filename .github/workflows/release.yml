@@ -1,5 +1,15 @@
 name: Release
 
+# Deploys artifacts to Maven Central and the Gradle Plugin Portal.
+#
+# ── Modes ─────────────────────────────────────────────────────────────────────
+#   - Snapshot: leave the "version" input empty to deploy the current -SNAPSHOT.
+#   - Release:  provide a version (e.g. "0.2.0") to set the version, stage
+#               artifacts locally, and let JReleaser publish them.
+#
+# ── Trigger ───────────────────────────────────────────────────────────────────
+# Manual dispatch only (workflow_dispatch).
+
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +25,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
 
@@ -27,13 +38,13 @@ jobs:
       JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      # ── 2. Set up Java ───────────────────────────────────────────────────────
+      # ── 2. Set up Java ──────────────────────────────────────────────────────
       - name: Set up Java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -44,7 +55,7 @@ jobs:
           server-username: CENTRAL_USERNAME
           server-password: CENTRAL_PASSWORD
 
-      # ── 3. Set release version (if provided) ─────────────────────────────────
+      # ── 3. Set release version (if provided) ────────────────────────────────
       - name: Set release version
         if: inputs.version != ''
         run: |
@@ -52,7 +63,7 @@ jobs:
           sed -i "s/^version=.*/version=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
           sed -i "s/^coreVersion=.*/coreVersion=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
 
-      # ── Snapshot deploy (direct to Central Portal snapshot repo) ──────────────
+      # ── 4. Snapshot deploy (direct to Central Portal snapshot repo) ─────────
       - name: Deploy Maven snapshot
         if: inputs.version == ''
         env:
@@ -68,7 +79,7 @@ jobs:
           CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         run: ./gradlew publishAllPublicationsToCentralSnapshotsRepository
 
-      # ── Release (stage locally, then JReleaser bundles + uploads) ─────────────
+      # ── 5. Release (stage locally, then JReleaser bundles + uploads) ────────
       - name: Stage Maven artifacts
         if: inputs.version != ''
         run: mvn -B -Ppublication -DaltDeploymentRepository=local::file:./target/staging-deploy
@@ -92,7 +103,7 @@ jobs:
         run: |
           ./gradlew publishPlugins
 
-      # ── Logs ─────────────────────────────────────────────────────────────────
+      # ── 6. Logs ─────────────────────────────────────────────────────────────
       - name: JReleaser output
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7

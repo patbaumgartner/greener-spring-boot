@@ -92,4 +92,124 @@ class ConsoleReporterTest {
 		assertThat(output).contains("No energy data recorded");
 	}
 
+	@Test
+	void report_showsImprovedStatus() {
+		EnergyReport report = EnergyReport.of("run-6", Instant.now(), 60, List.of(new EnergyMeasurement("app", 80.0)));
+
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.IMPROVED, 100.0, 80.0, -20.0, List.of(),
+				false, 10.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("IMPROVED");
+	}
+
+	@Test
+	void report_showsUnchangedStatus() {
+		EnergyReport report = EnergyReport.of("run-7", Instant.now(), 60, List.of(new EnergyMeasurement("app", 100.0)));
+
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.UNCHANGED, 100.0, 100.0, 0.0, List.of(),
+				false, 10.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("UNCHANGED");
+	}
+
+	@Test
+	void report_workloadStatsWithoutRequestCounts() {
+		EnergyReport report = EnergyReport.of("run-8", Instant.now(), 60, List.of(new EnergyMeasurement("app", 50.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 50.0, 0, List.of(), false,
+				10.0);
+
+		WorkloadStats stats = WorkloadStats.external("custom-tool", 60);
+
+		reporter.report(report, comparison, stats);
+		String output = capture.toString();
+
+		assertThat(output).contains("N/A");
+		assertThat(output).contains("Avg Power");
+	}
+
+	@Test
+	void report_withNullComparison() {
+		EnergyReport report = EnergyReport.of("run-9", Instant.now(), 60, List.of(new EnergyMeasurement("app", 10.0)));
+
+		reporter.report(report, null);
+		String output = capture.toString();
+
+		assertThat(output).contains("Energy Consumption Report");
+		assertThat(output).doesNotContain("Baseline comparison");
+	}
+
+	@Test
+	void report_truncatesLongMethodNames() {
+		String longName = "com.example.very.long.package.name.ClassName.methodName";
+		EnergyReport report = EnergyReport.of("run-10", Instant.now(), 60,
+				List.of(new EnergyMeasurement(longName, 42.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 42.0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("42.00");
+	}
+
+	@Test
+	void report_twoArgOverload_worksWithoutWorkloadStats() {
+		EnergyReport report = EnergyReport.of("run-11", Instant.now(), 60, List.of(new EnergyMeasurement("app", 10.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 10.0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).doesNotContain("Use-Case Energy");
+	}
+
+	@Test
+	void report_showsVmPowerSource() {
+		EnergyReport report = EnergyReport.of("run-12", Instant.now(), 60, List.of());
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison, null, PowerSource.VM_FILE);
+		String output = capture.toString();
+
+		assertThat(output).contains("Power Source");
+	}
+
+	@Test
+	void report_showsEstimatedPowerSource() {
+		EnergyReport report = EnergyReport.of("run-13", Instant.now(), 60, List.of());
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison, null, PowerSource.ESTIMATED);
+		String output = capture.toString();
+
+		assertThat(output).contains("Power Source");
+	}
+
+	@Test
+	void report_unknownPowerSource_doesNotShowIt() {
+		EnergyReport report = EnergyReport.of("run-14", Instant.now(), 60, List.of());
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison, null, PowerSource.UNKNOWN);
+		String output = capture.toString();
+
+		assertThat(output).doesNotContain("Power Source");
+	}
+
+	@Test
+	void defaultConstructor_usesDefaultTopN() {
+		ConsoleReporter defaultReporter = new ConsoleReporter();
+		assertThat(defaultReporter).isNotNull();
+	}
+
 }

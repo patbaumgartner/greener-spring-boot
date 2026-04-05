@@ -209,13 +209,31 @@ public class HtmlReporter {
 						<div class="container">
 						""");
 
-		// Summary card
+		sb.append(buildAggregatedSummaryCard(runs));
+
+		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
+			sb.append(buildPowerSourceCard(powerSource));
+		}
+
+		sb.append(buildToolComparisonTable(runs));
+
+		for (AggregatedRunEntry run : runs) {
+			sb.append(buildToolDetailCard(run));
+		}
+
+		sb.append(htmlFooter());
+		sb.append(htmlScript());
+		return sb.toString();
+	}
+
+	private String buildAggregatedSummaryCard(List<AggregatedRunEntry> runs) {
 		double totalEnergy = runs.stream().mapToDouble(r -> r.report().totalEnergyJoules()).sum();
 		long totalRequests = runs.stream()
 			.filter(r -> r.workloadStats() != null && r.workloadStats().hasRequestCounts())
 			.mapToLong(r -> r.workloadStats().totalRequests())
 			.sum();
 
+		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Aggregated Summary</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Tool Runs", String.valueOf(runs.size())));
 		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, totalEnergy)));
@@ -223,13 +241,11 @@ public class HtmlReporter {
 			sb.append(metric("Total Requests", String.format("%,d", totalRequests)));
 		}
 		sb.append("    </div>\n  </div>\n");
+		return sb.toString();
+	}
 
-		// Power source card
-		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
-			sb.append(buildPowerSourceCard(powerSource));
-		}
-
-		// Tool comparison table
+	private String buildToolComparisonTable(List<AggregatedRunEntry> runs) {
+		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Per-Tool Results</h2>\n");
 		sb.append(TABLE_OPEN);
 		sb.append("<th>Tool</th><th>Run ID</th><th>Duration (s)</th>");
@@ -288,42 +304,40 @@ public class HtmlReporter {
 			sb.append(TR_CLOSE);
 		}
 		sb.append("    </tbody></table>\n  </div>\n");
+		return sb.toString();
+	}
 
-		// Per-tool detail cards
-		for (AggregatedRunEntry run : runs) {
-			sb.append("  <div class=\"card\">\n    <h2>")
-				.append(escHtml(run.tool()))
-				.append(" — Run Details</h2>\n    <div class=\"metrics\">\n");
-			sb.append(metric("Run ID", run.report().runId()));
-			sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
-			sb.append(metric("Duration", run.report().durationSeconds() + " s"));
-			sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
-			sb.append("    </div>\n");
+	private String buildToolDetailCard(AggregatedRunEntry run) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("  <div class=\"card\">\n    <h2>")
+			.append(escHtml(run.tool()))
+			.append(" — Run Details</h2>\n    <div class=\"metrics\">\n");
+		sb.append(metric("Run ID", run.report().runId()));
+		sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
+		sb.append(metric("Duration", run.report().durationSeconds() + " s"));
+		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
+		sb.append("    </div>\n");
 
-			if (!run.report().measurements().isEmpty()) {
-				sb.append(TABLE_OPEN).append("<th>Component</th><th>Energy (J)</th><th>Share</th>").append(THEAD_CLOSE);
-				double total = run.report().totalEnergyJoules();
-				for (EnergyMeasurement m : run.report().topMeasurements(topN)) {
-					double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
-					sb.append(TR_OPEN)
-						.append(TD_CODE_OPEN)
-						.append(escHtml(m.methodName()))
-						.append(TD_CODE_CLOSE)
-						.append(TD_OPEN)
-						.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
-						.append(TD_CLOSE)
-						.append(TD_OPEN)
-						.append(String.format("%.1f%%", pct))
-						.append(TD_CLOSE)
-						.append(TR_CLOSE);
-				}
-				sb.append("    </tbody></table>\n");
+		if (!run.report().measurements().isEmpty()) {
+			sb.append(TABLE_OPEN).append("<th>Component</th><th>Energy (J)</th><th>Share</th>").append(THEAD_CLOSE);
+			double total = run.report().totalEnergyJoules();
+			for (EnergyMeasurement m : run.report().topMeasurements(topN)) {
+				double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
+				sb.append(TR_OPEN)
+					.append(TD_CODE_OPEN)
+					.append(escHtml(m.methodName()))
+					.append(TD_CODE_CLOSE)
+					.append(TD_OPEN)
+					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+					.append(TD_CLOSE)
+					.append(TD_OPEN)
+					.append(String.format("%.1f%%", pct))
+					.append(TD_CLOSE)
+					.append(TR_CLOSE);
 			}
-			sb.append(DIV_CLOSE);
+			sb.append("    </tbody></table>\n");
 		}
-
-		sb.append(htmlFooter());
-		sb.append(htmlScript());
+		sb.append(DIV_CLOSE);
 		return sb.toString();
 	}
 

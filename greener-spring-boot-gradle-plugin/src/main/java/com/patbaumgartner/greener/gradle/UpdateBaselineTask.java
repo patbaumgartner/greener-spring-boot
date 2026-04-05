@@ -28,164 +28,154 @@ import java.util.Optional;
  * Promotes the most recent energy measurement as the new baseline.
  *
  * <p>
- * Run this task on the main/release branch after confirming the current
- * energy consumption is acceptable:
- * 
+ * Run this task on the main/release branch after confirming the current energy
+ * consumption is acceptable:
+ *
  * <pre>
  * ./gradlew updateEnergyBaseline
  * </pre>
- * 
- * The updated {@code energy-baseline.json} should then be committed to source
- * control so that PR builds can compare against it.
+ *
+ * The updated {@code energy-baseline.json} should then be committed to source control so
+ * that PR builds can compare against it.
  */
 @DisableCachingByDefault(because = "Baseline update depends on external measurement state")
 public abstract class UpdateBaselineTask extends DefaultTask {
 
-    /**
-     * Gets the project layout.
-     * 
-     * @return the project layout
-     */
-    @Inject
-    protected abstract ProjectLayout getLayout();
+	/**
+	 * Gets the project layout.
+	 * @return the project layout
+	 */
+	@Inject
+	protected abstract ProjectLayout getLayout();
 
-    /**
-     * Gets the provider factory.
-     * 
-     * @return the provider factory
-     */
-    @Inject
-    protected abstract ProviderFactory getProviders();
+	/**
+	 * Gets the provider factory.
+	 * @return the provider factory
+	 */
+	@Inject
+	protected abstract ProviderFactory getProviders();
 
-    /**
-     * Path to the JSON baseline file to update.
-     * 
-     * @return the baseline file property
-     */
-    @InputFile
-    @PathSensitive(PathSensitivity.ABSOLUTE)
-    @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getBaselineFile();
+	/**
+	 * Path to the JSON baseline file to update.
+	 * @return the baseline file property
+	 */
+	@InputFile
+	@PathSensitive(PathSensitivity.ABSOLUTE)
+	@org.gradle.api.tasks.Optional
+	public abstract RegularFileProperty getBaselineFile();
 
-    /**
-     * Path to the latest energy report JSON produced by {@code measureEnergy}.
-     * When set, the report at this path is loaded and saved as the new baseline.
-     * 
-     * @return the latest report file property
-     */
-    @InputFile
-    @PathSensitive(PathSensitivity.ABSOLUTE)
-    @org.gradle.api.tasks.Optional
-    public abstract RegularFileProperty getLatestReportFile();
+	/**
+	 * Path to the latest energy report JSON produced by {@code measureEnergy}. When set,
+	 * the report at this path is loaded and saved as the new baseline.
+	 * @return the latest report file property
+	 */
+	@InputFile
+	@PathSensitive(PathSensitivity.ABSOLUTE)
+	@org.gradle.api.tasks.Optional
+	public abstract RegularFileProperty getLatestReportFile();
 
-    /**
-     * Report output directory where the {@code measureEnergy} task writes its
-     * results. Used to locate {@code latest-energy-report.json} when
-     * {@link #getLatestReportFile()} is not set.
-     * 
-     * @return the report output directory property
-     */
-    @Internal
-    public abstract DirectoryProperty getReportOutputDir();
+	/**
+	 * Report output directory where the {@code measureEnergy} task writes its results.
+	 * Used to locate {@code latest-energy-report.json} when
+	 * {@link #getLatestReportFile()} is not set.
+	 * @return the report output directory property
+	 */
+	@Internal
+	public abstract DirectoryProperty getReportOutputDir();
 
-    /**
-     * Git commit SHA to record in the baseline.
-     * 
-     * @return the commit SHA property
-     */
-    @Input
-    @org.gradle.api.tasks.Optional
-    public abstract Property<String> getCommitSha();
+	/**
+	 * Git commit SHA to record in the baseline.
+	 * @return the commit SHA property
+	 */
+	@Input
+	@org.gradle.api.tasks.Optional
+	public abstract Property<String> getCommitSha();
 
-    /**
-     * Branch name to record in the baseline.
-     * 
-     * @return the branch property
-     */
-    @Input
-    @org.gradle.api.tasks.Optional
-    public abstract Property<String> getBranch();
+	/**
+	 * Branch name to record in the baseline.
+	 * @return the branch property
+	 */
+	@Input
+	@org.gradle.api.tasks.Optional
+	public abstract Property<String> getBranch();
 
-    /**
-     * When {@code true}, the task execution is skipped entirely.
-     * 
-     * @return the skip property
-     */
-    @Input
-    public abstract Property<Boolean> getSkip();
+	/**
+	 * When {@code true}, the task execution is skipped entirely.
+	 * @return the skip property
+	 */
+	@Input
+	public abstract Property<Boolean> getSkip();
 
-    /**
-     * Promotes the most recent measurement as the new energy baseline.
-     * 
-     * @throws Exception if the baseline cannot be loaded or saved
-     */
-    @TaskAction
-    public void updateBaseline() throws Exception {
-        if (getSkip().get()) {
-            getLogger().lifecycle("[greener] updateEnergyBaseline skipped (skip=true)");
-            return;
-        }
+	/**
+	 * Promotes the most recent measurement as the new energy baseline.
+	 * @throws Exception if the baseline cannot be loaded or saved
+	 */
+	@TaskAction
+	public void updateBaseline() throws Exception {
+		if (getSkip().get()) {
+			getLogger().lifecycle("[greener] updateEnergyBaseline skipped (skip=true)");
+			return;
+		}
 
-        File baselineFileValue = getBaselineFile().isPresent()
-                ? getBaselineFile().get().getAsFile()
-                : getLayout().getProjectDirectory().file("energy-baseline.json").getAsFile();
+		File baselineFileValue = getBaselineFile().isPresent() ? getBaselineFile().get().getAsFile()
+				: getLayout().getProjectDirectory().file("energy-baseline.json").getAsFile();
 
-        if (getLatestReportFile().isPresent() && !getLatestReportFile().get().getAsFile().exists()) {
-            throw new GradleException(
-                    "Configured latestReportFile does not exist: " + getLatestReportFile().get().getAsFile());
-        }
+		if (getLatestReportFile().isPresent() && !getLatestReportFile().get().getAsFile().exists()) {
+			throw new GradleException(
+					"Configured latestReportFile does not exist: " + getLatestReportFile().get().getAsFile());
+		}
 
-        BaselineManager manager = new BaselineManager();
-        EnergyReport report;
+		BaselineManager manager = new BaselineManager();
+		EnergyReport report;
 
-        // 1. Try explicit latest report file
-        if (getLatestReportFile().isPresent()) {
-            Optional<EnergyBaseline> latest = manager.loadBaseline(getLatestReportFile().get().getAsFile().toPath());
-            if (latest.isEmpty()) {
-                throw new GradleException(
-                        "Could not read energy report from: " + getLatestReportFile().get().getAsFile());
-            }
-            report = latest.get().report();
-        }
-        // 2. Try auto-detected latest report from report output dir subdirectories
-        else {
-            Path reportDir = resolveReportDir();
-            Optional<Path> discovered = manager.discoverLatestReport(reportDir);
-            if (discovered.isPresent()) {
-                Optional<EnergyBaseline> latest = manager.loadBaseline(discovered.get());
-                if (latest.isEmpty()) {
-                    throw new GradleException("Could not read energy report from: " + discovered.get());
-                }
-                report = latest.get().report();
-            }
-            // 3. Fall back to existing baseline (re-save with updated metadata)
-            else {
-                Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFileValue.toPath());
-                if (existing.isEmpty()) {
-                    getLogger().warn("No energy report to promote to baseline. "
-                            + "Run 'measureEnergy' first, or set latestReportFile explicitly.");
-                    return;
-                }
-                report = existing.get().report();
-            }
-        }
+		// 1. Try explicit latest report file
+		if (getLatestReportFile().isPresent()) {
+			Optional<EnergyBaseline> latest = manager.loadBaseline(getLatestReportFile().get().getAsFile().toPath());
+			if (latest.isEmpty()) {
+				throw new GradleException(
+						"Could not read energy report from: " + getLatestReportFile().get().getAsFile());
+			}
+			report = latest.get().report();
+		}
+		// 2. Try auto-detected latest report from report output dir subdirectories
+		else {
+			Path reportDir = resolveReportDir();
+			Optional<Path> discovered = manager.discoverLatestReport(reportDir);
+			if (discovered.isPresent()) {
+				Optional<EnergyBaseline> latest = manager.loadBaseline(discovered.get());
+				if (latest.isEmpty()) {
+					throw new GradleException("Could not read energy report from: " + discovered.get());
+				}
+				report = latest.get().report();
+			}
+			// 3. Fall back to existing baseline (re-save with updated metadata)
+			else {
+				Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFileValue.toPath());
+				if (existing.isEmpty()) {
+					getLogger().warn("No energy report to promote to baseline. "
+							+ "Run 'measureEnergy' first, or set latestReportFile explicitly.");
+					return;
+				}
+				report = existing.get().report();
+			}
+		}
 
-        String sha = PluginDefaults.normalise(getCommitSha().getOrNull());
-        String branch = PluginDefaults.normalise(getBranch().getOrNull());
+		String sha = PluginDefaults.normalise(getCommitSha().getOrNull());
+		String branch = PluginDefaults.normalise(getBranch().getOrNull());
 
-        manager.saveBaseline(report, sha, branch, baselineFileValue.toPath());
+		manager.saveBaseline(report, sha, branch, baselineFileValue.toPath());
 
-        for (String line : PluginDefaults.formatBaselineUpdateSummary(baselineFileValue.toPath(), sha, branch,
-                report.totalEnergyJoules())) {
-            getLogger().lifecycle(line);
-        }
-    }
+		for (String line : PluginDefaults.formatBaselineUpdateSummary(baselineFileValue.toPath(), sha, branch,
+				report.totalEnergyJoules())) {
+			getLogger().lifecycle(line);
+		}
+	}
 
-    private Path resolveReportDir() {
-        if (getReportOutputDir().isPresent()) {
-            return getReportOutputDir().get().getAsFile().toPath();
-        }
-        return getLayout().getBuildDirectory().dir("greener-reports").get().getAsFile().toPath();
-    }
+	private Path resolveReportDir() {
+		if (getReportOutputDir().isPresent()) {
+			return getReportOutputDir().get().getAsFile().toPath();
+		}
+		return getLayout().getBuildDirectory().dir("greener-reports").get().getAsFile().toPath();
+	}
 
 }

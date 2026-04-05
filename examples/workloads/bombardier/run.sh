@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # Bombardier workload script for Spring Petclinic
 #
 # Bombardier is a lightweight HTTP benchmarking tool written in Go.  It supports
@@ -19,7 +19,7 @@
 #   GitHub releases:   https://github.com/codesenberg/bombardier/releases
 #   macOS (Homebrew):  brew install bombardier
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install bombardier if not found ──────────────────────────────────────
 BOMBARDIER_VERSION="${BOMBARDIER_VERSION:-1.2.6}"

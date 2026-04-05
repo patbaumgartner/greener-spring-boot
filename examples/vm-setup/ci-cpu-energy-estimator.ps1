@@ -26,6 +26,9 @@ param(
     [double]$TdpWatts = 100.0
 )
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 $dir = Split-Path -Parent $OutputFile
 if ($dir -and -not (Test-Path $dir)) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null

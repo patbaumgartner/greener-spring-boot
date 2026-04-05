@@ -202,4 +202,26 @@ public final class PluginDefaults {
 		}
 	}
 
+	/**
+	 * Validates that the measurement duration is positive.
+	 * @param seconds the configured measurement duration
+	 * @throws IllegalArgumentException if the duration is zero or negative
+	 */
+	public static void validateMeasureDuration(int seconds) {
+		if (seconds <= 0) {
+			throw new IllegalArgumentException("measureDurationSeconds must be > 0");
+		}
+	}
+
+	/**
+	 * Validates that the external training script file exists, if configured.
+	 * @param scriptFile the configured script file (may be {@code null})
+	 * @throws IllegalArgumentException if the file is non-null but does not exist
+	 */
+	public static void validateExternalScript(File scriptFile) {
+		if (scriptFile != null && !scriptFile.exists()) {
+			throw new IllegalArgumentException("Configured externalTrainingScriptFile does not exist: " + scriptFile);
+		}
+	}
+
 }

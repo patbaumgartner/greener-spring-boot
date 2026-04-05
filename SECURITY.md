@@ -2,10 +2,12 @@
 
 ## Supported Versions
 
-| Version       | Supported |
-| ------------- | --------- |
-| 0.2.x         | ✅ Yes |
-| 0.1.x         | ✅ Yes |
+| Version | Supported |
+|---|---|
+| 0.2.x | ✅ Yes |
+| 0.1.x | ✅ Yes |
+
+---
 
 ## Reporting a Vulnerability
 
@@ -25,6 +27,8 @@ Please include as much detail as possible - steps to reproduce, affected version
 - Acknowledgement within **5 business days**
 - Fix timeline communicated within **10 business days**
 
+---
+
 ## Scope
 
 ### In Scope
@@ -39,6 +43,8 @@ Please include as much detail as possible - steps to reproduce, affected version
 - The [Joular Core](https://github.com/joular/joularcore) binary itself (report upstream)
 - Spring Boot framework (report to [Spring Security](https://spring.io/security))
 - Third-party load-testing tools (oha, wrk, wrk2, k6, ab, bombardier, Locust, Gatling)
+
+---
 
 ## Preferred Languages
 

@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-green)](https://spring.io/projects/spring-boot)
-[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.2.0-orange)](https://central.sonatype.com/)
+[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.1.0-orange)](https://central.sonatype.com/)
 [![GitHub issues](https://img.shields.io/github/issues/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/issues)
 [![GitHub stars](https://img.shields.io/github/stars/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/stargazers)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -42,7 +42,7 @@ mvn package greener:measure
 ```kotlin
 // Add to build.gradle.kts
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
 }
 
 greener {
@@ -267,7 +267,7 @@ mvn greener:update-baseline
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
 }
 
 greener {

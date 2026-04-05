@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # wrk workload script for Spring Petclinic
 #
 # Environment variables set by greener-spring-boot:
@@ -11,7 +11,7 @@
 #   Linux:  sudo apt-get install wrk
 #   macOS:  brew install wrk
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install wrk if not found ─────────────────────────────────────────────
 if ! command -v wrk >/dev/null 2>&1; then

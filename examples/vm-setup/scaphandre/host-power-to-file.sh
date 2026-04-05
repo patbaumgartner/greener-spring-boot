@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # host-power-to-file.sh
 #
 # Scaphandre "json" exporter helper for Joular Core VM mode (Option B).
@@ -31,7 +31,7 @@
 # The output file is updated every second and must be readable by the guest
 # (e.g. via a virtio-fs mount, NFS export, or shared volume).
 
-set -eu
+set -euo pipefail
 
 SCAPHANDRE_JSON="${1:?Usage: $0 <scaphandre-json> <power-output-file>}"
 POWER_FILE="${2:?Usage: $0 <scaphandre-json> <power-output-file>}"

@@ -74,6 +74,26 @@
       depNameTemplate: "joular/joularcore",
       datasourceTemplate: "github-releases",
     },
+    {
+      customType: "regex",
+      fileMatch: ["examples/workloads/.+\\.sh$"],
+      matchStrings: [
+        "K6_VERSION[=:]\\s*\"?\\$\\{K6_VERSION:-(?<currentValue>[^}\"]+)\\}\"?",
+      ],
+      depNameTemplate: "grafana/k6",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.+)$",
+    },
+    {
+      customType: "regex",
+      fileMatch: ["examples/workloads/.+\\.sh$"],
+      matchStrings: [
+        "GATLING_VERSION=\"(?<currentValue>[^\"]+)\"",
+      ],
+      depNameTemplate: "gatling/gatling",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.+)$",
+    },
   ],
 
   // ── Package rules ──────────────────────────────────────────────────────────

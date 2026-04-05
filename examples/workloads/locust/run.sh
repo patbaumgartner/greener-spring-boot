@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # Locust workload script for Spring Petclinic
 #
 # Locust runs headless (no browser) and controls the user count so that the
@@ -14,7 +14,7 @@
 #   pip install locust
 #   Docs: https://locust.io
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install locust if not found ──────────────────────────────────────────
 if ! command -v locust >/dev/null 2>&1; then

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # Gatling workload script for Spring Petclinic
 #
 # This script downloads the Gatling Maven-wrapper bundle (if not already present)
@@ -18,7 +18,7 @@
 # Requires: Java 17+, curl, unzip
 # Documentation: https://gatling.io/docs/gatling/reference/current/
 
-set -eu
+set -euo pipefail
 
 APP_URL="${APP_URL:-http://localhost:8080}"
 APP_HOST="${APP_HOST:-localhost}"

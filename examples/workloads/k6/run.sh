@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # k6 workload script for Spring Petclinic
 #
 # k6 uses a constant-arrival-rate executor which is ideal for energy measurement:
@@ -23,7 +23,7 @@
 #   Docker: docker run --rm -i grafana/k6 run -
 #   Docs:   https://grafana.com/docs/k6/latest/
 
-set -eu
+set -euo pipefail
 
 # ── Auto-install k6 if not found ──────────────────────────────────────────────
 K6_VERSION="${K6_VERSION:-0.56.0}"

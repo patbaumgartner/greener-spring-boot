@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Maven ──────────────────────────────────────────────────────────────
 echo "🔧 Running sortpom..."
 mvn --batch-mode --no-transfer-progress sortpom:sort
 
 echo "🔧 Running spring-javaformat:apply..."
 mvn --batch-mode --no-transfer-progress spring-javaformat:apply
 
-# Re-stage any files that were reformatted
+echo "🔄 Updating Maven parent and dependency versions..."
+mvn --batch-mode --no-transfer-progress versions:update-parent versions:update-properties -DgenerateBackupPoms=false -Dmaven.version.ignore=".*[-_\.](alpha|Alpha|ALPHA|b|beta|Beta|BETA|rc|RC|M|EA)[-_\.]?[0-9]*"
+
+
+# ── Gradle ─────────────────────────────────────────────────────────────
+echo "🔧 Running Gradle spring-javaformat..."
+(cd greener-spring-boot-gradle-plugin && ./gradlew formatMain formatTest --no-daemon -q)
+
+echo "🔄 Updating Gradle dependency versions..."
+(cd greener-spring-boot-gradle-plugin && ./gradlew useLatestVersions --no-daemon -q)
+
+# ── Re-stage ───────────────────────────────────────────────────────────
+# Re-stage any files that were reformatted or updated
 git diff --name-only | xargs -r git add

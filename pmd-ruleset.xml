@@ -11,6 +11,15 @@
     <rule ref="category/java/bestpractices.xml"/>
 
     <!-- Error prone -->
-    <rule ref="category/java/errorprone.xml"/>
+    <rule ref="category/java/errorprone.xml">
+        <exclude name="CloseResource"/>
+    </rule>
+    <rule ref="category/java/errorprone.xml/CloseResource">
+        <properties>
+            <!-- HttpClient is AutoCloseable only since JDK 21; the project targets 17. -->
+            <property name="allowedResourceTypes"
+                      value="java.net.http.HttpClient"/>
+        </properties>
+    </rule>
 
 </ruleset>

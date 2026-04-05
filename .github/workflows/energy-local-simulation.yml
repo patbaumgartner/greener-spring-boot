@@ -1,19 +1,15 @@
 name: Energy Local Simulation (Baseline + Comparison)
 
-# Simulates the local developer workflow on a single runner:
+# Simulates the local developer workflow: builds the plugins, runs a baseline
+# measurement, then a second measurement to compare against it.  Both runs
+# happen on the same machine so the delta shows measurement reproducibility.
 #
-#   1. Build greener-spring-boot plugins + Spring Petclinic
-#   2. Run a baseline measurement  → save as baseline JSON
-#   3. Run a second measurement    → compare against the baseline
+# ── Power source ──────────────────────────────────────────────────────────────
+# Auto-detects: RAPL (bare-metal) → Scaphandre VM file → CPU-time × TDP
+# estimation.  See energy-baseline.yml for details.
 #
-# Both measurements happen on the same machine under identical conditions,
-# so the comparison shows how reproducible the results are (expected delta ≈ 0 %).
-#
-# ── Power source auto-detection ─────────────────────────────────────────────
-# Same three-tier detection as energy-baseline.yml:
-#   1. RAPL          — bare-metal Linux
-#   2. Scaphandre VM — KVM guest with host-side power file
-#   3. CPU × TDP     — GitHub-hosted runners (software estimation)
+# ── Trigger ───────────────────────────────────────────────────────────────────
+# Manual dispatch only (workflow_dispatch).
 
 on:
   workflow_dispatch:
@@ -33,11 +29,12 @@ jobs:
   energy-local-simulation:
     name: Baseline + Comparison Run
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
 
     steps:
-      # ── Setup ─────────────────────────────────────────────────────────────────
+      # ── 1. Setup ────────────────────────────────────────────────────────────
       - name: Checkout greener-spring-boot
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -48,97 +45,48 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # ── Power source detection (fail fast) ────────────────────────────────────
-      - name: Detect power source
-        id: power-check
-        run: |
-          if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
-            echo "POWER_SOURCE=rapl"         >> "$GITHUB_OUTPUT"
-            echo "[OK] RAPL readable - hardware energy measurement."
-          elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
-            echo "POWER_SOURCE=vm-file"      >> "$GITHUB_OUTPUT"
-            echo "[OK] Scaphandre VM power file found."
-          elif [ -f /proc/stat ]; then
-            echo "POWER_SOURCE=ci-estimated" >> "$GITHUB_OUTPUT"
-            echo "[ii] Using CPU-time x TDP software estimation."
-          else
-            echo "POWER_SOURCE=none"         >> "$GITHUB_OUTPUT"
-            echo "[!!] No power source - measurement skipped."
-          fi
+      # ── 2. Power source detection & Joular Core (fail fast) ──────────────────
+      - name: Setup energy measurement
+        id: energy-setup
+        uses: ./.github/actions/setup-energy-measurement
+        with:
+          joular-core-version: ${{ env.JOULAR_CORE_VERSION }}
+          tdp-watts: ${{ env.TDP_WATTS }}
 
-      # ── Build greener-spring-boot plugins ─────────────────────────────────────
+      # ── 3. Build greener-spring-boot plugins ────────────────────────────────
       - name: Build greener-spring-boot plugins
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         run: mvn --batch-mode --no-transfer-progress clean install -DskipTests
 
-      # ── Joular Core ───────────────────────────────────────────────────────────
-      - name: Restore cached Joular Core binary
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
-        id: cache-joularcore
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ~/.greener/cache/joularcore
-          key: joularcore-${{ env.JOULAR_CORE_VERSION }}-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Install Rust toolchain
-        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-
-      - name: Build Joular Core ${{ env.JOULAR_CORE_VERSION }}
-        if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch ${{ env.JOULAR_CORE_VERSION }} \
-            https://github.com/joular/joularcore.git /tmp/joularcore-src
-          cd /tmp/joularcore-src
-          cargo build --release
-          mkdir -p ~/.greener/cache/joularcore
-          cp target/release/joularcore ~/.greener/cache/joularcore/joularcore-linux-x86_64
-          chmod +x ~/.greener/cache/joularcore/joularcore-linux-x86_64
-
-      - name: Set Joular Core binary path
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
-        run: echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_ENV"
-
-      # ── Install oha ──────────────────────────────────────────────────────────
+      # ── 4. Install oha ──────────────────────────────────────────────────────
       - name: Install oha ${{ env.OHA_VERSION }}
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         run: |
           curl -fsSL -o /usr/local/bin/oha \
             "https://github.com/hatoo/oha/releases/download/v${{ env.OHA_VERSION }}/oha-linux-amd64"
           chmod +x /usr/local/bin/oha
           oha --version
 
-      # ── Clone & build Spring Petclinic ────────────────────────────────────────
+      # ── 5. Clone & build Spring Petclinic ───────────────────────────────
       - name: Clone Spring Petclinic (${{ env.PETCLINIC_VERSION }})
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         run: |
           git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
             https://github.com/spring-projects/spring-petclinic.git \
             /tmp/spring-petclinic
 
       - name: Build Spring Petclinic
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         working-directory: /tmp/spring-petclinic
         run: mvn --batch-mode --no-transfer-progress package -DskipTests
 
       - name: Copy workload scripts
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         run: cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
 
-      # ── Start CI CPU power estimator (if needed) ──────────────────────────────
-      - name: Start CI CPU power estimator
-        if: steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
-        run: |
-          bash "$GITHUB_WORKSPACE/examples/vm-setup/ci-cpu-energy-estimator.sh" \
-            /tmp/ci-power.txt ${{ env.TDP_WATTS }} &
-          echo "CI_ESTIMATOR_PID=$!"                 >> "$GITHUB_ENV"
-          echo "VM_POWER_FILE=/tmp/ci-power.txt"     >> "$GITHUB_ENV"
-          sleep 2
-          echo "[ii] Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
-
-      # ── Run 1: Baseline measurement ───────────────────────────────────────────
+      # ── 6. Run 1: Baseline measurement ──────────────────────────────────
       - name: "Run 1 — Baseline measurement"
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         working-directory: /tmp/spring-petclinic
         run: |
           echo "════════════════════════════════════════════════════════════"
@@ -149,8 +97,8 @@ jobs:
           rm -f /tmp/energy-baseline.json
 
           VM_FLAGS=""
-          if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
-             [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "ci-estimated" ]; then
+          if [ "${{ steps.energy-setup.outputs.power-source }}" = "vm-file" ] || \
+             [ "${{ steps.energy-setup.outputs.power-source }}" = "ci-estimated" ]; then
             VM_FLAGS="-Dgreener.vmMode=true -Dgreener.vmPowerFilePath=${VM_POWER_FILE}"
           fi
 
@@ -171,7 +119,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Promote Run 1 to baseline
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         working-directory: /tmp/spring-petclinic
         run: |
           mvn --batch-mode --no-transfer-progress \
@@ -191,9 +139,9 @@ jobs:
           print(f'  Commit : ${{ github.sha }}')
           "
 
-      # ── Run 2: Comparison measurement ────────────────────────────────────────
+      # ── 7. Run 2: Comparison measurement ────────────────────────────────
       - name: "Run 2 — Comparison measurement (against baseline)"
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         working-directory: /tmp/spring-petclinic
         run: |
           echo "════════════════════════════════════════════════════════════"
@@ -201,8 +149,8 @@ jobs:
           echo "════════════════════════════════════════════════════════════"
 
           VM_FLAGS=""
-          if [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "vm-file" ] || \
-             [ "${{ steps.power-check.outputs.POWER_SOURCE }}" = "ci-estimated" ]; then
+          if [ "${{ steps.energy-setup.outputs.power-source }}" = "vm-file" ] || \
+             [ "${{ steps.energy-setup.outputs.power-source }}" = "ci-estimated" ]; then
             VM_FLAGS="-Dgreener.vmMode=true -Dgreener.vmPowerFilePath=${VM_POWER_FILE}"
           fi
 
@@ -223,9 +171,9 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
-      # ── Summary ───────────────────────────────────────────────────────────────
+      # ── 8. Summary ─────────────────────────────────────────────────────────
       - name: Print comparison summary
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         run: |
           echo ""
           echo "════════════════════════════════════════════════════════════"
@@ -257,12 +205,12 @@ jobs:
               print("  [!!] Outside threshold - noisy runner or real regression.")
           PYEOF
 
-      # ── Cleanup ───────────────────────────────────────────────────────────────
+      # ── 9. Cleanup ─────────────────────────────────────────────────────
       - name: Stop CI power estimator
-        if: always() && steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
+        if: always() && steps.energy-setup.outputs.power-source == 'ci-estimated'
         run: kill "${CI_ESTIMATOR_PID}" 2>/dev/null || true
 
-      # ── Artifacts ─────────────────────────────────────────────────────────────
+      # ── 10. Artifacts ───────────────────────────────────────────────────
       - name: Upload baseline report
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -280,7 +228,7 @@ jobs:
           retention-days: 30
 
       - name: Upload baseline JSON
-        if: steps.power-check.outputs.POWER_SOURCE != 'none'
+        if: steps.energy-setup.outputs.power-source != 'none'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: energy-baseline-${{ github.sha }}

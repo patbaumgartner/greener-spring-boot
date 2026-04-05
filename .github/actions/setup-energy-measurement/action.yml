@@ -1,0 +1,86 @@
+name: Setup Energy Measurement
+description: >-
+  Detects the power source, starts the CI CPU power estimator if needed,
+  and builds/caches the Joular Core binary.
+
+inputs:
+  joular-core-version:
+    description: Joular Core Git tag to build from source
+    required: true
+  tdp-watts:
+    description: CPU TDP watts for software estimation
+    required: true
+
+outputs:
+  power-source:
+    description: "Detected power source: rapl, vm-file, ci-estimated, or none"
+    value: ${{ steps.power-check.outputs.POWER_SOURCE }}
+  joular-core-binary:
+    description: Absolute path to the Joular Core binary
+    value: ${{ steps.set-binary.outputs.JOULAR_CORE_BINARY }}
+  estimator-pid:
+    description: PID of the CI CPU power estimator (empty if not started)
+    value: ${{ steps.start-estimator.outputs.CI_ESTIMATOR_PID }}
+  vm-power-file:
+    description: Path to the VM power file (empty if not applicable)
+    value: ${{ steps.start-estimator.outputs.VM_POWER_FILE }}
+
+runs:
+  using: composite
+  steps:
+    # ── 1. Detect power source ────────────────────────────────────────────
+    - name: Detect power source
+      id: power-check
+      shell: bash
+      run: bash "$GITHUB_WORKSPACE/examples/vm-setup/detect-power-source.sh" "$GITHUB_OUTPUT"
+
+    # ── 2. Start CPU power estimator (ci-estimated only) ──────────────────
+    - name: Start CI CPU power estimator
+      id: start-estimator
+      if: steps.power-check.outputs.POWER_SOURCE == 'ci-estimated'
+      shell: bash
+      run: |
+        bash "$GITHUB_WORKSPACE/examples/vm-setup/ci-cpu-energy-estimator.sh" \
+          /tmp/ci-power.txt ${{ inputs.tdp-watts }} &
+        echo "CI_ESTIMATOR_PID=$!" >> "$GITHUB_OUTPUT"
+        echo "VM_POWER_FILE=/tmp/ci-power.txt" >> "$GITHUB_OUTPUT"
+        echo "CI_ESTIMATOR_PID=$!" >> "$GITHUB_ENV"
+        echo "VM_POWER_FILE=/tmp/ci-power.txt" >> "$GITHUB_ENV"
+        sleep 2
+        echo "Estimator running — current estimate: $(cat /tmp/ci-power.txt) W"
+
+    # ── 3. Restore cached Joular Core binary ──────────────────────────────
+    - name: Restore cached Joular Core binary
+      if: steps.power-check.outputs.POWER_SOURCE != 'none'
+      id: cache-joularcore
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      with:
+        path: ~/.greener/cache/joularcore
+        key: joularcore-${{ inputs.joular-core-version }}-${{ runner.os }}-${{ runner.arch }}
+
+    # ── 4. Install Rust toolchain (if cache miss) ─────────────────────────
+    - name: Install Rust toolchain
+      if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+      uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+    # ── 5. Build Joular Core from source (if cache miss) ──────────────────
+    - name: Build Joular Core ${{ inputs.joular-core-version }}
+      if: steps.power-check.outputs.POWER_SOURCE != 'none' && steps.cache-joularcore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --depth 1 --branch ${{ inputs.joular-core-version }} \
+          https://github.com/joular/joularcore.git /tmp/joularcore-src
+        cd /tmp/joularcore-src
+        cargo build --release
+        mkdir -p ~/.greener/cache/joularcore
+        cp target/release/joularcore ~/.greener/cache/joularcore/joularcore-linux-x86_64
+        chmod +x ~/.greener/cache/joularcore/joularcore-linux-x86_64
+
+    # ── 6. Set Joular Core binary path ────────────────────────────────────
+    - name: Set Joular Core binary path
+      id: set-binary
+      if: steps.power-check.outputs.POWER_SOURCE != 'none'
+      shell: bash
+      run: |
+        echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_OUTPUT"
+        echo "JOULAR_CORE_BINARY=$HOME/.greener/cache/joularcore/joularcore-linux-x86_64" >> "$GITHUB_ENV"

@@ -1,24 +1,15 @@
 package com.patbaumgartner.greener.maven;
 
-import com.patbaumgartner.greener.core.baseline.BaselineManager;
-import com.patbaumgartner.greener.core.baseline.RunEntryStore;
-import com.patbaumgartner.greener.core.comparator.EnergyComparator;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
-import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
-import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
-import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
-import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
-import com.patbaumgartner.greener.core.reporter.ConsoleReporter;
-import com.patbaumgartner.greener.core.reporter.HtmlReporter;
+import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
 import com.patbaumgartner.greener.core.runner.JoularCoreRunner;
-import com.patbaumgartner.greener.core.runner.TrainingRunner;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -27,7 +18,6 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -330,6 +320,8 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	}
 
 	private void executeInternal() throws Exception {
+		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(msg -> getLog().info(msg));
+
 		// 1. Resolve Joular Core binary
 		Path joularCoreBinary = resolveJoularCoreBinary();
 
@@ -357,7 +349,8 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 			try {
 				// 6 & 7. Execute Workloads
-				workloadStats = executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv);
+				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
+						this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds);
 			}
 			finally {
 				joularCoreRunner.stop();
@@ -369,11 +362,14 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 
 		// 8 & 9. Process Results and Baseline
-		EnergyReport report = processResults(outputCsv, measureDurationSeconds);
-		ComparisonResult comparison = processBaselineComparisons(report, runDir);
+		String appIdentifier = springBootJar.getName().replace(".jar", "");
+		EnergyReport report = orchestrator.processResults(outputCsv, measureDurationSeconds, appIdentifier);
+		ComparisonResult comparison = orchestrator.processBaselineComparison(report, baselineFile.toPath(), runDir,
+				threshold, autoUpdateBaseline, commitSha, branch);
 
 		// 10, 11 & 12. Report and Aggregate
-		Path htmlReport = generateFinalReports(report, comparison, workloadStats, toolName, effectiveReportDir, runDir);
+		Path htmlReport = orchestrator.generateFinalReports(report, comparison, workloadStats, toolName,
+				effectiveReportDir, runDir, vmMode);
 
 		// 13. Create latest symlink for timestamped reports
 		if (timestampReports) {
@@ -419,69 +415,6 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	private void startJoularCore(JoularCoreRunner runner, JoularCoreConfig config, long pid) throws IOException {
 		getLog().info("[greener] Starting Joular Core (PID " + pid + ")");
 		runner.start(config);
-	}
-
-	private WorkloadStats executeWorkloads(JoularCoreRunner runner, JoularCoreConfig config, Path outputCsv)
-			throws Exception {
-		// 6. Warmup phase
-		if (warmupDurationSeconds > 0) {
-			getLog().info("[greener] Warmup phase: " + warmupDurationSeconds + " s ...");
-			TrainingConfig warmupConfig = buildTrainingConfig().warmupDurationSeconds(warmupDurationSeconds)
-				.measureDurationSeconds(0);
-			new TrainingRunner().run(warmupConfig);
-
-			runner.stop();
-			Files.deleteIfExists(outputCsv);
-			runner.start(config);
-		}
-
-		// 7. Measurement phase
-		getLog().info("[greener] Measurement phase: " + measureDurationSeconds + " s ...");
-		TrainingConfig measureConfig = buildTrainingConfig().warmupDurationSeconds(0)
-			.measureDurationSeconds(measureDurationSeconds);
-		return new TrainingRunner().run(measureConfig);
-	}
-
-	private EnergyReport processResults(Path outputCsv, int duration) throws IOException {
-		getLog().info("[greener] Processing results ...");
-		String appIdentifier = springBootJar.getName().replace(".jar", "");
-		JoularCoreResultReader resultReader = new JoularCoreResultReader();
-		return resultReader.readResults(outputCsv, PluginDefaults.buildRunId(), duration, appIdentifier);
-	}
-
-	private ComparisonResult processBaselineComparisons(EnergyReport report, Path runDir) throws IOException {
-		BaselineManager baselineManager = new BaselineManager();
-		Optional<EnergyBaseline> baseline = baselineManager.loadBaseline(baselineFile.toPath());
-		EnergyComparator comparator = new EnergyComparator();
-		ComparisonResult comparison = comparator.compare(report, baseline, threshold);
-
-		Path latestReportPath = runDir.resolve("latest-energy-report.json");
-		baselineManager.saveBaseline(report, null, null, latestReportPath);
-
-		if (autoUpdateBaseline) {
-			SharedMojoUtils.saveAndLogBaseline(baselineManager, report, commitSha, branch, baselineFile, getLog());
-		}
-		return comparison;
-	}
-
-	private Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,
-			String toolName, Path effectiveReportDir, Path runDir) throws IOException {
-		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
-		new ConsoleReporter().report(report, comparison, workloadStats, powerSource);
-		HtmlReporter htmlReporter = new HtmlReporter();
-		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource, runDir);
-		getLog().info("[greener] HTML report: " + htmlReport);
-
-		RunEntryStore runEntryStore = new RunEntryStore();
-		AggregatedRunEntry runEntry = new AggregatedRunEntry(toolName, report, workloadStats, comparison);
-		runEntryStore.save(runEntry, runDir.resolve(RunEntryStore.RUN_ENTRY_FILE));
-
-		List<AggregatedRunEntry> allEntries = runEntryStore.loadAll(effectiveReportDir);
-		if (allEntries.size() > 1) {
-			Path aggregatedReport = htmlReporter.generateAggregatedReport(allEntries, powerSource, effectiveReportDir);
-			getLog().info("[greener] Aggregated report (" + allEntries.size() + " runs): " + aggregatedReport);
-		}
-		return htmlReport;
 	}
 
 	private void handleRegression(ComparisonResult comparison, Path htmlReport) throws MojoFailureException {
@@ -542,12 +475,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			throw new MojoExecutionException("Spring Boot jar not found: " + springBootJar
 					+ ". Run 'mvn package' first or set <springBootJar> explicitly.");
 		}
-		if (measureDurationSeconds <= 0) {
-			throw new MojoExecutionException("measureDurationSeconds must be > 0");
+		try {
+			PluginDefaults.validateMeasureDuration(measureDurationSeconds);
+			PluginDefaults.validateExternalScript(externalTrainingScriptFile);
 		}
-		if (externalTrainingScriptFile != null && !externalTrainingScriptFile.exists()) {
-			throw new MojoExecutionException(
-					"Configured externalTrainingScriptFile does not exist: " + externalTrainingScriptFile);
+		catch (IllegalArgumentException e) {
+			throw new MojoExecutionException(e.getMessage());
 		}
 	}
 

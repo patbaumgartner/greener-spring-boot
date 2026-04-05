@@ -1,15 +1,14 @@
 name: Validate Workload Examples
 
-# Installs every supported load-testing tool, runs its run.sh script against a
-# live Spring Petclinic instance, and publishes a per-tool Markdown report as a
-# GitHub Actions job summary and a downloadable workflow artifact.
+# Installs every supported load-testing tool, runs its run.sh against a live
+# Spring Petclinic instance, and publishes per-tool Markdown reports.
 #
-# Tools covered: oha | wrk | wrk2 | k6 | ab | bombardier | locust | gatling
-#
-# Durations are short by default (WARMUP=5s, MEASURE=15s) so the whole workflow
-# finishes in a few minutes.  Use workflow_dispatch inputs to run longer tests.
+# ── Tools ─────────────────────────────────────────────────────────────────────
+# oha | wrk | wrk2 | k6 | ab | bombardier | locust | gatling
 #
 # ── Trigger ───────────────────────────────────────────────────────────────────
+# Runs after CI succeeds on main, on every PR, or manually via workflow_dispatch.
+
 on:
   workflow_dispatch:
     inputs:
@@ -52,6 +51,7 @@ jobs:
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     strategy:
@@ -61,11 +61,11 @@ jobs:
 
     steps:
 
-      # ── 1. Source checkout ───────────────────────────────────────────────────
+      # ── 1. Source checkout ──────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      # ── 2. Java (needed for Petclinic and Gatling) ───────────────────────────
+      # ── 2. Java (needed for Petclinic and Gatling) ──────────────────────────
       - name: Set up Java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -73,7 +73,7 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # ── 3. Build Spring Petclinic ────────────────────────────────────────────
+      # ── 3. Build Spring Petclinic ───────────────────────────────────────────
       - name: Clone Spring Petclinic ${{ env.PETCLINIC_VERSION }}
         run: |
           git clone --depth 1 --branch ${{ env.PETCLINIC_VERSION }} \
@@ -84,7 +84,7 @@ jobs:
         working-directory: /tmp/spring-petclinic
         run: mvn --batch-mode --no-transfer-progress package -DskipTests
 
-      # ── 4. Install the tool under test ───────────────────────────────────────
+      # ── 4. Install the tool under test ──────────────────────────────────────
 
       - name: Install oha ${{ env.OHA_VERSION }}
         if: matrix.tool == 'oha'
@@ -176,7 +176,7 @@ jobs:
         if: matrix.tool == 'gatling'
         run: echo "TOOL_VERSION=Gatling ${{ env.GATLING_VERSION }} (auto-downloaded)" >> "$GITHUB_ENV"
 
-      # ── 5. Start Spring Petclinic ────────────────────────────────────────────
+      # ── 5. Start Spring Petclinic ───────────────────────────────────────────
       - name: Start Spring Petclinic
         run: |
           JAR=$(find /tmp/spring-petclinic/target -name "*.jar" ! -name "*-sources.jar" | head -1)
@@ -206,7 +206,7 @@ jobs:
           done
           echo "✅ Petclinic is ready (after $((ATTEMPTS * 2)) s)"
 
-      # ── 6. Run the workload script ───────────────────────────────────────────
+      # ── 6. Run the workload script ──────────────────────────────────────────
       #
       # continue-on-error: true — a failing tool does not abort the job; the
       # outcome is captured via steps.run-tool.outcome and included in the report.
@@ -234,12 +234,12 @@ jobs:
           set -o pipefail
           bash "${SCRIPT}" 2>&1 | tee /tmp/tool-output-${{ matrix.tool }}.txt
 
-      # ── 7. Cleanup ───────────────────────────────────────────────────────────
+      # ── 7. Cleanup ──────────────────────────────────────────────────────────
       - name: Stop Spring Petclinic
         if: always()
         run: kill "${PETCLINIC_PID}" 2>/dev/null || true
 
-      # ── 8. Generate per-tool Markdown report ─────────────────────────────────
+      # ── 8. Generate per-tool Markdown report ────────────────────────────────
       - name: Generate report
         if: always()
         run: |
@@ -285,7 +285,7 @@ jobs:
           # Preview in the Actions log
           cat "${REPORT}"
 
-      # ── 9. Publish results ───────────────────────────────────────────────────
+      # ── 9. Publish results ──────────────────────────────────────────────────
       - name: Write job summary
         if: always()
         run: cat "/tmp/workload-report-${{ matrix.tool }}.md" >> "$GITHUB_STEP_SUMMARY"
@@ -310,11 +310,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # ── Dashboard: aggregate all per-tool reports into one workflow summary ──────
+  # ── Dashboard: aggregate all per-tool reports into one workflow summary ─────
   dashboard:
     name: Dashboard
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: always()
     permissions:
       contents: read

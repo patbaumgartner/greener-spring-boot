@@ -2,17 +2,21 @@
 
 This document describes all quality gates enforced in the greener-spring-boot project.
 
+---
+
 ## PR / Push Gates (every commit)
 
 | Gate | Tool | Scope | Enforcement |
 |---|---|---|---|
 | **Unit tests** | JUnit Jupiter + AssertJ | core, maven-plugin, gradle-plugin | `mvn verify` / `./gradlew build` - build fails on test failure |
-| **Code coverage** | JaCoCo | core | `jacoco:check` - minimum 50% line coverage |
-| **Code formatting** | Spring Java Format | all Maven modules | Enforced via `spring-javaformat-maven-plugin` |
-| **SpotBugs** | SpotBugs Maven Plugin | core | `spotbugs:check` - high-confidence bugs fail build |
-| **PMD** | PMD Maven Plugin | core | `pmd:check` - best practices + error-prone rules |
-| **OpenRewrite** | rewrite-maven-plugin | all Maven modules | `rewrite:dryRun` - prevents code quality drift |
+| **Code coverage** | JaCoCo | core, maven-plugin, gradle-plugin | `jacoco:check` - minimum 50% line coverage for core, 30% for maven-plugin, 35% for gradle-plugin |
+| **Code formatting** | Spring Java Format | all modules | `spring-javaformat:validate` (Maven) / `checkFormat` (Gradle) - build fails on violations |
+| **SpotBugs** | SpotBugs | core, gradle-plugin | `spotbugs:check` - high-confidence bugs fail build (effort=Max, threshold=High) |
+| **PMD** | PMD | core, gradle-plugin | `pmd:check` / `pmdMain` - best practices + error-prone rules |
+| **OpenRewrite** | OpenRewrite | all modules | `rewrite:dryRun` (Maven) / `rewriteDryRun` (Gradle) - prevents code quality drift |
 | **Security scanning** | CodeQL | all modules | `security-and-quality` query suite via GitHub Actions |
+
+---
 
 ## On-demand Gates
 
@@ -34,6 +38,8 @@ mvn -pl greener-spring-boot-core test-compile exec:java \
 
 Benchmarks cover: `ExternalToolOutputParser` (oha, wrk, k6 parsing) and `EnergyComparator`.
 
+---
+
 ## CI Workflow Matrix
 
 | Workflow | Trigger | Gates Executed |
@@ -45,12 +51,16 @@ Benchmarks cover: `ExternalToolOutputParser` (oha, wrk, k6 parsing) and `EnergyC
 | `validate-workloads.yml` | dispatch, workflow_run, PR | All workload tool smoke tests |
 | `release.yml` | manual dispatch | Snapshot or release deployment |
 
+---
+
 ## Adding New Gates
 
 1. Add the plugin to the parent `pom.xml` under `<pluginManagement>`.
 2. Configure execution in the module-level `pom.xml` (e.g., `greener-spring-boot-core/pom.xml`).
 3. Add a CI step in `.github/workflows/ci.yml` to run the gate.
 4. Update this document.
+
+---
 
 ## Contributor Note: Java Version Requirements
 

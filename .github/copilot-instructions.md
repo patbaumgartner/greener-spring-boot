@@ -21,6 +21,7 @@ power samples, compare against a stored baseline, and generate console + HTML re
 ```
 com.patbaumgartner.greener.core
 ├── baseline/        BaselineManager - load / save energy-baseline.json
+│                    RunEntryStore - persist / load AggregatedRunEntry JSON files
 ├── comparator/      EnergyComparator - diff report vs baseline
 ├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults
 ├── downloader/      JoularCoreDownloader - auto-download Joular Core binaries
@@ -28,6 +29,8 @@ com.patbaumgartner.greener.core
 │                    ComparisonResult, WorkloadStats, AggregatedRunEntry,
 │                    PowerSource (enum)
 ├── reader/          JoularCoreResultReader, JoularJxResultReader
+├── orchestrator/    MeasurementOrchestrator - coordinates warmup, measurement,
+│                    result processing, baseline comparison, and report generation
 ├── reporter/        ConsoleReporter, HtmlReporter
 └── runner/          ApplicationRunner, JoularCoreRunner, TrainingRunner,
                      ExternalToolOutputParser
@@ -42,6 +45,11 @@ com.patbaumgartner.greener.core
   `buildTimestampedDir(Path)`, and `createLatestLink(Path, String)`.
 - **`BaselineManager`** - saves/loads `EnergyBaseline` JSON files and discovers
   the most recent report via `discoverLatestReport(Path)`.
+- **`RunEntryStore`** - persists and loads `AggregatedRunEntry` JSON files so that
+  multi-tool simulation runs can be collected into a single aggregated report.
+- **`MeasurementOrchestrator`** - shared measurement workflow used by both Maven
+  and Gradle plugins; coordinates warmup, measurement, result processing, baseline
+  comparison, and report generation.
 - **`PowerSource`** - enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
   with `detect(boolean vmMode)` and `fromString(String)`.
 - **`ExternalToolOutputParser`** - extracts request counts from stdout of
@@ -67,8 +75,8 @@ cd greener-spring-boot-gradle-plugin && ./gradlew build --no-daemon
 ## Coding Conventions
 
 - **Java 17** - use records, sealed classes, pattern matching where appropriate.
-- **Spring Java Format** - the formatter is enforced via `spring-javaformat-maven-plugin`.
-  Use tab-based indentation consistent with the formatter output.
+- **Spring Java Format** - enforced in CI via `spring-javaformat:validate` (Maven) and
+  `checkFormat` (Gradle). Use tab-based indentation consistent with the formatter output.
 - **Builder-style setters** - configuration classes (`JoularCoreConfig`, `TrainingConfig`)
   use fluent `return this` setters, not JavaBean setters.
 - **Records for value objects** - `EnergyBaseline`, `EnergyMeasurement`, `EnergyReport`,
