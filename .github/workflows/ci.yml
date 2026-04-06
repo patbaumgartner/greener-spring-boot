@@ -48,10 +48,10 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress spring-javaformat:validate
 
       - name: Run SpotBugs
-        run: mvn --batch-mode --no-transfer-progress spotbugs:check -pl greener-spring-boot-core
+        run: mvn --batch-mode --no-transfer-progress spotbugs:check -pl greener-spring-boot-core,greener-spring-boot-maven-plugin
 
       - name: Run PMD
-        run: mvn --batch-mode --no-transfer-progress pmd:check -pl greener-spring-boot-core
+        run: mvn --batch-mode --no-transfer-progress pmd:check -pl greener-spring-boot-core,greener-spring-boot-maven-plugin
 
       - name: OpenRewrite dry-run
         run: mvn --batch-mode --no-transfer-progress rewrite:dryRun

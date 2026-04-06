@@ -16,6 +16,8 @@ on:
 env:
   # JDK 25 required by Spring Petclinic (Spring Boot 4.x); plugins target Java 17
   JAVA_VERSION: "25"
+  # Keep GREENER_VERSION in sync with the root pom.xml <version> field.
+  GREENER_VERSION: "0.2.0-SNAPSHOT"
   PETCLINIC_VERSION: "main"
   JOULAR_CORE_VERSION: "0.0.1-alpha-11"
   MEASURE_SECONDS: "60"
@@ -113,7 +115,7 @@ jobs:
           fi
 
           mvn --batch-mode --no-transfer-progress \
-            com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
+            com.patbaumgartner:greener-spring-boot-maven-plugin:${{ env.GREENER_VERSION }}:measure \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
             -Dgreener.baseUrl="http://localhost:8080" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
@@ -200,8 +202,9 @@ jobs:
             const powerSource  = process.env.POWER_SOURCE     || 'none';
             const sha          = '${{ github.sha }}'.substring(0, 8);
 
-            const isEstimated  = powerSource === 'ci-estimated';
-            const isSkipped    = powerSource === 'none';
+            const isEstimated    = powerSource === 'ci-estimated';
+            const isSkipped      = powerSource === 'none';
+            const noBaseline     = process.env.BASELINE_AVAILABLE !== 'true';
 
             let sourceNote = '';
             if (isEstimated) {
@@ -216,6 +219,13 @@ jobs:
               sourceNote = '\n> ⚠️ **Energy measurement skipped** — no power source detected.';
             }
 
+            // Prominent banner when no baseline exists — comparison is meaningless without it
+            const noBaselineBanner = noBaseline
+              ? '\n> ⚠️ **No baseline found** — a delta cannot be computed. ' +
+                'Run the [Energy Baseline workflow](../actions/workflows/energy-baseline.yml) ' +
+                'on `main` first, then re-run this PR check.\n'
+              : '';
+
             // Format energy values
             const baselineStr = baseline ? `${baseline} J` : '— _no baseline yet_';
             const currentStr  = isSkipped ? '— skipped' : (current ? `${current} J` : '— _no data_');
@@ -225,6 +235,7 @@ jobs:
             const body = [
               '## ⚡ Energy Consumption Report — greener-spring-boot',
               '',
+              noBaselineBanner,
               '| Metric | Value |',
               '|---|---|',
               `| **Baseline (main)** | ${baselineStr} |`,

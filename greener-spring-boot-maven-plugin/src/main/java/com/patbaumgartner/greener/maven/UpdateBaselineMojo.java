@@ -32,6 +32,7 @@ import java.util.Optional;
  * source control or cached as a CI artifact so that PR builds can compare against it.
  */
 @Mojo(name = "update-baseline", defaultPhase = LifecyclePhase.VERIFY, threadSafe = false)
+@SuppressWarnings("PMD.GuardLogStatement")
 public class UpdateBaselineMojo extends AbstractMojo {
 
 	/**

@@ -11,8 +11,8 @@ This document describes all quality gates enforced in the greener-spring-boot pr
 | **Unit tests** | JUnit Jupiter + AssertJ | core, maven-plugin, gradle-plugin | `mvn verify` / `./gradlew build` - build fails on test failure |
 | **Code coverage** | JaCoCo | core, maven-plugin, gradle-plugin | `jacoco:check` - minimum 50% line coverage for core, 30% for maven-plugin, 35% for gradle-plugin |
 | **Code formatting** | Spring Java Format | all modules | `spring-javaformat:validate` (Maven) / `checkFormat` (Gradle) - build fails on violations |
-| **SpotBugs** | SpotBugs | core, gradle-plugin | `spotbugs:check` - high-confidence bugs fail build (effort=Max, threshold=High) |
-| **PMD** | PMD | core, gradle-plugin | `pmd:check` / `pmdMain` - best practices + error-prone rules |
+| **SpotBugs** | SpotBugs | core, maven-plugin, gradle-plugin | `spotbugs:check` - high-confidence bugs fail build (effort=Max, threshold=High) |
+| **PMD** | PMD | core, maven-plugin, gradle-plugin | `pmd:check` / `pmdMain` - best practices + error-prone rules |
 | **OpenRewrite** | OpenRewrite | all modules | `rewrite:dryRun` (Maven) / `rewriteDryRun` (Gradle) - prevents code quality drift |
 | **Security scanning** | CodeQL | all modules | `security-and-quality` query suite via GitHub Actions |
 

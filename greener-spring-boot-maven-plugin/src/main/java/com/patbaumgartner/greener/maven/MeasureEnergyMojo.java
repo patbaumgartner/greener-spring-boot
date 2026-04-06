@@ -74,6 +74,7 @@ import java.io.IOException;
  * }</pre>
  */
 @Mojo(name = "measure", defaultPhase = LifecyclePhase.INTEGRATION_TEST, threadSafe = false)
+@SuppressWarnings({ "PMD.AvoidDuplicateLiterals", "PMD.GuardLogStatement" })
 public class MeasureEnergyMojo extends AbstractMojo {
 
 	// ---- Application ----
@@ -336,7 +337,8 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		Process appProcess = startApplication(appRunner, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
-		WorkloadStats workloadStats = null;
+		WorkloadStats workloadStats = null; // NOPMD - required for definite assignment;
+											// used after the try-finally
 
 		try {
 			// 4. Wait for startup
@@ -452,10 +454,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	}
 
 	private TrainingConfig buildTrainingConfig() {
-		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl)
-			.requestsPerSecond(requestsPerSecond)
-			.warmupDurationSeconds(warmupDurationSeconds)
-			.measureDurationSeconds(measureDurationSeconds);
+		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl).requestsPerSecond(requestsPerSecond);
 
 		if (externalTrainingScriptFile != null && externalTrainingScriptFile.exists()) {
 			config.externalScriptFile(externalTrainingScriptFile.getAbsolutePath());
@@ -480,7 +479,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			PluginDefaults.validateExternalScript(externalTrainingScriptFile);
 		}
 		catch (IllegalArgumentException e) {
-			throw new MojoExecutionException(e.getMessage());
+			throw new MojoExecutionException(e.getMessage(), e);
 		}
 	}
 
@@ -501,7 +500,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 		catch (IllegalStateException e) {
 			throw new MojoExecutionException(
-					e.getMessage() + ". Run 'mvn package' first or set <springBootJar> explicitly.");
+					e.getMessage() + ". Run 'mvn package' first or set <springBootJar> explicitly.", e);
 		}
 	}
 

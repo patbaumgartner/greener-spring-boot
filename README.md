@@ -19,6 +19,9 @@
 
 ## Quickstart
 
+> **Stable release**: use version `0.1.0` (available on Maven Central). The examples below show `0.2.0-SNAPSHOT`
+> which is the current development version — it requires [building locally](CONTRIBUTING.md#building-the-project) first.
+
 ### Maven
 
 ```xml
