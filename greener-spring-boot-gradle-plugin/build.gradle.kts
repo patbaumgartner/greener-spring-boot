@@ -17,6 +17,7 @@ group = "com.patbaumgartner"
 val coreVersion: String by project
 val junitBomVersion: String by project
 val assertjVersion: String by project
+val mockitoVersion: String by project
 val rewriteStaticAnalysisVersion: String by project
 val jacocoVersion: String by project
 val pmdVersion: String by project
@@ -40,6 +41,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.assertj:assertj-core:$assertjVersion")
+    testImplementation("org.mockito:mockito-junit-jupiter:$mockitoVersion")
     rewrite("org.openrewrite.recipe:rewrite-static-analysis:$rewriteStaticAnalysisVersion")
 }
 

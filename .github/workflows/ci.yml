@@ -44,8 +44,8 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress clean verify
 
       # ── 4. Static analysis ──────────────────────────────────────────────────
-      - name: Validate Spring Java Format
-        run: mvn --batch-mode --no-transfer-progress spring-javaformat:validate
+      # Note: spring-javaformat:validate is already bound to the validate phase
+      # and runs as part of `mvn verify` above — no separate step needed.
 
       - name: Run SpotBugs
         run: mvn --batch-mode --no-transfer-progress spotbugs:check -pl greener-spring-boot-core,greener-spring-boot-maven-plugin

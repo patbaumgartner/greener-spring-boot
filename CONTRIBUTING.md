@@ -51,6 +51,13 @@ Please report unacceptable behaviour to the maintainers.
 2. Make your changes (see the sections below).
 3. Open a pull request against `main` and fill in the PR template.
 
+### Good first issues
+
+New to the project? Look for issues tagged
+[`good first issue`](https://github.com/patbaumgartner/greener-spring-boot/labels/good%20first%20issue)
+or [`help wanted`](https://github.com/patbaumgartner/greener-spring-boot/labels/help%20wanted) —
+these are intentionally scoped to be approachable for first-time contributors.
+
 ---
 
 ## Development setup

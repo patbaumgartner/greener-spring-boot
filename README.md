@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-green)](https://spring.io/projects/spring-boot)
-[![Maven Central](https://img.shields.io/badge/Maven%20Central-0.1.0-orange)](https://central.sonatype.com/)
+[![Maven Central](https://img.shields.io/maven-central/v/com.patbaumgartner/greener-spring-boot-maven-plugin)](https://central.sonatype.com/artifact/com.patbaumgartner/greener-spring-boot-maven-plugin)
 [![GitHub issues](https://img.shields.io/github/issues/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/issues)
 [![GitHub stars](https://img.shields.io/github/stars/patbaumgartner/greener-spring-boot)](https://github.com/patbaumgartner/greener-spring-boot/stargazers)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -19,8 +19,9 @@
 
 ## Quickstart
 
-> **Stable release**: use version `0.1.0` (available on Maven Central). The examples below show `0.2.0-SNAPSHOT`
-> which is the current development version — it requires [building locally](CONTRIBUTING.md#building-the-project) first.
+> [!WARNING]
+> The examples below use `0.2.0-SNAPSHOT` (current development version). To use a stable release,
+> replace it with `0.1.0` — available on Maven Central and ready to use without building locally.
 
 ### Maven
 

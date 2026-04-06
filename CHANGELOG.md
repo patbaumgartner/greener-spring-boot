@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scaphandre Windows installer link in README hardware requirements
 - Simulation scripts section in README "Supported CI systems"
 - Changelog and versioning instructions in copilot-instructions.md
+- Post-release version bump step in `release.yml` to automatically commit the next
+  `-SNAPSHOT` version after a release, preventing manual bookkeeping mistakes
+- `good first issue` and `help wanted` guidance in CONTRIBUTING.md to help new contributors
+  find entry points
+- Mockito test dependency to Gradle plugin (`mockito-junit-jupiter`) for parity with Maven modules
 
 ### Changed
 
@@ -39,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `update-baseline` calls
 - Expanded "Supported CI systems" table in README with GitLab CI and Jenkins rows
 - `baseUrl` and `requestsPerSecond` parameter descriptions clarified as env vars for external scripts
+- README quickstart snapshot warning replaced with a prominent GitHub-rendered `[!WARNING]` alert
+- Maven Central badge in README switched from a hardcoded static badge to a dynamic version badge
+- Redundant `spring-javaformat:validate` CI step removed (already runs as part of `mvn verify`)
+- `SECURITY.md` supported versions table updated to list only released versions
 
 ### Removed
 
