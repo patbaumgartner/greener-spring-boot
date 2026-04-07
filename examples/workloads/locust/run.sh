@@ -54,9 +54,10 @@ SCRIPT="$(dirname "$0")/locustfile.py"
 USERS="${RPS}"
 SPAWN_RATE="${RPS}"   # ramp up all users in 1 second
 
+export APP_URL RPS
+
 if [ "${WARMUP_SECONDS}" -gt 0 ]; then
     echo "=== Locust: warmup ${WARMUP_SECONDS}s — ${USERS} users at ${RPS} req/s ==="
-    APP_URL="${APP_URL}" RPS="${RPS}" \
     locust --headless \
         --locustfile "${SCRIPT}" \
         --host "${APP_URL}" \
@@ -69,7 +70,6 @@ fi
 
 if [ "${MEASURE_SECONDS}" -gt 0 ]; then
     echo "=== Locust: measurement ${MEASURE_SECONDS}s — ${USERS} users at ${RPS} req/s ==="
-    APP_URL="${APP_URL}" RPS="${RPS}" \
     locust --headless \
         --locustfile "${SCRIPT}" \
         --host "${APP_URL}" \

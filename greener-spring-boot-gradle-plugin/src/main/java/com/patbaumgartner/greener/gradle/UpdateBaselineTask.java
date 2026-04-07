@@ -21,6 +21,7 @@ import org.gradle.api.provider.ProviderFactory;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -108,10 +109,10 @@ public abstract class UpdateBaselineTask extends DefaultTask {
 
 	/**
 	 * Promotes the most recent measurement as the new energy baseline.
-	 * @throws Exception if the baseline cannot be loaded or saved
+	 * @throws IOException if the baseline cannot be loaded or saved
 	 */
 	@TaskAction
-	public void updateBaseline() throws Exception {
+	public void updateBaseline() throws IOException {
 		if (getSkip().get()) {
 			getLogger().lifecycle("[greener] updateEnergyBaseline skipped (skip=true)");
 			return;
