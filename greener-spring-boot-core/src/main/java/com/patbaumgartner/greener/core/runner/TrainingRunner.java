@@ -183,11 +183,14 @@ public class TrainingRunner {
 	 * for Windows installation directories.
 	 */
 	private String findWindowsShell() throws IOException {
-		// 1. Check well-known POSIX shell locations on Windows (Git Bash, MSYS2)
-		String[] posixShells = { System.getenv("SystemRoot") + "\\System32\\bash.exe",
-				"C:\\Program Files\\Git\\bin\\sh.exe", "C:\\Program Files (x86)\\Git\\bin\\sh.exe" };
-		for (String shell : posixShells) {
-			if (shell != null && Files.isExecutable(Path.of(shell))) {
+		// 1. Check Git for Windows / MSYS2 sh.exe — preferred because it shares the
+		// Windows PATH and filesystem so tools installed on the host are visible.
+		// Note: System32\bash.exe is deliberately excluded because it launches WSL,
+		// which runs in a separate Linux environment where host-installed tools
+		// (oha, wrk, etc.) are not available.
+		String[] gitShells = { "C:\\Program Files\\Git\\bin\\sh.exe", "C:\\Program Files (x86)\\Git\\bin\\sh.exe" };
+		for (String shell : gitShells) {
+			if (Files.isExecutable(Path.of(shell))) {
 				return shell;
 			}
 		}
@@ -291,7 +294,7 @@ public class TrainingRunner {
 			URI uri = URI.create(baseUrl);
 			return uri.getHost() != null ? uri.getHost() : "localhost";
 		}
-		catch (Exception e) {
+		catch (IllegalArgumentException e) {
 			return "localhost";
 		}
 	}
@@ -304,7 +307,7 @@ public class TrainingRunner {
 				return String.valueOf(port);
 			return "http".equals(uri.getScheme()) ? "80" : "443";
 		}
-		catch (Exception e) {
+		catch (IllegalArgumentException e) {
 			return "8080";
 		}
 	}

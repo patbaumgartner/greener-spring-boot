@@ -64,12 +64,6 @@ WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 RPS="${RPS:-50}"
 
-PATHS="/
-/owners
-/owners?lastName=
-/vets.html
-/actuator/health"
-
 if [ "${WARMUP_SECONDS}" -gt 0 ]; then
     echo "=== oha: warmup ${WARMUP_SECONDS}s at ${RPS} req/s ==="
     oha --no-tui \

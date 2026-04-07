@@ -34,8 +34,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Gradle task that measures the energy consumption of a Spring Boot application using
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>.
+ * Gradle task that measures the energy consumption of a Spring Boot application
+ * using
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular
+ * Core</a>.
  *
  * <p>
  * This task mirrors the Maven {@code greener:measure} goal.
@@ -46,6 +48,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Gets the project layout.
+	 * 
 	 * @return the project layout
 	 */
 	@Inject
@@ -53,14 +56,17 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Gets the provider factory.
+	 * 
 	 * @return the provider factory
 	 */
 	@Inject
 	protected abstract ProviderFactory getProviders();
 
 	/**
-	 * Path to the executable Spring Boot fat-jar. When omitted the task auto-detects a
+	 * Path to the executable Spring Boot fat-jar. When omitted the task
+	 * auto-detects a
 	 * single jar in {@code build/libs/}.
+	 * 
 	 * @return the Spring Boot jar property
 	 */
 	@InputFile
@@ -70,6 +76,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Additional JVM arguments passed when starting the Spring Boot process.
+	 * 
 	 * @return the JVM arguments property
 	 */
 	@Input
@@ -78,6 +85,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Additional application arguments passed to the Spring Boot process.
+	 * 
 	 * @return the application arguments property
 	 */
 	@Input
@@ -86,6 +94,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Full path to the Joular Core binary (optional; auto-downloaded when absent).
+	 * 
 	 * @return the Joular Core binary path property
 	 */
 	@InputFile
@@ -94,9 +103,12 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract RegularFileProperty getJoularCoreBinaryPath();
 
 	/**
-	 * Joular Core release version to download when {@link #getJoularCoreBinaryPath()} is
-	 * not set. See <a href="https://github.com/joular/joularcore/releases">Joular Core
+	 * Joular Core release version to download when
+	 * {@link #getJoularCoreBinaryPath()} is
+	 * not set. See <a href="https://github.com/joular/joularcore/releases">Joular
+	 * Core
 	 * releases</a> for available versions.
+	 * 
 	 * @return the Joular Core version property
 	 */
 	@Input
@@ -104,20 +116,47 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Hardware component to monitor: {@code cpu}, {@code gpu}, or {@code all}.
+	 * 
 	 * @return the Joular Core component property
 	 */
 	@Input
 	public abstract Property<String> getJoularCoreComponent();
 
 	/**
+	 * Path to the JoularJX Java agent jar. When set, the agent is attached to the
+	 * Spring
+	 * Boot JVM via {@code -javaagent:} for per-method energy monitoring.
+	 * 
+	 * @return the JoularJX agent path property
+	 */
+	@InputFile
+	@PathSensitive(PathSensitivity.ABSOLUTE)
+	@org.gradle.api.tasks.Optional
+	public abstract RegularFileProperty getJoularJxAgentPath();
+
+	/**
+	 * Path to the JoularJX {@code config.properties} file. Used only when
+	 * {@link #getJoularJxAgentPath()} is also set.
+	 * 
+	 * @return the JoularJX config path property
+	 */
+	@InputFile
+	@PathSensitive(PathSensitivity.ABSOLUTE)
+	@org.gradle.api.tasks.Optional
+	public abstract RegularFileProperty getJoularJxConfigPath();
+
+	/**
 	 * Base URL of the Spring Boot application.
+	 * 
 	 * @return the base URL property
 	 */
 	@Input
 	public abstract Property<String> getBaseUrl();
 
 	/**
-	 * Number of HTTP requests per second (passed as {@code RPS} environment variable).
+	 * Number of HTTP requests per second (passed as {@code RPS} environment
+	 * variable).
+	 * 
 	 * @return the requests per second property
 	 */
 	@Input
@@ -127,6 +166,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 * Optional external command used as the training workload (e.g.
 	 * {@code k6 run script.js}). The {@code APP_URL} environment variable is set to
 	 * {@link #getBaseUrl()}.
+	 * 
 	 * @return the external training command property
 	 */
 	@Input
@@ -138,12 +178,14 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 * precedence over {@link #getExternalTrainingCommand()} when set.
 	 *
 	 * <p>
-	 * Available environment variables in the script: {@code APP_URL}, {@code APP_HOST},
+	 * Available environment variables in the script: {@code APP_URL},
+	 * {@code APP_HOST},
 	 * {@code APP_PORT}, {@code WARMUP_SECONDS}, {@code MEASURE_SECONDS},
 	 * {@code TOTAL_SECONDS}, {@code RPS}.
 	 *
 	 * <p>
 	 * See {@code examples/workloads/} for wrk, wrk2, oha, and Gatling examples.
+	 * 
 	 * @return the external training script file property
 	 */
 	@InputFile
@@ -155,10 +197,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 * Enable Joular Core VM mode.
 	 *
 	 * <p>
-	 * In VM mode Joular Core cannot read RAPL counters directly and instead reads the
+	 * In VM mode Joular Core cannot read RAPL counters directly and instead reads
+	 * the
 	 * VM's total power from a file written by the host - see
-	 * {@link #getVmPowerFilePath()}. The host must write the VM's instantaneous power
+	 * {@link #getVmPowerFilePath()}. The host must write the VM's instantaneous
+	 * power
 	 * (Watts) to that file once per second.
+	 * 
 	 * @return the VM mode property
 	 */
 	@Input
@@ -168,6 +213,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 * Path to the VM power file that Joular Core reads when {@link #getVmMode()} is
 	 * {@code true}. The file must contain a single floating-point number (e.g.
 	 * {@code 45.2}).
+	 * 
 	 * @return the VM power file path property
 	 */
 	@InputFile
@@ -176,8 +222,10 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract RegularFileProperty getVmPowerFilePath();
 
 	/**
-	 * Warmup duration in seconds. The application runs under load during warmup so the
+	 * Warmup duration in seconds. The application runs under load during warmup so
+	 * the
 	 * JIT compiler warms up, but energy data from this phase is discarded.
+	 * 
 	 * @return the warmup duration property
 	 */
 	@Input
@@ -185,6 +233,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Duration in seconds of the actual measurement window after warmup.
+	 * 
 	 * @return the measure duration property
 	 */
 	@Input
@@ -192,6 +241,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Seconds to wait for the application health endpoint before aborting.
+	 * 
 	 * @return the startup timeout property
 	 */
 	@Input
@@ -199,6 +249,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Health-check path used to detect application readiness.
+	 * 
 	 * @return the health check path property
 	 */
 	@Input
@@ -206,6 +257,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Path to the JSON baseline file.
+	 * 
 	 * @return the baseline file property
 	 */
 	@InputFile
@@ -214,8 +266,10 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract RegularFileProperty getBaselineFile();
 
 	/**
-	 * Maximum allowed percentage increase in total energy before the build is failed. For
+	 * Maximum allowed percentage increase in total energy before the build is
+	 * failed. For
 	 * example {@code 10} means a 10 % regression is tolerated.
+	 * 
 	 * @return the threshold property
 	 */
 	@Input
@@ -224,6 +278,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	/**
 	 * When {@code true}, the build is failed if energy consumption regressed beyond
 	 * {@link #getThreshold()}.
+	 * 
 	 * @return the fail on regression property
 	 */
 	@Input
@@ -231,6 +286,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Directory where the HTML report is written.
+	 * 
 	 * @return the report output directory property
 	 */
 	@OutputDirectory
@@ -238,9 +294,11 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract DirectoryProperty getReportOutputDir();
 
 	/**
-	 * When {@code true}, the measurement result is automatically promoted to the baseline
+	 * When {@code true}, the measurement result is automatically promoted to the
+	 * baseline
 	 * after a successful run. This eliminates the need to call
 	 * {@code updateEnergyBaseline} separately.
+	 * 
 	 * @return the auto-update baseline property
 	 */
 	@Input
@@ -248,6 +306,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Git commit SHA to record in the baseline when auto-updating.
+	 * 
 	 * @return the commit SHA property
 	 */
 	@Input
@@ -256,6 +315,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Branch name to record in the baseline when auto-updating.
+	 * 
 	 * @return the branch property
 	 */
 	@Input
@@ -264,8 +324,10 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * When {@code true}, the report output directory gets a timestamp suffix (e.g.
-	 * {@code greener-reports-20260404-153012}) and a {@code latest} symlink is created
+	 * {@code greener-reports-20260404-153012}) and a {@code latest} symlink is
+	 * created
 	 * pointing to the most recent run.
+	 * 
 	 * @return the timestamp reports property
 	 */
 	@Input
@@ -273,6 +335,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * When {@code true}, the task execution is skipped entirely.
+	 * 
 	 * @return the skip property
 	 */
 	@Input
@@ -280,10 +343,11 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Runs the energy measurement workflow.
-	 * @throws Exception if measurement fails
+	 * @throws IOException if an I/O error occurs during measurement
+	 * @throws InterruptedException if the measurement is interrupted
 	 */
 	@TaskAction
-	public void measureEnergy() throws Exception {
+	public void measureEnergy() throws IOException, InterruptedException {
 		if (getSkip().get()) {
 			getLogger().lifecycle("[greener] measureEnergy skipped (skip=true)");
 			return;
@@ -309,7 +373,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		// Start application
 		ApplicationRunner appRunner = new ApplicationRunner();
-		Process appProcess = startApplication(appRunner, springBootJarFile, workingDir);
+		Process appProcess = startApplication(appRunner, springBootJarFile, joularCoreBinary, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats;
@@ -323,13 +387,14 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			try {
 				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
 						() -> buildTrainingConfig(baseUrl), warmup, measure);
-			}
-			finally {
+			} finally {
 				joularCoreRunner.stop();
 			}
 
-		}
-		finally {
+		} finally {
+			if (getJoularJxAgentPath().isPresent()) {
+				appRunner.requestGracefulShutdown(baseUrl);
+			}
 			appRunner.stop(appProcess);
 		}
 
@@ -342,8 +407,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				getThreshold().get(), getAutoUpdateBaseline().get(), getCommitSha().getOrNull(),
 				getBranch().getOrNull());
 
+		// Read JoularJX method-level results (if available)
+		EnergyReport joularJxReport = getJoularJxAgentPath().isPresent()
+				? orchestrator.readJoularJxResults(workingDir, measure)
+				: null;
+
 		Path htmlReport = orchestrator.generateFinalReports(report, comparison, workloadStats, toolName, reportDir,
-				runDir, getVmMode().get());
+				runDir, getVmMode().get(), joularJxReport);
 
 		// Create latest symlink for timestamped reports
 		if (getTimestampReports().get()) {
@@ -351,9 +421,9 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		}
 
 		if (getFailOnRegression().get() && comparison.isFailed()) {
-			throw new GradleException(
-					String.format("Energy regression: %.2f%% increase exceeds threshold %.1f%%. Report: %s",
-							comparison.totalDeltaPercent(), getThreshold().get(), htmlReport));
+			throw new GradleException(String.format(
+					"Energy regression detected: %.2f%% increase exceeds threshold of %.1f%%. " + "See report at: %s",
+					comparison.totalDeltaPercent(), getThreshold().get(), htmlReport));
 		}
 	}
 
@@ -361,8 +431,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		File springBootJarFile;
 		if (getSpringBootJar().isPresent()) {
 			springBootJarFile = getSpringBootJar().get().getAsFile();
-		}
-		else {
+		} else {
 			springBootJarFile = autoDetectSpringBootJar();
 		}
 		if (!springBootJarFile.exists()) {
@@ -380,19 +449,25 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		return reportDir;
 	}
 
-	private Process startApplication(ApplicationRunner appRunner, File springBootJarFile, Path workingDir)
-			throws IOException {
+	private Process startApplication(ApplicationRunner appRunner, File springBootJarFile,
+			Path joularCoreBinary, Path workingDir) throws IOException {
 		getLogger().lifecycle("[greener] Starting application: " + springBootJarFile.getName());
-		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(getAppArgs().getOrNull());
+		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(getAppArgs().getOrNull(),
+				getJoularJxAgentPath().isPresent());
 		List<String> effectiveJvmArgs = getJvmArgs().getOrNull();
-		Process appProcess = appRunner.start(springBootJarFile.toPath(), null, null, workingDir, effectiveJvmArgs,
-				effectiveAppArgs);
+		Path joularJxJar = getJoularJxAgentPath().isPresent() ? getJoularJxAgentPath().get().getAsFile().toPath()
+				: null;
+		Path joularJxConfig = getJoularJxConfigPath().isPresent() ? getJoularJxConfigPath().get().getAsFile().toPath()
+				: null;
+		joularJxConfig = PluginDefaults.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
+		Process appProcess = appRunner.start(springBootJarFile.toPath(), joularJxJar, joularJxConfig, workingDir,
+				effectiveJvmArgs, effectiveAppArgs);
 		getLogger().lifecycle("[greener] Application PID: " + appProcess.pid());
 		return appProcess;
 	}
 
 	private void waitForApplicationReady(ApplicationRunner appRunner, Process appProcess, String baseUrl)
-			throws Exception {
+			throws IOException, InterruptedException {
 		getLogger().lifecycle("[greener] Waiting for health check ...");
 		appRunner.waitForStartup(appProcess, baseUrl, getHealthCheckPath().get(), getStartupTimeoutSeconds().get());
 		getLogger().lifecycle("[greener] Application is ready");
@@ -401,12 +476,12 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	private JoularCoreConfig createJoularCoreConfig(Path joularCoreBinary, long pid, Path outputCsv) {
 		File vmPowerFile = getVmPowerFilePath().isPresent() ? getVmPowerFilePath().get().getAsFile() : null;
 		return new JoularCoreConfig().binaryPath(joularCoreBinary)
-			.pid(pid)
-			.component(getJoularCoreComponent().get())
-			.outputCsvPath(outputCsv)
-			.silent(true)
-			.vmMode(getVmMode().get())
-			.vmPowerFilePath(vmPowerFile != null ? vmPowerFile.toPath() : null);
+				.pid(pid)
+				.component(getJoularCoreComponent().get())
+				.outputCsvPath(outputCsv)
+				.silent(true)
+				.vmMode(getVmMode().get())
+				.vmPowerFilePath(vmPowerFile != null ? vmPowerFile.toPath() : null);
 	}
 
 	private void startJoularCore(JoularCoreRunner runner, JoularCoreConfig config, long pid) throws IOException {
@@ -419,12 +494,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 */
 	private String resolveToolName() {
 		File scriptFile = getExternalTrainingScriptFile().isPresent()
-				? getExternalTrainingScriptFile().get().getAsFile() : null;
+				? getExternalTrainingScriptFile().get().getAsFile()
+				: null;
 		String extCmd = getExternalTrainingCommand().getOrNull();
 		return PluginDefaults.resolveToolName(scriptFile, extCmd);
 	}
 
-	private Path resolveJoularCoreBinary() throws Exception {
+	private Path resolveJoularCoreBinary() throws IOException, InterruptedException {
 		RegularFileProperty binaryProp = getJoularCoreBinaryPath();
 		if (binaryProp.isPresent()) {
 			File f = binaryProp.get().getAsFile();
@@ -447,8 +523,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			File scriptFile = getExternalTrainingScriptFile().get().getAsFile();
 			PluginDefaults.validateExternalScript(scriptFile);
 			config.externalScriptFile(scriptFile.getAbsolutePath());
-		}
-		else {
+		} else {
 			String extCmd = getExternalTrainingCommand().getOrNull();
 			if (extCmd != null && !extCmd.isBlank()) {
 				config.externalCommand(extCmd);
@@ -473,7 +548,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	}
 
 	/**
-	 * Auto-detects the Spring Boot fat-jar in {@code build/libs/}. Looks for a single
+	 * Auto-detects the Spring Boot fat-jar in {@code build/libs/}. Looks for a
+	 * single
 	 * executable jar, excluding sources, javadoc, and test jars.
 	 */
 	private File autoDetectSpringBootJar() {
@@ -487,8 +563,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			}
 			getLogger().lifecycle("[greener] Auto-detected Spring Boot jar: " + jar.get());
 			return jar.get();
-		}
-		catch (IllegalStateException e) {
+		} catch (IllegalStateException e) {
 			throw new GradleException(e.getMessage() + ". Run 'bootJar' first or set springBootJar explicitly.", e);
 		}
 	}

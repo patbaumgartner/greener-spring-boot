@@ -72,6 +72,8 @@ public class GreenerPlugin implements Plugin<Project> {
 			task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
 			task.getJoularCoreVersion().convention(extension.getJoularCoreVersion());
 			task.getJoularCoreComponent().convention(extension.getJoularCoreComponent());
+			task.getJoularJxAgentPath().convention(extension.getJoularJxAgentPath());
+			task.getJoularJxConfigPath().convention(extension.getJoularJxConfigPath());
 			task.getBaseUrl().convention(extension.getBaseUrl());
 			task.getRequestsPerSecond().convention(extension.getRequestsPerSecond());
 			task.getExternalTrainingCommand().convention(extension.getExternalTrainingCommand());

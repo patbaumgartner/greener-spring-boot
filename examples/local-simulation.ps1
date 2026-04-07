@@ -28,7 +28,7 @@
 # Prerequisites:
 #   - Java 17+
 #   - Maven
-#   - git, python3 -- must be on PATH
+#   - git -- must be on PATH
 #   - Rust toolchain (cargo) -- installed automatically via rustup if missing
 #   - oha -- downloaded automatically if missing
 #
@@ -124,6 +124,8 @@ if (-not (Test-Path $WorkDir)) {
     New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
 }
 
+Ok "All preflight checks passed"
+
 # -- Baseline management -------------------------------------------------------
 if ($env:RESET_BASELINES -eq "true" -and (Test-Path $BaselineFile)) {
     Info "RESET_BASELINES=true -- removing stored baseline"
@@ -165,7 +167,7 @@ Banner "Detecting power source"
 
 $PowerSource = "none"
 
-# Check for Hubblo's RAPL driver (ScaphandreDrv) — enables direct RAPL reading
+# Check for Hubblo's RAPL driver (ScaphandreDrv) -- enables direct RAPL reading
 $RaplDriverRunning = $false
 try {
     $svc = sc.exe query ScaphandreDrv 2>$null
@@ -296,6 +298,35 @@ if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
 }
 # When PowerSource is "rapl", no VM flags are needed -- Joular Core reads RAPL directly
 
+# -- Ensure oha is available ---------------------------------------------------
+Banner "Preparing oha (HTTP load generator)"
+
+$OhaVersion  = if ($env:OHA_VERSION) { $env:OHA_VERSION } else { "1.14.0" }
+$OhaCacheDir = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "oha"
+$OhaBinary   = Join-Path $OhaCacheDir "oha.exe"
+
+if (Get-Command oha -ErrorAction SilentlyContinue) {
+    Ok "oha found on PATH: $((Get-Command oha).Source)"
+} elseif (Test-Path $OhaBinary) {
+    Ok "oha found in cache: $OhaBinary"
+    $env:PATH = "$OhaCacheDir;$env:PATH"
+} else {
+    if (-not (Test-Path $OhaCacheDir)) {
+        New-Item -ItemType Directory -Path $OhaCacheDir -Force | Out-Null
+    }
+    $OhaUrl = "https://github.com/hatoo/oha/releases/download/v${OhaVersion}/oha-windows-amd64.exe"
+    Info "Downloading oha from $OhaUrl ..."
+    try {
+        Invoke-WebRequest -Uri $OhaUrl -OutFile $OhaBinary -UseBasicParsing
+        Ok "oha downloaded and cached."
+    } catch {
+        throw ("Failed to download oha $OhaVersion.`n" +
+               "Download it manually from: https://github.com/hatoo/oha/releases`n" +
+               "Place it at: $OhaBinary")
+    }
+    $env:PATH = "$OhaCacheDir;$env:PATH"
+}
+
 # -- Run 1: Baseline measurement ----------------------------------------------
 Banner "RUN 1 - BASELINE"
 
@@ -362,7 +393,7 @@ try {
 Banner "RESULTS - Baseline vs Comparison"
 
 $baseline   = Get-Content $BaselineFile -Raw | ConvertFrom-Json
-$comparison = Get-Content (Join-Path $ReportsComparison "oha" "latest-energy-report.json") -Raw | ConvertFrom-Json
+$comparison = Get-Content (Join-Path (Join-Path $ReportsComparison "oha") "latest-energy-report.json") -Raw | ConvertFrom-Json
 
 $bEnergy = $baseline.report.totalEnergyJoules
 $cEnergy = $comparison.report.totalEnergyJoules
