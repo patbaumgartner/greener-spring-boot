@@ -1,50 +1,44 @@
-﻿# local-simulation.ps1
+# joularjx-simulation.ps1
 #
-# Simulates the full energy-measurement workflow on your local machine (Windows):
+# Demonstrates how to use JoularJX (method-level energy monitoring) together
+# with the greener-spring-boot Maven plugin and Joular Core (process-level).
 #
-#   1. Build greener-spring-boot plugins + Spring Petclinic
-#   2. Run a baseline measurement  -> save as baseline JSON
-#   3. Run a second measurement    -> compare against the baseline
+# JoularJX is an optional Java agent that provides **per-method** energy
+# granularity on top of Joular Core.  When attached to the Spring Boot JVM,
+# it writes CSV files to joularjx-result/ while Joular Core still provides
+# the process-level energy data used by the greener plugin reports.
 #
-# Both measurements happen on the same machine under identical conditions,
-# so the comparison shows how reproducible the results are (expected delta ~ 0 %).
+# What this script does:
+#   1. Build greener-spring-boot plugins + Spring Petclinic.
+#   2. Download JoularJX agent JAR (if not cached).
+#   3. Generate a config.properties for JoularJX.
+#   4. Run the greener:measure goal with JoularJX attached as a -javaagent.
+#   5. Display JoularJX per-method energy results alongside the greener report.
 #
-# Baseline behaviour:
-#   - The baseline is stored at WORK_DIR\energy-baseline.json.
-#   - Run 1 creates the baseline; Run 2 compares against it.
-#   - Set RESET_BASELINES=true to delete the stored baseline before Run 1.
-#
-# Report history:
-#   - Each invocation creates timestamped report directories
-#     (e.g. greener-reports-baseline-20260404-153012\) so previous runs
-#     are preserved.
-#   - A "latest" copy is maintained for convenience.
-#
-# Power source auto-detection (Windows):
-#   1. Hubblo RAPL driver (ScaphandreDrv) -- direct hardware RAPL reading
-#   2. CPU x TDP estimation via Win32_Processor.LoadPercentage
-#   3. VM power file   -- set VM_POWER_FILE env var to a file path
+# The greener plugin still produces its own process-level HTML/console report.
+# JoularJX adds method-level CSV files under joularjx-result/ so you can
+# identify which Spring Boot methods consume the most energy.
 #
 # Prerequisites:
 #   - Java 17+
 #   - Maven
 #   - git -- must be on PATH
-#   - Rust toolchain (cargo) -- installed automatically via rustup if missing
 #   - oha -- downloaded automatically if missing
 #
 # Usage:
-#   .\examples\local-simulation.ps1
+#   .\examples\joularjx-simulation.ps1
 #
 # Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
 #   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULARJX_VERSION       JoularJX release tag            (default: 3.1.0)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
 #   TDP_WATTS              TDP for CPU estimation          (default: 100)
 #   VM_POWER_FILE          VM power file path              (default: unset)
-#   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-local-sim)
-#   RESET_BASELINES        Delete stored baseline first    (default: unset)
+#   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-joularjx-sim)
+#   FILTER_METHODS         JoularJX method filter          (default: org.springframework.samples.petclinic)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -55,11 +49,13 @@ $ErrorActionPreference = "Stop"
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
 $JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
+$JoularJxVersion    = if ($env:JOULARJX_VERSION)    { $env:JOULARJX_VERSION }    else { "3.1.0" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
 $TdpWatts           = if ($env:TDP_WATTS)            { $env:TDP_WATTS }            else { "100" }
-$WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-local-sim" }
+$WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-joularjx-sim" }
+$FilterMethods      = if ($env:FILTER_METHODS)       { $env:FILTER_METHODS }       else { "org.springframework.samples.petclinic" }
 
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
@@ -71,10 +67,10 @@ if (-not $Branch)    { $Branch = "unknown" }
 $PetclinicDir      = Join-Path $WorkDir "spring-petclinic"
 $BaselineFile      = Join-Path $WorkDir "energy-baseline.json"
 $RunTimestamp       = Get-Date -Format "yyyyMMdd-HHmmss"
-$ReportsBaseline   = Join-Path $WorkDir "greener-reports-baseline-$RunTimestamp"
-$ReportsComparison = Join-Path $WorkDir "greener-reports-comparison-$RunTimestamp"
+$ReportsDir        = Join-Path $WorkDir "greener-reports-joularjx-$RunTimestamp"
 $CiPowerFile       = Join-Path $WorkDir "ci-power.txt"
 $JoularCacheDir    = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "joularcore"
+$JoularJxCacheDir  = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "joularjx"
 
 $CiEstimatorJob = $null
 
@@ -125,12 +121,6 @@ if (-not (Test-Path $WorkDir)) {
 }
 
 Ok "All preflight checks passed"
-
-# -- Baseline management -------------------------------------------------------
-if ($env:RESET_BASELINES -eq "true" -and (Test-Path $BaselineFile)) {
-    Info "RESET_BASELINES=true -- removing stored baseline"
-    Remove-Item $BaselineFile -Force
-}
 
 # -- Build greener-spring-boot plugins -----------------------------------------
 Banner "Building greener-spring-boot plugins"
@@ -210,7 +200,7 @@ if ($PowerSource -eq "ci-estimated") {
     }
 }
 
-# -- Joular Core --------------------------------------------------------------
+# -- Joular Core ---------------------------------------------------------------
 Banner "Preparing Joular Core $JoularCoreVersion"
 
 $JoularCoreBinary = Join-Path $JoularCacheDir "joularcore-windows-x86_64.exe"
@@ -222,7 +212,6 @@ if (Test-Path $JoularCoreBinary) {
         New-Item -ItemType Directory -Path $JoularCacheDir -Force | Out-Null
     }
 
-    # Try downloading a prebuilt binary from GitHub Releases first
     $AssetName = "joularcore-windows-x86_64.exe"
     $DownloadUrl = "https://github.com/joular/joularcore/releases/download/$JoularCoreVersion/$AssetName"
     Info "Downloading Joular Core from $DownloadUrl ..."
@@ -237,14 +226,12 @@ if (Test-Path $JoularCoreBinary) {
     }
 
     if (-not $Downloaded) {
-        # Ensure MinGW build tools are available (needed by the GNU Rust target)
         $HasMinGW = (Get-Command dlltool -ErrorAction SilentlyContinue) -and
                     (Get-Command gcc -ErrorAction SilentlyContinue)
         if (-not $HasMinGW) {
             if (Get-Command choco -ErrorAction SilentlyContinue) {
                 Info "MinGW-w64 not found -- installing via Chocolatey..."
                 & choco install mingw -y --no-progress | Out-Null
-                # Refresh PATH so gcc/dlltool are visible
                 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                             [System.Environment]::GetEnvironmentVariable("PATH", "User")
                 $HasMinGW = (Get-Command dlltool -ErrorAction SilentlyContinue) -and
@@ -270,10 +257,8 @@ if (Test-Path $JoularCoreBinary) {
             $env:PATH = "$cargoBin;$env:PATH"
             Ok "Rust toolchain installed: $(cargo --version)"
         } else {
-            # Ensure existing Rust installation uses the GNU host (no MSVC needed)
             & { $ErrorActionPreference = 'SilentlyContinue'; rustup set default-host x86_64-pc-windows-gnu 2>&1 } | Out-Null
         }
-        # Ensure the GNU target is available
         & { $ErrorActionPreference = 'SilentlyContinue'; rustup target add x86_64-pc-windows-gnu 2>&1 } | Out-Null
 
         $JoularSrc = Join-Path $WorkDir "joularcore-src"
@@ -291,12 +276,83 @@ if (Test-Path $JoularCoreBinary) {
     }
 }
 
+# -- JoularJX agent ------------------------------------------------------------
+Banner "Preparing JoularJX $JoularJxVersion"
+
+$JoularJxJar = Join-Path $JoularJxCacheDir "joularjx-$JoularJxVersion.jar"
+
+if (Test-Path $JoularJxJar) {
+    Ok "JoularJX agent found in cache: $JoularJxJar"
+} else {
+    if (-not (Test-Path $JoularJxCacheDir)) {
+        New-Item -ItemType Directory -Path $JoularJxCacheDir -Force | Out-Null
+    }
+
+    $JoularJxUrl = "https://github.com/joular/joularjx/releases/download/$JoularJxVersion/joularjx-$JoularJxVersion.jar"
+    Info "Downloading JoularJX from $JoularJxUrl ..."
+    try {
+        Invoke-WebRequest -Uri $JoularJxUrl -OutFile $JoularJxJar -UseBasicParsing
+        Ok "JoularJX agent downloaded and cached."
+    } catch {
+        throw ("Failed to download JoularJX $JoularJxVersion.`n" +
+               "Download it manually from: https://github.com/joular/joularjx/releases`n" +
+               "Place it at: $JoularJxJar")
+    }
+}
+
+# -- Generate JoularJX config.properties ---------------------------------------
+# Note: joular-core-parameters is intentionally omitted here.
+# The greener Maven/Gradle plugin auto-detects the best power component
+# (cpu or gpu) at startup via PluginDefaults.ensureJoularCoreParameters().
+Banner "Generating JoularJX config.properties"
+
+$JoularJxConfig = Join-Path $WorkDir "joularjx-config.properties"
+$ConfigTimestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
+
+$ConfigContent = @"
+# JoularJX configuration for greener-spring-boot simulation
+# Generated by joularjx-simulation.ps1 on $ConfigTimestamp
+
+# Filter methods to monitor -- only methods starting with this prefix
+# will appear in the filtered 'app/' results.  Unfiltered results are
+# always available under 'all/'.
+filter-method-names=$FilterMethods
+
+# Spring Boot runs as an application server
+application-server=true
+
+# Use Joular Core for power readings (same binary the greener plugin uses)
+joular-core=true
+joular-core-path=$($JoularCoreBinary -replace '\\', '\\')
+joular-core-ring-buffer=false
+
+# Save per-second runtime method power data
+save-runtime-data=true
+overwrite-runtime-data=false
+
+# Track method power evolution over time
+track-consumption-evolution=true
+
+# Enable call-tree energy tracking
+enable-call-trees-consumption=true
+save-call-trees-runtime-data=false
+
+# Hide JoularJX agent threads from results
+hide-agent-consumption=true
+
+# Logging
+logger-level=INFO
+"@
+
+[System.IO.File]::WriteAllText($JoularJxConfig, $ConfigContent)
+Ok "Config written to: $JoularJxConfig"
+$ConfigContent -split "`n" | Where-Object { $_ -notmatch "^#" -and $_ -ne "" } | ForEach-Object { "  $_" }
+
 # -- VM flags ------------------------------------------------------------------
 $VmFlags = @()
 if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
     $VmFlags = @("-Dgreener.vmMode=true", "-Dgreener.vmPowerFilePath=$($env:VM_POWER_FILE)")
 }
-# When PowerSource is "rapl", no VM flags are needed -- Joular Core reads RAPL directly
 
 # -- Ensure oha is available ---------------------------------------------------
 Banner "Preparing oha (HTTP load generator)"
@@ -327,16 +383,23 @@ if (Get-Command oha -ErrorAction SilentlyContinue) {
     $env:PATH = "$OhaCacheDir;$env:PATH"
 }
 
-# -- Run 1: Baseline measurement ----------------------------------------------
-Banner "RUN 1 - BASELINE"
+# -- Run measurement with JoularJX --------------------------------------------
+Banner "MEASUREMENT with JoularJX agent"
 
-# Remove any stale baseline so Run 1 reports "No baseline"
-if (Test-Path $BaselineFile) { Remove-Item $BaselineFile -Force }
+Info "JoularJX agent : $JoularJxJar"
+Info "JoularJX config: $JoularJxConfig"
+Info "Filter methods : $FilterMethods"
 
 $OhaScript = Join-Path (Join-Path (Join-Path (Join-Path $PetclinicDir "examples") "workloads") "oha") "run.sh"
 
 Push-Location $PetclinicDir
 try {
+    # The JoularJX agent is attached via the greener plugin's joularJxAgentPath
+    # and joularJxConfigPath parameters. The plugin passes -javaagent: and
+    # -Djoularjx.config= to the Spring Boot JVM, which causes JoularJX to run
+    # inside the same JVM and write its own per-method CSV results to
+    # joularjx-result/.
+
     $MvnArgs = @(
         "--batch-mode", "--no-transfer-progress",
         "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
@@ -349,84 +412,118 @@ try {
         "-Dgreener.healthCheckPath=/actuator/health/readiness",
         "-Dgreener.baselineFile=$BaselineFile",
         "-Dgreener.failOnRegression=false",
-        "-Dgreener.reportOutputDir=$ReportsBaseline",
+        "-Dgreener.reportOutputDir=$ReportsDir",
         "-Dgreener.autoUpdateBaseline=true",
         "-Dgreener.commitSha=$CommitSha",
-        "-Dgreener.branch=$Branch"
+        "-Dgreener.branch=$Branch",
+        "-Dgreener.joularJxAgentPath=$JoularJxJar",
+        "-Dgreener.joularJxConfigPath=$JoularJxConfig"
     ) + $VmFlags
 
-    Invoke-Cmd "Baseline measurement" mvn $MvnArgs
+    Invoke-Cmd "JoularJX measurement" mvn $MvnArgs
 } finally { Pop-Location }
 
-Write-Output ""
-Write-Output "Baseline created:"
-$baseline = Get-Content $BaselineFile -Raw | ConvertFrom-Json
-$bEnergy  = $baseline.report.totalEnergyJoules
-Write-Output ("  Energy : {0:F2} J" -f $bEnergy)
-Write-Output "  Commit : $CommitSha"
+# -- Display greener plugin results --------------------------------------------
+Banner "GREENER PLUGIN RESULTS (process-level)"
 
-# -- Run 2: Comparison measurement --------------------------------------------
-Banner "RUN 2 - COMPARISON (vs baseline from Run 1)"
+if (Test-Path $BaselineFile) {
+    $baseline = Get-Content $BaselineFile -Raw | ConvertFrom-Json
+    $bEnergy  = $baseline.report.totalEnergyJoules
+    $bDuration = $baseline.report.durationSeconds
+    $bAvgPower = if ($bDuration -gt 0) { $bEnergy / $bDuration } else { 0 }
 
-Push-Location $PetclinicDir
-try {
-    $MvnArgs = @(
-        "--batch-mode", "--no-transfer-progress",
-        "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
-        "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
-        "-Dgreener.baseUrl=http://localhost:8080",
-        "-Dgreener.externalTrainingScriptFile=$OhaScript",
-        "-Dgreener.warmupDurationSeconds=$WarmupSeconds",
-        "-Dgreener.measureDurationSeconds=$MeasureSeconds",
-        "-Dgreener.requestsPerSecond=20",
-        "-Dgreener.healthCheckPath=/actuator/health/readiness",
-        "-Dgreener.baselineFile=$BaselineFile",
-        "-Dgreener.threshold=$Threshold",
-        "-Dgreener.failOnRegression=false",
-        "-Dgreener.reportOutputDir=$ReportsComparison"
-    ) + $VmFlags
-
-    Invoke-Cmd "Comparison measurement" mvn $MvnArgs
-} finally { Pop-Location }
-
-# -- Summary ------------------------------------------------------------------
-Banner "RESULTS - Baseline vs Comparison"
-
-$baseline   = Get-Content $BaselineFile -Raw | ConvertFrom-Json
-$comparison = Get-Content (Join-Path (Join-Path $ReportsComparison "oha") "latest-energy-report.json") -Raw | ConvertFrom-Json
-
-$bEnergy = $baseline.report.totalEnergyJoules
-$cEnergy = $comparison.report.totalEnergyJoules
-$delta   = $cEnergy - $bEnergy
-$pct     = if ($bEnergy -gt 0) { $delta / $bEnergy * 100 } else { 0 }
-
-Write-Output ("  Baseline energy  : {0:F2} J" -f $bEnergy)
-Write-Output ("  Comparison energy: {0:F2} J" -f $cEnergy)
-Write-Output ('  Delta            : {0:+0.00;-0.00} J ({1:+0.00;-0.00} %)' -f $delta, $pct)
-Write-Output "  Threshold        : +/-$Threshold %"
-Write-Output ""
-
-if ([Math]::Abs($pct) -le [double]$Threshold) {
-    Write-Output "  [OK] Within threshold - results are reproducible."
+    Write-Output ("  Total energy : {0:F2} J" -f $bEnergy)
+    Write-Output ("  Duration     : $bDuration s")
+    Write-Output ("  Avg power    : {0:F2} W" -f $bAvgPower)
+    Write-Output "  Commit       : $CommitSha"
 } else {
-    Write-Output "  [!!] Outside threshold - noisy environment or real regression."
+    Warn "Baseline file not found -- check Maven output above for errors."
 }
 
 Write-Output ""
-Write-Output "Reports saved to:"
-Write-Output "  Baseline  : $ReportsBaseline"
-Write-Output "  Comparison: $ReportsComparison"
-Write-Output "  Baseline JSON: $BaselineFile"
+Write-Output "Greener report: $ReportsDir"
+
+# -- Display JoularJX results -------------------------------------------------
+Banner "JOULARJX RESULTS (method-level)"
+
+# JoularJX writes results relative to the JVM working directory (plugin work dir)
+$JoularJxResults = Join-Path (Join-Path (Join-Path $ReportsDir "oha") "work") "joularjx-result"
+
+if (Test-Path $JoularJxResults) {
+    $LatestRun = Get-ChildItem -Directory $JoularJxResults | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+    if ($LatestRun) {
+        Ok "JoularJX results found: $($LatestRun.FullName)"
+
+        # Show filtered app results (methods matching FILTER_METHODS)
+        $AppMethods = Join-Path (Join-Path (Join-Path $LatestRun.FullName "app") "total") "methods"
+        if (Test-Path $AppMethods) {
+            Write-Output ""
+            Write-Output "  Filtered methods ($FilterMethods):"
+            Write-Output "  ------------------------------------------"
+            Get-ChildItem -File "$AppMethods\*.csv" | ForEach-Object {
+                Write-Output ""
+                Write-Output "  File: $($_.Name)"
+                $lines = Get-Content $_.FullName | Where-Object { $_ -ne "" } | ForEach-Object {
+                    $parts = $_ -split ","
+                    [PSCustomObject]@{ Method = $parts[0]; Energy = [double]$parts[1] }
+                } | Sort-Object -Property Energy -Descending | Select-Object -First 15
+                foreach ($line in $lines) {
+                    Write-Output ("    {0,-70} {1,10:F4} J" -f $line.Method, $line.Energy)
+                }
+            }
+        }
+
+        # Show all methods total
+        $AllMethods = Join-Path (Join-Path (Join-Path $LatestRun.FullName "all") "total") "methods"
+        if (Test-Path $AllMethods) {
+            Write-Output ""
+            Write-Output "  All methods (unfiltered, top 20):"
+            Write-Output "  ------------------------------------------"
+            Get-ChildItem -File "$AllMethods\*.csv" | ForEach-Object {
+                $lines = Get-Content $_.FullName | Where-Object { $_ -ne "" } | ForEach-Object {
+                    $parts = $_ -split ","
+                    [PSCustomObject]@{ Method = $parts[0]; Energy = [double]$parts[1] }
+                } | Sort-Object -Property Energy -Descending | Select-Object -First 20
+                foreach ($line in $lines) {
+                    Write-Output ("    {0,-70} {1,10:F4} J" -f $line.Method, $line.Energy)
+                }
+            }
+        }
+
+        # Copy JoularJX results alongside greener reports
+        $JoularJxReportCopy = Join-Path $ReportsDir "joularjx-result"
+        Copy-Item -Recurse -Force $LatestRun.FullName $JoularJxReportCopy
+        Ok "JoularJX results copied to: $JoularJxReportCopy"
+    } else {
+        Warn "No JoularJX run directory found."
+    }
+} else {
+    Warn "JoularJX results directory not found at: $JoularJxResults"
+    Warn "JoularJX may not have started correctly. Check app-stderr.log for agent errors."
+}
 
 # -- Copy latest reports -------------------------------------------------------
-$LatestBaseline   = Join-Path $WorkDir "greener-reports-baseline-latest"
-$LatestComparison = Join-Path $WorkDir "greener-reports-comparison-latest"
-if (Test-Path $LatestBaseline)   { Remove-Item -Recurse -Force $LatestBaseline }
-if (Test-Path $LatestComparison) { Remove-Item -Recurse -Force $LatestComparison }
-Copy-Item -Recurse -Force $ReportsBaseline   $LatestBaseline
-Copy-Item -Recurse -Force $ReportsComparison $LatestComparison
-Info "Latest baseline reports copied to: $LatestBaseline"
-Info "Latest comparison reports copied to: $LatestComparison"
+$LatestReports = Join-Path $WorkDir "greener-reports-joularjx-latest"
+if (Test-Path $LatestReports) { Remove-Item -Recurse -Force $LatestReports }
+Copy-Item -Recurse -Force $ReportsDir $LatestReports
+Info "Latest reports copied to: $LatestReports"
+
+# -- Summary -------------------------------------------------------------------
+Banner "SUMMARY"
+
+Write-Output "  This simulation demonstrated JoularJX method-level energy monitoring"
+Write-Output "  running alongside the greener-spring-boot Maven plugin."
+Write-Output ""
+Write-Output "  What was produced:"
+Write-Output "    1. Greener process-level energy report (HTML + console)"
+Write-Output "       -> $ReportsDir"
+Write-Output "    2. JoularJX per-method energy CSVs"
+Write-Output "       -> $ReportsDir\joularjx-result\"
+Write-Output ""
+Write-Output "  The greener report shows total process energy consumption."
+Write-Output "  The JoularJX CSVs show which individual methods consumed the most energy."
+Write-Output "  Together, they provide both a high-level overview and method-level detail."
 
 } finally {
     # Run cleanup

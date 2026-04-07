@@ -25,6 +25,10 @@ import javax.inject.Inject;
  *     joularCoreVersion.set("0.0.1-alpha-11")
  *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
+ *     // JoularJX (optional method-level monitoring)
+ *     joularJxAgentPath.set(file("joularjx-3.1.0.jar"))       // optional
+ *     joularJxConfigPath.set(file("joularjx-config.properties"))  // optional
+ *
  *     // VM mode (virtualised environments - no direct RAPL access)
  *     vmMode.set(true)
  *     vmPowerFilePath.set(file("/tmp/vm-power.txt"))  // host writes watts here every second
@@ -120,6 +124,22 @@ public abstract class GreenerExtension {
 	 * @return the Joular Core component property
 	 */
 	public abstract Property<String> getJoularCoreComponent();
+
+	// ---- JoularJX (optional method-level monitoring) ----
+
+	/**
+	 * Path to the JoularJX Java agent jar. When set, the agent is attached to the Spring
+	 * Boot JVM via {@code -javaagent:} for per-method energy monitoring.
+	 * @return the JoularJX agent path property
+	 */
+	public abstract RegularFileProperty getJoularJxAgentPath();
+
+	/**
+	 * Path to the JoularJX {@code config.properties} file. Used only when
+	 * {@link #getJoularJxAgentPath()} is also set.
+	 * @return the JoularJX config path property
+	 */
+	public abstract RegularFileProperty getJoularJxConfigPath();
 
 	/**
 	 * Base URL of the Spring Boot application.

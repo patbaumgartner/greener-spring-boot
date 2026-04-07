@@ -55,6 +55,14 @@ public class HtmlReporter {
 
 	private static final String DIV_CLOSE = "  </div>\n";
 
+	private static final String LABEL_DURATION = "Duration";
+
+	private static final String LABEL_TOTAL_ENERGY = "Total Energy";
+
+	private static final String FMT_PERCENT_1 = "%.1f%%";
+
+	private static final String METRICS_CLOSE = "    </div>\n";
+
 	private final int topN;
 
 	public HtmlReporter() {
@@ -67,21 +75,27 @@ public class HtmlReporter {
 
 	/** Generates a report without workload stats. */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, Path outputDir) throws IOException {
-		return generateReport(current, comparison, null, null, outputDir);
+		return generateReport(current, comparison, null, null, null, outputDir);
 	}
 
 	/** Generates a report including use-case energy metrics from the workload. */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			Path outputDir) throws IOException {
-		return generateReport(current, comparison, workloadStats, null, outputDir);
+		return generateReport(current, comparison, workloadStats, null, null, outputDir);
 	}
 
 	/** Generates a report including power source assumptions. */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource, Path outputDir) throws IOException {
+		return generateReport(current, comparison, workloadStats, powerSource, null, outputDir);
+	}
+
+	/** Generates a report including optional JoularJX method-level data. */
+	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
+			PowerSource powerSource, EnergyReport joularJxReport, Path outputDir) throws IOException {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-energy-report.html");
-		Files.writeString(reportFile, buildHtml(current, comparison, workloadStats, powerSource));
+		Files.writeString(reportFile, buildHtml(current, comparison, workloadStats, powerSource, joularJxReport));
 		LOG.log(Level.INFO, () -> "HTML report written to: " + reportFile);
 		return reportFile;
 	}
@@ -105,7 +119,7 @@ public class HtmlReporter {
 	}
 
 	private String buildHtml(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
-			PowerSource powerSource) {
+			PowerSource powerSource, EnergyReport joularJxReport) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(htmlHead("Greener Spring Boot — Energy Report"));
 		sb.append(
@@ -124,8 +138,8 @@ public class HtmlReporter {
 		sb.append("  <div class=\"card\">\n    <h2>Measurement Summary</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Run", current.runId()));
 		sb.append(metric("Measured at", FORMATTER.format(current.timestamp())));
-		sb.append(metric("Duration", current.durationSeconds() + " s"));
-		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, current.totalEnergyJoules())));
+		sb.append(metric(LABEL_DURATION, current.durationSeconds() + " s"));
+		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, current.totalEnergyJoules())));
 		sb.append("    </div>\n  </div>\n");
 
 		// Use-case energy card
@@ -167,7 +181,7 @@ public class HtmlReporter {
 					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
 					.append(TD_CLOSE)
 					.append(TD_OPEN)
-					.append(String.format("%.1f%%", pct))
+					.append(String.format(FMT_PERCENT_1, pct))
 					.append(TD_CLOSE);
 				if (hasComparison) {
 					comparison.methodComparisons()
@@ -187,6 +201,10 @@ public class HtmlReporter {
 				sb.append(TR_CLOSE);
 			}
 			sb.append("    </tbody></table>\n  </div>\n");
+		}
+
+		if (joularJxReport != null && !joularJxReport.measurements().isEmpty()) {
+			sb.append(buildMethodLevelCard(joularJxReport));
 		}
 
 		sb.append(htmlFooter());
@@ -236,7 +254,7 @@ public class HtmlReporter {
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Aggregated Summary</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Tool Runs", String.valueOf(runs.size())));
-		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, totalEnergy)));
+		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, totalEnergy)));
 		if (totalRequests > 0) {
 			sb.append(metric("Total Requests", String.format("%,d", totalRequests)));
 		}
@@ -314,9 +332,9 @@ public class HtmlReporter {
 			.append(" — Run Details</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Run ID", run.report().runId()));
 		sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
-		sb.append(metric("Duration", run.report().durationSeconds() + " s"));
-		sb.append(metric("Total Energy", String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
-		sb.append("    </div>\n");
+		sb.append(metric(LABEL_DURATION, run.report().durationSeconds() + " s"));
+		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
+		sb.append(METRICS_CLOSE);
 
 		if (!run.report().measurements().isEmpty()) {
 			sb.append(TABLE_OPEN).append("<th>Component</th><th>Energy (J)</th><th>Share</th>").append(THEAD_CLOSE);
@@ -331,7 +349,7 @@ public class HtmlReporter {
 					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
 					.append(TD_CLOSE)
 					.append(TD_OPEN)
-					.append(String.format("%.1f%%", pct))
+					.append(String.format(FMT_PERCENT_1, pct))
 					.append(TD_CLOSE)
 					.append(TR_CLOSE);
 			}
@@ -341,11 +359,56 @@ public class HtmlReporter {
 		return sb.toString();
 	}
 
+	private String buildMethodLevelCard(EnergyReport joularJxReport) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("  <div class=\"card\">\n    <h2>Method-Level Energy (JoularJX)</h2>\n");
+		sb.append("    <div class=\"metrics\">\n");
+		sb.append(metric("Methods", String.valueOf(joularJxReport.measurements().size())));
+		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, joularJxReport.totalEnergyJoules())));
+		sb.append(metric(LABEL_DURATION, joularJxReport.durationSeconds() + " s"));
+		sb.append(METRICS_CLOSE);
+
+		sb.append(TABLE_OPEN).append("<th>#</th><th>Method</th><th>Energy (J)</th><th>Share</th>").append(THEAD_CLOSE);
+
+		double total = joularJxReport.totalEnergyJoules();
+		int rank = 0;
+		for (EnergyMeasurement m : joularJxReport.topMeasurements(topN)) {
+			rank++;
+			double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
+			sb.append(TR_OPEN)
+				.append(TD_OPEN)
+				.append(rank)
+				.append(TD_CLOSE)
+				.append(TD_CODE_OPEN)
+				.append(escHtml(m.methodName()))
+				.append(TD_CODE_CLOSE)
+				.append(TD_OPEN)
+				.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+				.append(TD_CLOSE)
+				.append(TD_OPEN)
+				.append(String.format(FMT_PERCENT_1, pct))
+				.append(TD_CLOSE)
+				.append(TR_CLOSE);
+		}
+		sb.append("    </tbody></table>\n");
+
+		if (joularJxReport.measurements().size() > topN) {
+			sb.append("    <div class=\"note\">Showing top ")
+				.append(topN)
+				.append(" of ")
+				.append(joularJxReport.measurements().size())
+				.append(" methods.</div>\n");
+		}
+
+		sb.append(DIV_CLOSE);
+		return sb.toString();
+	}
+
 	private String buildWorkloadCard(WorkloadStats stats, double totalEnergyJoules) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Workload Profile</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Tool", stats.tool()));
-		sb.append(metric("Duration", stats.durationSeconds() + " s"));
+		sb.append(metric(LABEL_DURATION, stats.durationSeconds() + " s"));
 
 		if (stats.hasRequestCounts()) {
 			sb.append(metric("Total Requests", String.valueOf(stats.totalRequests())));
@@ -369,7 +432,7 @@ public class HtmlReporter {
 			sb.append(metric("Avg Power", String.format("%.2f W", avgWatts)));
 		}
 
-		sb.append("    </div>\n");
+		sb.append(METRICS_CLOSE);
 
 		if (!stats.hasRequestCounts()) {
 			sb.append("    <div class=\"note\">")
@@ -386,7 +449,7 @@ public class HtmlReporter {
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Measurement Assumptions</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Power Source", powerSource.label()));
-		sb.append("    </div>\n");
+		sb.append(METRICS_CLOSE);
 		sb.append("    <div class=\"note\">").append(escHtml(powerSource.description())).append("</div>\n");
 		sb.append(DIV_CLOSE);
 		return sb.toString();
@@ -422,7 +485,7 @@ public class HtmlReporter {
 			sb.append("    <div class=\"alert alert-danger\">Energy consumption increased by ")
 				.append(String.format("%.2f%%", c.totalDeltaPercent()))
 				.append(", exceeding the ±")
-				.append(String.format("%.1f%%", c.threshold()))
+				.append(String.format(FMT_PERCENT_1, c.threshold()))
 				.append(" threshold.</div>\n");
 		}
 

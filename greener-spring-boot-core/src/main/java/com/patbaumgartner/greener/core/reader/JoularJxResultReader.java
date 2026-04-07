@@ -8,7 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -25,7 +27,7 @@ import java.util.stream.Stream;
  * <h2>Expected directory structure</h2>
  *
  * <pre>
- * joularjx-results/
+ * joularjx-result/
  *   {appName}-{PID}-{timestamp}/
  *     app/total/methods/
  *       *.csv   ← total energy per method (filtered by filter-method-names)
@@ -48,8 +50,10 @@ public class JoularJxResultReader {
 	 *
 	 * <p>
 	 * Prefers filtered app results ({@code app/total/methods/}), then falls back to
-	 * all-methods results ({@code all/total/methods/}).
-	 * @param joularJxResultsRoot the root {@code joularjx-results} directory
+	 * all-methods results ({@code all/total/methods/}). If no total data is available
+	 * (e.g. because the JVM was killed without running shutdown hooks), falls back to
+	 * runtime data ({@code app/runtime/methods/} or {@code all/runtime/methods/}).
+	 * @param joularJxResultsRoot the root {@code joularjx-result} directory
 	 * @param runId a logical identifier for this run
 	 * @param durationSeconds how long the measurement ran
 	 * @return an {@link EnergyReport} aggregated from all found CSV files
@@ -71,8 +75,16 @@ public class JoularJxResultReader {
 
 		// Prefer filtered 'app' results; fall back to 'all'
 		Path methodsDir = runDir.resolve("app/total/methods");
-		if (!Files.isDirectory(methodsDir)) {
+		if (!Files.isDirectory(methodsDir) || isEmptyDirectory(methodsDir)) {
 			methodsDir = runDir.resolve("all/total/methods");
+		}
+		// Fall back to runtime data when total data is unavailable
+		// (e.g. on Windows where process termination skips JVM shutdown hooks)
+		if (!Files.isDirectory(methodsDir) || isEmptyDirectory(methodsDir)) {
+			methodsDir = runDir.resolve("app/runtime/methods");
+		}
+		if (!Files.isDirectory(methodsDir) || isEmptyDirectory(methodsDir)) {
+			methodsDir = runDir.resolve("all/runtime/methods");
 		}
 
 		List<EnergyMeasurement> measurements = new ArrayList<>();
@@ -94,7 +106,23 @@ public class JoularJxResultReader {
 		}
 
 		LOG.log(Level.INFO, () -> "Read " + measurements.size() + " method measurements from JoularJX results");
-		return EnergyReport.of(runId, Instant.now(), durationSeconds, measurements);
+
+		// Aggregate by method name — runtime data may contain duplicate entries
+		// (one per second) that need to be summed into totals
+		List<EnergyMeasurement> aggregated = aggregateByMethod(measurements);
+
+		return EnergyReport.of(runId, Instant.now(), durationSeconds, aggregated);
+	}
+
+	private List<EnergyMeasurement> aggregateByMethod(List<EnergyMeasurement> measurements) {
+		Map<String, Double> energyByMethod = new LinkedHashMap<>();
+		for (EnergyMeasurement m : measurements) {
+			energyByMethod.merge(m.methodName(), m.energyJoules(), Double::sum);
+		}
+		if (energyByMethod.size() == measurements.size()) {
+			return measurements;
+		}
+		return energyByMethod.entrySet().stream().map(e -> new EnergyMeasurement(e.getKey(), e.getValue())).toList();
 	}
 
 	private static final int CSV_COLUMN_COUNT = 2;
@@ -141,6 +169,24 @@ public class JoularJxResultReader {
 					return 0;
 				}
 			}).orElse(null);
+		}
+	}
+
+	private boolean isEmptyDirectory(Path dir) {
+		try (Stream<Path> entries = Files.list(dir)) {
+			return entries.noneMatch(p -> p.toString().endsWith(".csv") && isNonEmptyFile(p));
+		}
+		catch (IOException ex) {
+			return true;
+		}
+	}
+
+	private static boolean isNonEmptyFile(Path file) {
+		try {
+			return Files.size(file) > 0;
+		}
+		catch (IOException ex) {
+			return false;
 		}
 	}
 

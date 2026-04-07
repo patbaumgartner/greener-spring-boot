@@ -68,6 +68,20 @@ class PluginDefaultsTest {
 				"--management.endpoint.health.probes.enabled=true");
 	}
 
+	@Test
+	void buildEffectiveAppArgsWithShutdownEndpoint() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, true);
+		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true",
+				"--management.endpoint.shutdown.enabled=true",
+				"--management.endpoints.web.exposure.include=health,shutdown");
+	}
+
+	@Test
+	void buildEffectiveAppArgsWithoutShutdownEndpoint() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false);
+		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
+	}
+
 	// ---- autoDetectJar ----
 
 	@Test

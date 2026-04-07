@@ -366,23 +366,23 @@ Banner "All-Tools Summary"
 
 Write-Output ""
 Write-Output ("  {0,-12}  {1,-10}  {2}" -f "TOOL", "STATUS", "ENERGY")
-Write-Output ("  {0,-12}  {1,-10}  {2}" -f ("─" * 12), ("─" * 10), ("─" * 34))
+Write-Output ("  {0,-12}  {1,-10}  {2}" -f ("-" * 12), ("-" * 10), ("-" * 34))
 
 foreach ($tool in $ToolList) {
     $ReportJson = Join-Path (Join-Path $ReportsDir $tool) "latest-energy-report.json"
     if ($Passed -contains $tool) {
-        $Energy = "—"
+        $Energy = "---"
         if (Test-Path $ReportJson) {
             try {
                 $report = Get-Content $ReportJson -Raw | ConvertFrom-Json
                 $Energy = "{0:F2} J" -f $report.report.totalEnergyJoules
             } catch {}
         }
-        Write-Output ("  {0,-12}  ✅ passed   {1}" -f $tool, $Energy)
+        Write-Output ("  {0,-12}  PASSED     {1}" -f $tool, $Energy)
     } elseif ($Failed -contains $tool) {
-        Write-Output ("  {0,-12}  ❌ failed   —" -f $tool)
+        Write-Output ("  {0,-12}  FAILED     ---" -f $tool)
     } else {
-        Write-Output ("  {0,-12}  ⏭  skipped  (no run.sh found)" -f $tool)
+        Write-Output ("  {0,-12}  SKIPPED    (no run.sh found)" -f $tool)
     }
 }
 

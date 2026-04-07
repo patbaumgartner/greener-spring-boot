@@ -18,24 +18,23 @@ import java.util.logging.Logger;
  * converts the power samples into an {@link EnergyReport}.
  *
  * <h2>Joular Core CSV format</h2> Joular Core writes one row per sample interval
- * (default: 1 second):
+ * (default: 1 second). The header may appear in different column orders depending on the
+ * version:
+ *
+ * <pre>
+ * Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
+ * 1700000001,45.2,30.0,15.2,23.1,12.3
+ * </pre>
+ *
+ * Or the legacy format without header:
  *
  * <pre>
  * timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power
  * 1700000001,45.2,0.0,45.2,23.1,12.3
- * 1700000002,47.8,0.0,47.8,25.4,14.1
- * ...
  * </pre>
  *
- * Columns:
- * <ul>
- * <li>{@code timestamp} — Unix epoch seconds</li>
- * <li>{@code cpu_power} — total CPU power in Watts</li>
- * <li>{@code gpu_power} — total GPU power in Watts (0 when not monitored)</li>
- * <li>{@code total_power} — cpu_power + gpu_power</li>
- * <li>{@code cpu_usage} — CPU utilisation percentage</li>
- * <li>{@code pid_or_app_power}— power attributed to the monitored PID / app (Watts)</li>
- * </ul>
+ * The reader detects the header automatically and maps columns by name. When no header is
+ * present, a legacy fixed-index mapping is used for backward compatibility.
  *
  * <h2>Energy calculation</h2> Energy (J) = Σ power_watts × sample_interval_seconds. Since
  * joularcore emits one row per second, sample_interval = 1 s, so: total_energy_J = Σ
@@ -46,16 +45,16 @@ public class JoularCoreResultReader {
 	private static final Logger LOG = Logger.getLogger(JoularCoreResultReader.class.getName());
 
 	/**
-	 * CSV column indices (zero-based). Joular Core may include a header row; the reader
-	 * detects it automatically.
+	 * Default CSV column indices (zero-based) used when no header row is present. Matches
+	 * the legacy format: timestamp,cpu_power,gpu_power,total_power,cpu_usage,app_power.
 	 */
-	private static final int COL_CPU_POWER = 1;
+	private static final int DEFAULT_COL_CPU_POWER = 1;
 
-	private static final int COL_GPU_POWER = 2;
+	private static final int DEFAULT_COL_GPU_POWER = 2;
 
-	private static final int COL_TOTAL_POWER = 3;
+	private static final int DEFAULT_COL_TOTAL_POWER = 3;
 
-	private static final int COL_PID_OR_APP_POWER = 5;
+	private static final int DEFAULT_COL_PID_OR_APP_POWER = 5;
 
 	/**
 	 * Parses the Joular Core CSV file and returns an {@link EnergyReport}.
@@ -79,13 +78,21 @@ public class JoularCoreResultReader {
 
 		List<String> lines = Files.readAllLines(csvFile);
 		List<PowerSample> samples = new ArrayList<>();
+		ColumnMapping mapping = null;
 
 		for (String line : lines) {
 			String trimmedLine = line.strip();
-			if (trimmedLine.isEmpty() || isHeaderLine(trimmedLine)) {
+			if (trimmedLine.isEmpty()) {
 				continue;
 			}
-			PowerSample sample = parseLine(trimmedLine);
+			if (isHeaderLine(trimmedLine)) {
+				mapping = parseHeader(trimmedLine);
+				continue;
+			}
+			if (mapping == null) {
+				mapping = ColumnMapping.legacy();
+			}
+			PowerSample sample = parseLine(trimmedLine, mapping);
 			if (sample != null) {
 				samples.add(sample);
 			}
@@ -99,9 +106,22 @@ public class JoularCoreResultReader {
 		LOG.log(Level.INFO, () -> "Read " + samples.size() + " power samples from Joular Core CSV: " + csvFile);
 
 		// Energy = Σ power × Δt. Joular Core emits one row per second, so Δt = 1 s.
-		double totalCpuEnergyJ = samples.stream().mapToDouble(s -> s.cpuPower).sum();
+		double cpuEnergySum = samples.stream().mapToDouble(s -> s.cpuPower).sum();
 		double totalAppEnergyJ = samples.stream().mapToDouble(s -> s.pidOrAppPower).sum();
-		double avgCpuPowerW = samples.stream().mapToDouble(s -> s.cpuPower).average().orElse(0);
+
+		// Fallback: on some platforms (e.g. Windows with Scaphandre RAPL driver)
+		// Joular Core only reports PKG power in "Total Power" while "CPU Power"
+		// and "Process Power" stay 0. Use "Total Power" as system-level proxy.
+		if (cpuEnergySum == 0) {
+			double totalPowerEnergyJ = samples.stream().mapToDouble(s -> s.totalPower).sum();
+			if (totalPowerEnergyJ > 0) {
+				LOG.log(Level.INFO, () -> "CPU Power is 0 — using Total Power as system-level proxy");
+				cpuEnergySum = totalPowerEnergyJ;
+			}
+		}
+
+		final double totalCpuEnergyJ = cpuEnergySum;
+		double avgCpuPowerW = totalCpuEnergyJ / Math.max(samples.size(), 1);
 		double avgAppPowerW = samples.stream().mapToDouble(s -> s.pidOrAppPower).average().orElse(0);
 
 		LOG.log(Level.INFO,
@@ -150,15 +170,64 @@ public class JoularCoreResultReader {
 		}
 	}
 
-	private PowerSample parseLine(String line) {
+	/**
+	 * Parses a CSV header line and returns a {@link ColumnMapping} based on the column
+	 * names. Recognises both the current Joular Core format (e.g. {@code "Total Power
+	 * (W)"}) and the legacy format (e.g. {@code "cpu_power"}).
+	 */
+	ColumnMapping parseHeader(String headerLine) {
+		String[] cols = headerLine.split(",");
+		int cpuPower = -1;
+		int gpuPower = -1;
+		int totalPower = -1;
+		int pidOrAppPower = -1;
+
+		for (int i = 0; i < cols.length; i++) {
+			String col = cols[i].strip().toLowerCase(java.util.Locale.ROOT);
+			if (col.contains("total power") || "total_power".equals(col)) {
+				totalPower = i;
+			}
+			else if (col.contains("cpu power") || "cpu_power".equals(col)) {
+				cpuPower = i;
+			}
+			else if (col.contains("gpu power") || "gpu_power".equals(col)) {
+				gpuPower = i;
+			}
+			else if (col.contains("process power") || col.contains("app power") || "pid_or_app_power".equals(col)) {
+				pidOrAppPower = i;
+			}
+		}
+
+		// Fall back to legacy indices for any column not found in the header
+		if (cpuPower < 0) {
+			cpuPower = DEFAULT_COL_CPU_POWER;
+		}
+		if (gpuPower < 0) {
+			gpuPower = DEFAULT_COL_GPU_POWER;
+		}
+		if (totalPower < 0) {
+			totalPower = DEFAULT_COL_TOTAL_POWER;
+		}
+		if (pidOrAppPower < 0) {
+			pidOrAppPower = DEFAULT_COL_PID_OR_APP_POWER;
+		}
+
+		return new ColumnMapping(cpuPower, gpuPower, totalPower, pidOrAppPower);
+	}
+
+	private PowerSample parseLine(String line, ColumnMapping mapping) {
 		String[] cols = line.split(",");
-		if (cols.length < COL_PID_OR_APP_POWER + 1) {
-			// Possibly a 4-column or 5-column variant; try to extract what we can
-			if (cols.length >= COL_TOTAL_POWER + 1) {
+		int minCols = Math.max(Math.max(mapping.cpuPower, mapping.gpuPower),
+				Math.max(mapping.totalPower, mapping.pidOrAppPower)) + 1;
+
+		if (cols.length < minCols) {
+			// Try to extract what we can with fewer columns
+			if (cols.length > Math.max(mapping.cpuPower, mapping.totalPower)) {
 				try {
-					double cpuPower = Double.parseDouble(cols[COL_CPU_POWER].strip());
-					double totalPower = Double.parseDouble(cols[COL_TOTAL_POWER].strip());
-					return new PowerSample(cpuPower, 0, totalPower, 0);
+					double cpu = Double.parseDouble(cols[mapping.cpuPower].strip());
+					double total = (mapping.totalPower < cols.length)
+							? Double.parseDouble(cols[mapping.totalPower].strip()) : 0;
+					return new PowerSample(cpu, 0, total, 0);
 				}
 				catch (NumberFormatException e) {
 					return null;
@@ -168,11 +237,11 @@ public class JoularCoreResultReader {
 			return null;
 		}
 		try {
-			double cpuPower = Double.parseDouble(cols[COL_CPU_POWER].strip());
-			double gpuPower = Double.parseDouble(cols[COL_GPU_POWER].strip());
-			double totalPower = Double.parseDouble(cols[COL_TOTAL_POWER].strip());
-			double pidOrAppPower = Double.parseDouble(cols[COL_PID_OR_APP_POWER].strip());
-			return new PowerSample(cpuPower, gpuPower, totalPower, pidOrAppPower);
+			double cpu = Double.parseDouble(cols[mapping.cpuPower].strip());
+			double gpu = Double.parseDouble(cols[mapping.gpuPower].strip());
+			double total = Double.parseDouble(cols[mapping.totalPower].strip());
+			double app = Double.parseDouble(cols[mapping.pidOrAppPower].strip());
+			return new PowerSample(cpu, gpu, total, app);
 		}
 		catch (NumberFormatException e) {
 			LOG.log(Level.FINE, () -> "Skipping malformed CSV line: " + line);
@@ -182,6 +251,15 @@ public class JoularCoreResultReader {
 
 	/** Immutable value object for a single Joular Core power reading. */
 	private record PowerSample(double cpuPower, double gpuPower, double totalPower, double pidOrAppPower) {
+	}
+
+	/** Maps semantic column roles to actual CSV column indices. */
+	record ColumnMapping(int cpuPower, int gpuPower, int totalPower, int pidOrAppPower) {
+		/** Legacy column mapping for headerless CSVs. */
+		static ColumnMapping legacy() {
+			return new ColumnMapping(DEFAULT_COL_CPU_POWER, DEFAULT_COL_GPU_POWER, DEFAULT_COL_TOTAL_POWER,
+					DEFAULT_COL_PID_OR_APP_POWER);
+		}
 	}
 
 }

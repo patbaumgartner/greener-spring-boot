@@ -37,6 +37,56 @@ class JoularCoreResultReaderTest {
 	}
 
 	@Test
+	void readResults_joularCoreV0Header_parsedCorrectly(@TempDir Path tmp) throws IOException {
+		// Joular Core v0.0.1-alpha-11 uses a different column order
+		Path csv = tmp.resolve("joularcore.csv");
+		Files.writeString(csv, """
+				Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
+				1700000001,50.0,30.0,20.0,23.1,12.0
+				1700000002,52.0,32.0,20.0,25.4,14.0
+				""");
+
+		EnergyReport report = reader.readResults(csv, "run-v0", 2L, APP_ID);
+
+		// CPU power = 30.0 + 32.0 = 62.0 J (from "CPU Power" column)
+		// App energy = 12.0 + 14.0 = 26.0 J (from "Process Power" column)
+		assertThat(report.measurements()).hasSize(2);
+		assertThat(report.measurements()
+			.stream()
+			.filter(m -> m.methodName().contains("[app]"))
+			.findFirst()
+			.orElseThrow()
+			.energyJoules()).isCloseTo(26.0, org.assertj.core.data.Offset.offset(0.01));
+		assertThat(report.measurements()
+			.stream()
+			.filter(m -> m.methodName().contains("total cpu"))
+			.findFirst()
+			.orElseThrow()
+			.energyJoules()).isCloseTo(62.0, org.assertj.core.data.Offset.offset(0.01));
+	}
+
+	@Test
+	void readResults_joularCoreV0Header_zeroAppPower(@TempDir Path tmp) throws IOException {
+		// Simulates the Windows RAPL case where CPU Power and Process Power = 0
+		// but Total Power has real values from the RAPL PKG domain
+		Path csv = tmp.resolve("joularcore.csv");
+		Files.writeString(csv, """
+				Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
+				1775544742,57.68,0.00,57.68,14.25,0.00
+				1775544744,39.12,0.00,39.12,17.15,0.00
+				""");
+
+		EnergyReport report = reader.readResults(csv, "run-win", 2L, APP_ID);
+
+		// CPU Power = 0.00 → falls back to Total Power as system proxy
+		assertThat(report.measurements()).hasSize(1);
+		assertThat(report.measurements().get(0).methodName()).contains("total cpu");
+		// Total Power = 57.68 + 39.12 = 96.80 J (fallback from Total Power)
+		assertThat(report.measurements().get(0).energyJoules()).isCloseTo(96.80,
+				org.assertj.core.data.Offset.offset(0.01));
+	}
+
+	@Test
 	void readResults_csvWithoutHeader_parsedCorrectly(@TempDir Path tmp) throws IOException {
 		Path csv = tmp.resolve("joularcore.csv");
 		Files.writeString(csv, """
@@ -120,6 +170,30 @@ class JoularCoreResultReaderTest {
 
 		// App energy = 15.0 + 16.0 = 31.0 J
 		assertThat(comparisonEnergy).isCloseTo(31.0, org.assertj.core.data.Offset.offset(0.01));
+	}
+
+	@Test
+	void parseHeader_legacyFormat_mapsCorrectly() {
+		JoularCoreResultReader.ColumnMapping mapping = reader
+			.parseHeader("timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power");
+
+		assertThat(mapping.cpuPower()).isEqualTo(1);
+		assertThat(mapping.gpuPower()).isEqualTo(2);
+		assertThat(mapping.totalPower()).isEqualTo(3);
+		assertThat(mapping.pidOrAppPower()).isEqualTo(5);
+	}
+
+	@Test
+	void parseHeader_joularCoreV0Format_mapsCorrectly() {
+		JoularCoreResultReader.ColumnMapping mapping = reader
+			.parseHeader("Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)");
+
+		// Total Power is at column 1, CPU Power at column 2, GPU Power at 3, Process
+		// Power at 5
+		assertThat(mapping.totalPower()).isEqualTo(1);
+		assertThat(mapping.cpuPower()).isEqualTo(2);
+		assertThat(mapping.gpuPower()).isEqualTo(3);
+		assertThat(mapping.pidOrAppPower()).isEqualTo(5);
 	}
 
 }
