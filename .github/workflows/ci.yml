@@ -41,7 +41,7 @@ jobs:
 
       # ── 3. Build & test Maven modules ───────────────────────────────────────
       - name: Build and test Maven modules
-        run: mvn --batch-mode --no-transfer-progress clean verify
+        run: mvn --batch-mode --no-transfer-progress clean install
 
       # ── 4. Static analysis ──────────────────────────────────────────────────
       # Note: spring-javaformat:validate is already bound to the validate phase
@@ -76,12 +76,7 @@ jobs:
 
       - name: Build Gradle plugin
         working-directory: greener-spring-boot-gradle-plugin
-        run: |
-          # Install Maven artifacts to local repository first so Gradle can resolve them
-          cd ..
-          mvn --batch-mode --no-transfer-progress install -DskipTests
-          cd greener-spring-boot-gradle-plugin
-          ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon
 
       # ── 7. Publish Gradle test results ──────────────────────────────────────
       - name: Upload Gradle plugin test results

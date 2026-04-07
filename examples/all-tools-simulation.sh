@@ -324,9 +324,9 @@ for tool in ${TOOLS}; do
 done
 
 PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
-for t in ${PASSED}; do PASS_COUNT=$((PASS_COUNT + 1)); done
-for t in ${FAILED}; do FAIL_COUNT=$((FAIL_COUNT + 1)); done
-for t in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
+for _ in ${PASSED}; do PASS_COUNT=$((PASS_COUNT + 1)); done
+for _ in ${FAILED}; do FAIL_COUNT=$((FAIL_COUNT + 1)); done
+for _ in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
 
 echo ""
 echo "  Passed: ${PASS_COUNT}  |  Failed: ${FAIL_COUNT}  |  Skipped: ${SKIP_COUNT}"

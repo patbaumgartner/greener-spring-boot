@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -134,16 +135,44 @@ public class ApplicationRunner {
 	}
 
 	/**
-	 * Gracefully stops the application process (SIGTERM), waiting up to 30 s for a clean
-	 * shutdown before forcibly killing it.
+	 * Gracefully stops the application process, waiting up to 30 s for a clean shutdown
+	 * before forcibly killing it.
+	 *
+	 * <p>
+	 * On Linux/macOS, {@link Process#destroy()} sends {@code SIGTERM} which triggers JVM
+	 * shutdown hooks. On Windows, {@code Process.destroy()} calls
+	 * {@code TerminateProcess} which kills immediately without running shutdown hooks. To
+	 * allow agents like JoularJX to flush their results, this method uses
+	 * {@code taskkill /PID} (without {@code /F}) on Windows first.
+	 *
+	 * <p>
+	 * For better results on Windows, call {@link #requestGracefulShutdown(String)} before
+	 * this method to trigger a Spring Boot Actuator shutdown that runs JVM shutdown
+	 * hooks.
 	 */
 	public void stop(Process process) throws InterruptedException {
 		if (process == null || !process.isAlive()) {
 			return;
 		}
 
-		LOG.log(Level.FINE, () -> "Stopping application (PID " + process.pid() + ")");
-		process.destroy();
+		long pid = process.pid();
+		LOG.log(Level.FINE, () -> "Stopping application (PID " + pid + ")");
+
+		if (isWindows()) {
+			try {
+				new ProcessBuilder("taskkill", "/PID", String.valueOf(pid)).redirectErrorStream(true)
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.start()
+					.waitFor(10, TimeUnit.SECONDS);
+			}
+			catch (IOException ex) {
+				LOG.log(Level.FINE, () -> "taskkill failed, falling back to destroy: " + ex.getMessage());
+				process.destroy();
+			}
+		}
+		else {
+			process.destroy();
+		}
 
 		boolean exited = process.waitFor(30, TimeUnit.SECONDS);
 		if (!exited) {
@@ -153,6 +182,60 @@ public class ApplicationRunner {
 		else {
 			LOG.log(Level.FINE, () -> "Application stopped (exit code " + process.exitValue() + ")");
 		}
+	}
+
+	/**
+	 * Requests a graceful shutdown via the Spring Boot Actuator shutdown endpoint.
+	 *
+	 * <p>
+	 * This is particularly useful on Windows where {@link Process#destroy()} and
+	 * {@code taskkill} cannot trigger JVM shutdown hooks for console processes. When Java
+	 * agents like JoularJX are attached, a graceful shutdown ensures their shutdown hooks
+	 * run and result files are written.
+	 *
+	 * <p>
+	 * Call this method <em>before</em> {@link #stop(Process)} to give the application
+	 * time to shut down cleanly.
+	 * @param baseUrl the application's base URL (e.g. {@code http://localhost:8080})
+	 * @return {@code true} if the shutdown was accepted (HTTP 2xx), {@code false}
+	 * otherwise
+	 */
+	public boolean requestGracefulShutdown(String baseUrl) {
+		if (baseUrl == null || baseUrl.isBlank()) {
+			return false;
+		}
+		String shutdownUrl = baseUrl + "/actuator/shutdown";
+		LOG.log(Level.FINE, () -> "Requesting graceful shutdown via " + shutdownUrl);
+
+		try {
+			HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+			HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(shutdownUrl))
+				.timeout(Duration.ofSeconds(5))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+			if (response.statusCode() >= 200 && response.statusCode() < 300) {
+				LOG.log(Level.INFO, () -> "Graceful shutdown requested via Actuator (HTTP " + response.statusCode()
+						+ "): " + response.body());
+				return true;
+			}
+			LOG.log(Level.FINE,
+					() -> "Actuator shutdown returned HTTP " + response.statusCode() + ": " + response.body());
+		}
+		catch (ConnectException ex) {
+			LOG.log(Level.FINE, () -> "Application already stopped or shutdown endpoint not available");
+		}
+		catch (IOException | InterruptedException ex) {
+			LOG.log(Level.FINE, () -> "Actuator shutdown request failed: " + ex.getMessage());
+		}
+		return false;
+	}
+
+	private static boolean isWindows() {
+		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 	}
 
 }

@@ -232,6 +232,8 @@ mvn greener:update-baseline
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
 | `joularCoreVersion` | `0.0.1-alpha-11` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
+| `joularJxAgentPath` | *(none)* | Path to the JoularJX Java agent jar for per-method energy monitoring |
+| `joularJxConfigPath` | *(none)* | Path to the JoularJX `config.properties` file (used only with `joularJxAgentPath`) |
 | `baseUrl` | `http://localhost:8080` | Base URL passed to external scripts as `APP_URL` env var |
 | `requestsPerSecond` | `5` | Requests per second passed to external scripts as `RPS` env var |
 | `externalTrainingCommand` | *(none)* | External load test command (e.g. `k6 run`) |
@@ -358,6 +360,7 @@ The `examples/` directory provides ready-to-use simulation scripts:
 
 - **`local-simulation.sh` / `local-simulation.ps1`** - runs a single-tool energy measurement locally (uses `oha` by default).
 - **`all-tools-simulation.sh` / `all-tools-simulation.ps1`** - runs measurements with all supported workload tools (oha, wrk, wrk2, bombardier, ab, k6, Gatling, Locust) and generates an aggregated comparison report.
+- **`joularjx-simulation.sh` / `joularjx-simulation.ps1`** - demonstrates [JoularJX](https://github.com/joular/joularjx) method-level energy monitoring alongside the greener plugin's process-level reports. Downloads JoularJX, generates a `config.properties`, attaches the agent via `-javaagent`, and displays per-method energy results.
 
 These scripts handle the full lifecycle: building the project, starting the estimator, running the measurement, and generating reports.
 
