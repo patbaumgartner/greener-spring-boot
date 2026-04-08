@@ -181,8 +181,10 @@ jobs:
         run: |
           JAR=$(find /tmp/spring-petclinic/target -name "*.jar" ! -name "*-sources.jar" | head -1)
           echo "JAR: $JAR"
+          APP_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+          echo "APP_PORT=${APP_PORT}" >> "$GITHUB_ENV"
           java -jar "$JAR" \
-            --server.port=8080 \
+            --server.port=${APP_PORT} \
             --logging.level.root=WARN \
             --spring.jpa.show-sql=false \
             --management.endpoint.health.probes.enabled=true \
@@ -191,9 +193,9 @@ jobs:
 
       - name: Wait for Petclinic readiness
         run: |
-          echo "Waiting for http://localhost:8080/actuator/health/readiness …"
+          echo "Waiting for http://localhost:${APP_PORT}/actuator/health/readiness …"
           ATTEMPTS=0
-          until curl -sf http://localhost:8080/actuator/health/readiness \
+          until curl -sf "http://localhost:${APP_PORT}/actuator/health/readiness" \
                 | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('status')=='UP' else 1)" \
                 2>/dev/null; do
             ATTEMPTS=$((ATTEMPTS + 1))
@@ -214,9 +216,9 @@ jobs:
         id: run-tool
         continue-on-error: true
         env:
-          APP_URL: "http://localhost:8080"
+          APP_URL: "http://localhost:${{ env.APP_PORT }}"
           APP_HOST: "localhost"
-          APP_PORT: "8080"
+          APP_PORT: "${{ env.APP_PORT }}"
           WARMUP_SECONDS: ${{ inputs.warmup_seconds || '5' }}
           MEASURE_SECONDS: ${{ inputs.measure_seconds || '15' }}
           RPS: ${{ inputs.rps || '10' }}
@@ -267,7 +269,7 @@ jobs:
             echo "| **Version** | \`${TOOL_VERSION:-unknown}\` |"
             echo "| **Script** | \`examples/workloads/${{ matrix.tool }}/run.sh\` |"
             echo "| **Result** | ${STATUS_ICON} ${STATUS_TEXT} |"
-            echo "| **Target** | Spring Petclinic \`${{ env.PETCLINIC_VERSION }}\` — \`http://localhost:8080\` |"
+            echo "| **Target** | Spring Petclinic \`${{ env.PETCLINIC_VERSION }}\` — \`http://localhost:${{ env.APP_PORT }}\` |"
             echo "| **Warmup** | ${WARMUP} s |"
             echo "| **Measure** | ${MEASURE} s |"
             echo "| **Rate** | ${RPS} req/s |"

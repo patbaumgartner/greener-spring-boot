@@ -1,5 +1,7 @@
 package com.patbaumgartner.greener.core.config;
 
+import com.patbaumgartner.greener.core.baseline.BaselineManager;
+import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.runner.TrainingRunner;
 
@@ -8,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -20,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -97,9 +101,37 @@ public final class PluginDefaults {
 	 * @return a mutable list of effective arguments
 	 */
 	public static List<String> buildEffectiveAppArgs(List<String> userArgs, boolean enableShutdownEndpoint) {
+		return buildEffectiveAppArgs(userArgs, enableShutdownEndpoint, null);
+	}
+
+	/**
+	 * Builds the effective application arguments list by copying user-provided arguments,
+	 * appending the Spring Boot health-probe enablement flag, optionally enabling the
+	 * Actuator shutdown endpoint, and auto-injecting {@code --server.port} from the
+	 * {@code baseUrl} when not already specified in user args.
+	 *
+	 * <p>
+	 * This ensures the Spring Boot application listens on the same port that the plugin
+	 * uses for health checks and workload tools, enabling random port assignment for
+	 * stable CI runs.
+	 * @param userArgs optional user-supplied arguments (may be {@code null})
+	 * @param enableShutdownEndpoint whether to enable the Actuator shutdown endpoint
+	 * @param baseUrl the base URL (e.g. {@code http://localhost:9123}); when non-null and
+	 * no {@code --server.port} is present in {@code userArgs}, the port is extracted and
+	 * appended automatically
+	 * @return a mutable list of effective arguments
+	 */
+	public static List<String> buildEffectiveAppArgs(List<String> userArgs, boolean enableShutdownEndpoint,
+			String baseUrl) {
 		List<String> effective = new ArrayList<>();
 		if (userArgs != null) {
 			effective.addAll(userArgs);
+		}
+		if (baseUrl != null && effective.stream().noneMatch(a -> a.startsWith("--server.port="))) {
+			int port = extractPort(baseUrl);
+			if (port > 0 && port != 8080) {
+				effective.add("--server.port=" + port);
+			}
 		}
 		effective.add("--management.endpoint.health.probes.enabled=true");
 		if (enableShutdownEndpoint) {
@@ -107,6 +139,16 @@ public final class PluginDefaults {
 			effective.add("--management.endpoints.web.exposure.include=health,shutdown");
 		}
 		return effective;
+	}
+
+	private static int extractPort(String baseUrl) {
+		try {
+			int port = URI.create(baseUrl).getPort();
+			return port > 0 ? port : ("https".equals(URI.create(baseUrl).getScheme()) ? 443 : 80);
+		}
+		catch (IllegalArgumentException ex) {
+			return -1;
+		}
 	}
 
 	/**
@@ -169,6 +211,27 @@ public final class PluginDefaults {
 		lines.add("  branch : " + (branch != null ? branch : "n/a"));
 		lines.add("  energy : " + String.format("%.2f J", totalEnergyJoules));
 		return lines;
+	}
+
+	/**
+	 * Normalises VCS metadata, saves the baseline, and logs a summary.
+	 * @param manager the baseline manager
+	 * @param report the energy report to save
+	 * @param commitSha raw commit SHA (may be {@code null} or unresolved)
+	 * @param branch raw branch name (may be {@code null} or unresolved)
+	 * @param baselineFile target baseline file path
+	 * @param logger callback for log output
+	 */
+	public static void saveAndLogBaseline(BaselineManager manager, EnergyReport report, String commitSha, String branch,
+			Path baselineFile, Consumer<String> logger) throws IOException {
+		String sha = normalise(commitSha);
+		String br = normalise(branch);
+
+		manager.saveBaseline(report, sha, br, baselineFile);
+
+		for (String line : formatBaselineUpdateSummary(baselineFile, sha, br, report.totalEnergyJoules())) {
+			logger.accept(line);
+		}
 	}
 
 	/**

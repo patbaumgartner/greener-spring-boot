@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.gradle;
 
+import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.provider.ProviderFactory;
@@ -45,6 +46,22 @@ public class GreenerPlugin implements Plugin<Project> {
 	@Override
 	public void apply(Project project) {
 		GreenerExtension extension = project.getExtensions().create(EXTENSION_NAME, GreenerExtension.class);
+
+		// Sensible defaults for all optional properties
+		extension.getJoularCoreVersion().convention(JoularCoreConfig.DEFAULT_VERSION);
+		extension.getJoularCoreComponent().convention("cpu");
+		extension.getVmMode().convention(false);
+		extension.getBaseUrl().convention("http://localhost:8080");
+		extension.getRequestsPerSecond().convention(5);
+		extension.getWarmupDurationSeconds().convention(30);
+		extension.getMeasureDurationSeconds().convention(60);
+		extension.getStartupTimeoutSeconds().convention(120);
+		extension.getHealthCheckPath().convention("/actuator/health/readiness");
+		extension.getThreshold().convention(10.0);
+		extension.getFailOnRegression().convention(false);
+		extension.getAutoUpdateBaseline().convention(false);
+		extension.getTimestampReports().convention(false);
+		extension.getSkip().convention(false);
 
 		// Apply useful project-level conventions down to the extension so tasks don't
 		// need getProject()

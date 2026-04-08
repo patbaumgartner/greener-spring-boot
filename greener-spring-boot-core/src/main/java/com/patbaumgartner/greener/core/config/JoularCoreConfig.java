@@ -243,18 +243,6 @@ public class JoularCoreConfig {
 		return version;
 	}
 
-	public String getComponent() {
-		return component;
-	}
-
-	public Long getPid() {
-		return pid;
-	}
-
-	public String getAppName() {
-		return appName;
-	}
-
 	public Path getOutputCsvPath() {
 		return outputCsvPath;
 	}
@@ -269,10 +257,6 @@ public class JoularCoreConfig {
 
 	public Path getVmPowerFilePath() {
 		return vmPowerFilePath;
-	}
-
-	public List<String> getExtraArgs() {
-		return List.copyOf(extraArgs);
 	}
 
 	/**

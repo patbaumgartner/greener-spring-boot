@@ -46,7 +46,7 @@ jobs:
 
     steps:
       # ── 1. Checkout ─────────────────────────────────────────────────────────
-      - name: Checkout greener-spring-boot
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       # ── 2. Java & Maven cache ───────────────────────────────────────────────
@@ -96,6 +96,8 @@ jobs:
         run: |
           cp -r "$GITHUB_WORKSPACE/examples" /tmp/spring-petclinic/
 
+          APP_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+
           VM_FLAGS=""
           if [ "${{ steps.energy-setup.outputs.power-source }}" = "vm-file" ] || \
              [ "${{ steps.energy-setup.outputs.power-source }}" = "ci-estimated" ]; then
@@ -105,7 +107,7 @@ jobs:
           mvn --batch-mode --no-transfer-progress \
             com.patbaumgartner:greener-spring-boot-maven-plugin:${{ env.GREENER_VERSION }}:measure \
             -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
-            -Dgreener.baseUrl="http://localhost:8080" \
+            -Dgreener.baseUrl="http://localhost:${APP_PORT}" \
             -Dgreener.externalTrainingScriptFile=/tmp/spring-petclinic/examples/workloads/oha/run.sh \
             -Dgreener.warmupDurationSeconds=${{ env.WARMUP_SECONDS }} \
             -Dgreener.measureDurationSeconds=${{ env.MEASURE_SECONDS }} \

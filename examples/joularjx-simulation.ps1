@@ -39,6 +39,7 @@
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-joularjx-sim)
 #   FILTER_METHODS         JoularJX method filter          (default: org.springframework.samples.petclinic)
+#   APP_PORT               HTTP port for Spring Boot        (default: random free port)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -56,6 +57,10 @@ $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }         
 $TdpWatts           = if ($env:TDP_WATTS)            { $env:TDP_WATTS }            else { "100" }
 $WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-joularjx-sim" }
 $FilterMethods      = if ($env:FILTER_METHODS)       { $env:FILTER_METHODS }       else { "org.springframework.samples.petclinic" }
+$AppPort            = if ($env:APP_PORT)              { $env:APP_PORT }              else {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start(); $p = $listener.LocalEndpoint.Port; $listener.Stop(); $p
+}
 
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
@@ -323,7 +328,7 @@ application-server=true
 
 # Use Joular Core for power readings (same binary the greener plugin uses)
 joular-core=true
-joular-core-path=$($JoularCoreBinary -replace '\\', '\\')
+joular-core-path=$($JoularCoreBinary -replace '\\', '/')
 joular-core-ring-buffer=false
 
 # Save per-second runtime method power data
@@ -404,13 +409,14 @@ try {
         "--batch-mode", "--no-transfer-progress",
         "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
         "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
-        "-Dgreener.baseUrl=http://localhost:8080",
+        "-Dgreener.baseUrl=http://localhost:$AppPort",
         "-Dgreener.externalTrainingScriptFile=$OhaScript",
         "-Dgreener.warmupDurationSeconds=$WarmupSeconds",
         "-Dgreener.measureDurationSeconds=$MeasureSeconds",
         "-Dgreener.requestsPerSecond=20",
         "-Dgreener.healthCheckPath=/actuator/health/readiness",
         "-Dgreener.baselineFile=$BaselineFile",
+        "-Dgreener.threshold=$Threshold",
         "-Dgreener.failOnRegression=false",
         "-Dgreener.reportOutputDir=$ReportsDir",
         "-Dgreener.autoUpdateBaseline=true",

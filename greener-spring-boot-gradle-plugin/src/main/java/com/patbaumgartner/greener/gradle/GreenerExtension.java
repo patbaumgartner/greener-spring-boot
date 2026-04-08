@@ -1,12 +1,9 @@
 package com.patbaumgartner.greener.gradle;
 
-import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
-
-import javax.inject.Inject;
 
 /**
  * DSL extension for the {@code greener} block in Gradle build scripts.
@@ -61,30 +58,7 @@ import javax.inject.Inject;
  * }
  * }</pre>
  */
-@SuppressWarnings("PMD.ConstructorCallsOverridableMethod") // Gradle abstract property
-															// convention pattern
 public abstract class GreenerExtension {
-
-	/**
-	 * Creates the extension and sets sensible defaults for all optional properties.
-	 */
-	@Inject
-	public GreenerExtension() {
-		getJoularCoreVersion().convention(JoularCoreConfig.DEFAULT_VERSION);
-		getJoularCoreComponent().convention("cpu");
-		getVmMode().convention(false);
-		getBaseUrl().convention("http://localhost:8080");
-		getRequestsPerSecond().convention(5);
-		getWarmupDurationSeconds().convention(30);
-		getMeasureDurationSeconds().convention(60);
-		getStartupTimeoutSeconds().convention(120);
-		getHealthCheckPath().convention("/actuator/health/readiness");
-		getThreshold().convention(10.0);
-		getFailOnRegression().convention(false);
-		getAutoUpdateBaseline().convention(false);
-		getTimestampReports().convention(false);
-		getSkip().convention(false);
-	}
 
 	/**
 	 * Path to the executable Spring Boot fat-jar. When omitted the plugin auto-detects a

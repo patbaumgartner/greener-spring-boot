@@ -2,7 +2,6 @@ package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
-import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -127,49 +126,19 @@ public abstract class UpdateBaselineTask extends DefaultTask {
 		}
 
 		BaselineManager manager = new BaselineManager();
-		EnergyReport report;
 
-		// 1. Try explicit latest report file
-		if (getLatestReportFile().isPresent()) {
-			Optional<EnergyBaseline> latest = manager.loadBaseline(getLatestReportFile().get().getAsFile().toPath());
-			if (latest.isEmpty()) {
-				throw new GradleException(
-						"Could not read energy report from: " + getLatestReportFile().get().getAsFile());
-			}
-			report = latest.get().report();
-		}
-		// 2. Try auto-detected latest report from report output dir subdirectories
-		else {
-			Path reportDir = resolveReportDir();
-			Optional<Path> discovered = manager.discoverLatestReport(reportDir);
-			if (discovered.isPresent()) {
-				Optional<EnergyBaseline> latest = manager.loadBaseline(discovered.get());
-				if (latest.isEmpty()) {
-					throw new GradleException("Could not read energy report from: " + discovered.get());
-				}
-				report = latest.get().report();
-			}
-			// 3. Fall back to existing baseline (re-save with updated metadata)
-			else {
-				Optional<EnergyBaseline> existing = manager.loadBaseline(baselineFileValue.toPath());
-				if (existing.isEmpty()) {
-					getLogger().warn("No energy report to promote to baseline. "
-							+ "Run 'measureEnergy' first, or set latestReportFile explicitly.");
-					return;
-				}
-				report = existing.get().report();
-			}
+		Path latestPath = getLatestReportFile().isPresent() ? getLatestReportFile().get().getAsFile().toPath() : null;
+		Path reportDir = resolveReportDir();
+		Optional<EnergyReport> report = manager.resolveLatestReport(latestPath, reportDir, baselineFileValue.toPath());
+
+		if (report.isEmpty()) {
+			getLogger().warn("No energy report to promote to baseline. "
+					+ "Run 'measureEnergy' first, or set latestReportFile explicitly.");
+			return;
 		}
 
-		String sha = PluginDefaults.normalise(getCommitSha().getOrNull());
-		String branch = PluginDefaults.normalise(getBranch().getOrNull());
-
-		manager.saveBaseline(report, sha, branch, baselineFileValue.toPath());
-
-		for (String line : PluginDefaults.formatBaselineUpdateSummary(baselineFileValue.toPath(), sha, branch,
-				report.totalEnergyJoules())) {
-			getLogger().lifecycle(line);
-		}
+		PluginDefaults.saveAndLogBaseline(manager, report.get(), getCommitSha().getOrNull(), getBranch().getOrNull(),
+				baselineFileValue.toPath(), msg -> getLogger().lifecycle(msg));
 	}
 
 	private Path resolveReportDir() {
