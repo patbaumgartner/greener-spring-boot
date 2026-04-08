@@ -40,6 +40,7 @@
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-joularjx-sim)
 #   FILTER_METHODS         JoularJX method filter          (default: org.springframework.samples.petclinic)
+#   APP_PORT               HTTP port for Spring Boot        (default: random free port)
 
 set -euo pipefail
 
@@ -53,6 +54,7 @@ THRESHOLD="${THRESHOLD:-10}"
 TDP_WATTS="${TDP_WATTS:-100}"
 WORK_DIR="${WORK_DIR:-/tmp/greener-joularjx-sim}"
 FILTER_METHODS="${FILTER_METHODS:-org.springframework.samples.petclinic}"
+APP_PORT="${APP_PORT:-$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -325,13 +327,14 @@ cd "${PETCLINIC_DIR}"
 mvn --batch-mode --no-transfer-progress \
     com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
     -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
-    -Dgreener.baseUrl="http://localhost:8080" \
+    -Dgreener.baseUrl="http://localhost:${APP_PORT}" \
     -Dgreener.externalTrainingScriptFile="${PETCLINIC_DIR}/examples/workloads/oha/run.sh" \
     -Dgreener.warmupDurationSeconds="${WARMUP_SECONDS}" \
     -Dgreener.measureDurationSeconds="${MEASURE_SECONDS}" \
     -Dgreener.requestsPerSecond=20 \
     -Dgreener.healthCheckPath=/actuator/health/readiness \
     -Dgreener.baselineFile="${BASELINE_FILE}" \
+    -Dgreener.threshold="${THRESHOLD}" \
     -Dgreener.failOnRegression=false \
     -Dgreener.reportOutputDir="${REPORTS_DIR}" \
     -Dgreener.autoUpdateBaseline=true \
@@ -388,7 +391,7 @@ if [ -d "${JOULARJX_RESULTS}" ]; then
                 # Sort by energy descending, show top 15 methods
                 sort -t',' -k2 -rn "${csv}" | head -15 | while IFS=',' read -r method energy; do
                     printf "    %-70s %10s J\n" "${method}" "${energy}"
-                done
+                done || true
             done
         fi
 
@@ -402,7 +405,7 @@ if [ -d "${JOULARJX_RESULTS}" ]; then
                 [ -f "${csv}" ] || continue
                 sort -t',' -k2 -rn "${csv}" | head -20 | while IFS=',' read -r method energy; do
                     printf "    %-70s %10s J\n" "${method}" "${energy}"
-                done
+                done || true
             done
         fi
 

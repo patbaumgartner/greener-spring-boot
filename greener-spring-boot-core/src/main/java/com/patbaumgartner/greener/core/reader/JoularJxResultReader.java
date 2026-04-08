@@ -2,6 +2,7 @@ package com.patbaumgartner.greener.core.reader;
 
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MethodLevelReports;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -87,8 +88,72 @@ public class JoularJxResultReader {
 			methodsDir = runDir.resolve("all/runtime/methods");
 		}
 
-		List<EnergyMeasurement> measurements = new ArrayList<>();
+		List<EnergyMeasurement> measurements = readMethodsDirectory(methodsDir);
 
+		LOG.log(Level.INFO, () -> "Read " + measurements.size() + " method measurements from JoularJX results");
+
+		// Aggregate by method name — runtime data may contain duplicate entries
+		// (one per second) that need to be summed into totals
+		List<EnergyMeasurement> aggregated = aggregateByMethod(measurements);
+
+		return EnergyReport.of(runId, Instant.now(), durationSeconds, aggregated);
+	}
+
+	/**
+	 * Reads both filtered (app-only) and unfiltered (all methods) JoularJX results from
+	 * the given root directory, returning them as a {@link MethodLevelReports}.
+	 *
+	 * <p>
+	 * This allows the HTML report to show all methods with a toggle button to filter to
+	 * app-only methods. For total data, prefers {@code total/methods/}; falls back to
+	 * {@code runtime/methods/} when total data is unavailable (e.g. on Windows where
+	 * process termination skips JVM shutdown hooks).
+	 * @param joularJxResultsRoot the root {@code joularjx-result} directory
+	 * @param runId a logical identifier for this run
+	 * @param durationSeconds how long the measurement ran
+	 * @return a {@link MethodLevelReports} containing both app and all reports
+	 */
+	public MethodLevelReports readAllResults(Path joularJxResultsRoot, String runId, long durationSeconds)
+			throws IOException {
+
+		if (!Files.isDirectory(joularJxResultsRoot)) {
+			LOG.log(Level.WARNING, () -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
+			return new MethodLevelReports(null, null);
+		}
+
+		Path runDir = findLatestRunDirectory(joularJxResultsRoot);
+		if (runDir == null) {
+			LOG.log(Level.WARNING, () -> "No JoularJX run directory found under: " + joularJxResultsRoot);
+			return new MethodLevelReports(null, null);
+		}
+
+		LOG.log(Level.INFO, () -> "Reading JoularJX app + all results from: " + runDir);
+
+		// Read app-filtered results
+		EnergyReport appReport = readFromCategory(runDir, "app", runId, durationSeconds);
+
+		// Read all-methods results
+		EnergyReport allReport = readFromCategory(runDir, "all", runId, durationSeconds);
+
+		return new MethodLevelReports(appReport, allReport);
+	}
+
+	private EnergyReport readFromCategory(Path runDir, String category, String runId, long durationSeconds) {
+		Path methodsDir = runDir.resolve(category + "/total/methods");
+		if (!Files.isDirectory(methodsDir) || isEmptyDirectory(methodsDir)) {
+			methodsDir = runDir.resolve(category + "/runtime/methods");
+		}
+
+		List<EnergyMeasurement> measurements = readMethodsDirectory(methodsDir);
+		if (measurements.isEmpty()) {
+			return null;
+		}
+		List<EnergyMeasurement> aggregated = aggregateByMethod(measurements);
+		return EnergyReport.of(runId, Instant.now(), durationSeconds, aggregated);
+	}
+
+	private List<EnergyMeasurement> readMethodsDirectory(Path methodsDir) {
+		List<EnergyMeasurement> measurements = new ArrayList<>();
 		if (Files.isDirectory(methodsDir)) {
 			try (Stream<Path> csvFiles = Files.list(methodsDir)) {
 				csvFiles.filter(p -> p.toString().endsWith(".csv")).forEach(csv -> {
@@ -100,18 +165,11 @@ public class JoularJxResultReader {
 					}
 				});
 			}
+			catch (IOException e) {
+				LOG.log(Level.WARNING, () -> "Failed to list CSV files in " + methodsDir + ": " + e.getMessage());
+			}
 		}
-		else {
-			LOG.log(Level.WARNING, () -> "JoularJX methods directory not found under: " + runDir);
-		}
-
-		LOG.log(Level.INFO, () -> "Read " + measurements.size() + " method measurements from JoularJX results");
-
-		// Aggregate by method name — runtime data may contain duplicate entries
-		// (one per second) that need to be summed into totals
-		List<EnergyMeasurement> aggregated = aggregateByMethod(measurements);
-
-		return EnergyReport.of(runId, Instant.now(), durationSeconds, aggregated);
+		return measurements;
 	}
 
 	private List<EnergyMeasurement> aggregateByMethod(List<EnergyMeasurement> measurements) {
