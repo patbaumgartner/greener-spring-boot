@@ -5,6 +5,7 @@ import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import org.junit.jupiter.api.Test;
@@ -190,6 +191,30 @@ class HtmlReporterTest {
 
 		String content = Files.readString(htmlFile);
 		assertThat(content).contains("Patrick Baumgartner").contains("Greener Spring Boot");
+	}
+
+	@Test
+	void generateReport_includesMethodLevelCard(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-ml", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app [app]", 50.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 50.0, 0, List.of(), false,
+				10.0);
+		EnergyReport appReport = EnergyReport.of("run-ml", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.MyService.doWork", 5.0)));
+		EnergyReport allReport = EnergyReport.of("run-ml", Instant.now(), 60,
+				List.of(new EnergyMeasurement("com.example.MyService.doWork", 5.0),
+						new EnergyMeasurement("org.springframework.web.DispatcherServlet.doDispatch", 3.0)));
+		MethodLevelReports methodReports = new MethodLevelReports(appReport, allReport);
+
+		Path htmlFile = reporter.generateReport(report, comparison, null, PowerSource.RAPL, methodReports, tmp);
+
+		String content = Files.readString(htmlFile);
+		assertThat(content).contains("Method-Level Energy (JoularJX)");
+		assertThat(content).contains("com.example.MyService.doWork");
+		assertThat(content).contains("org.springframework.web.DispatcherServlet.doDispatch");
+		assertThat(content).contains("Show App Only");
+		assertThat(content).contains("toggleMethodFilter");
+		assertThat(content).contains("app-method");
 	}
 
 }

@@ -1,12 +1,19 @@
 package com.patbaumgartner.greener.core.config;
 
+import com.patbaumgartner.greener.core.baseline.BaselineManager;
+import com.patbaumgartner.greener.core.model.EnergyBaseline;
+import com.patbaumgartner.greener.core.model.EnergyMeasurement;
+import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -80,6 +87,38 @@ class PluginDefaultsTest {
 	void buildEffectiveAppArgsWithoutShutdownEndpoint() {
 		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false);
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
+	}
+
+	@Test
+	void buildEffectiveAppArgsInjectsServerPortFromBaseUrl() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, "http://localhost:9123");
+		assertThat(result).contains("--server.port=9123");
+	}
+
+	@Test
+	void buildEffectiveAppArgsSkipsPortInjectionForDefault8080() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, "http://localhost:8080");
+		assertThat(result).noneMatch(a -> a.startsWith("--server.port="));
+	}
+
+	@Test
+	void buildEffectiveAppArgsSkipsPortInjectionWhenUserAlreadySpecified() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(Arrays.asList("--server.port=7777"), false,
+				"http://localhost:9123");
+		assertThat(result).contains("--server.port=7777");
+		assertThat(result).doesNotContain("--server.port=9123");
+	}
+
+	@Test
+	void buildEffectiveAppArgsWithNullBaseUrl() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, null);
+		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
+	}
+
+	@Test
+	void buildEffectiveAppArgsWithBaseUrlAndShutdownEndpoint() {
+		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, true, "http://localhost:12345");
+		assertThat(result).contains("--server.port=12345", "--management.endpoint.shutdown.enabled=true");
 	}
 
 	// ---- autoDetectJar ----
@@ -321,6 +360,41 @@ class PluginDefaultsTest {
 		File nonExistent = tempDir.resolve("does-not-exist.sh").toFile();
 		String result = PluginDefaults.resolveToolName(nonExistent, "wrk http://localhost:8080");
 		assertThat(result).isEqualTo("wrk");
+	}
+
+	// ---- saveAndLogBaseline ----
+
+	@Test
+	void saveAndLogBaselineSavesAndLogs(@TempDir Path tmp) throws IOException {
+		BaselineManager manager = new BaselineManager();
+		EnergyReport report = EnergyReport.of("run-1", Instant.now(), 60, List.of(new EnergyMeasurement("app", 42.0)));
+		Path baselineFile = tmp.resolve("energy-baseline.json");
+
+		List<String> logged = new ArrayList<>();
+		PluginDefaults.saveAndLogBaseline(manager, report, "abc123", "main", baselineFile, logged::add);
+
+		assertThat(baselineFile).exists();
+		Optional<EnergyBaseline> baseline = manager.loadBaseline(baselineFile);
+		assertThat(baseline).isPresent();
+		assertThat(baseline.get().commitSha()).isEqualTo("abc123");
+		assertThat(baseline.get().branch()).isEqualTo("main");
+		assertThat(logged).hasSize(4);
+		assertThat(logged.get(0)).contains("Energy baseline updated");
+	}
+
+	@Test
+	void saveAndLogBaselineNormalisesBlankValues(@TempDir Path tmp) throws IOException {
+		BaselineManager manager = new BaselineManager();
+		EnergyReport report = EnergyReport.of("run-1", Instant.now(), 60, List.of(new EnergyMeasurement("app", 10.0)));
+		Path baselineFile = tmp.resolve("energy-baseline.json");
+
+		List<String> logged = new ArrayList<>();
+		PluginDefaults.saveAndLogBaseline(manager, report, "  ", "${env.GITHUB_SHA}", baselineFile, logged::add);
+
+		Optional<EnergyBaseline> baseline = manager.loadBaseline(baselineFile);
+		assertThat(baseline).isPresent();
+		assertThat(baseline.get().commitSha()).isNull();
+		assertThat(baseline.get().branch()).isNull();
 	}
 
 }

@@ -44,7 +44,7 @@ tools.  Pass any of them to the greener-spring-boot plugin via
   <externalTrainingScriptFile>${project.basedir}/examples/workloads/oha/run.sh</externalTrainingScriptFile>
   <warmupDurationSeconds>30</warmupDurationSeconds>
   <measureDurationSeconds>60</measureDurationSeconds>
-  <requestsPerSecond>50</requestsPerSecond>
+  <requestsPerSecond>20</requestsPerSecond>
 </configuration>
 ```
 
@@ -61,7 +61,7 @@ greener {
     externalTrainingScriptFile = file("examples/workloads/oha/run.sh")
     warmupDurationSeconds = 30
     measureDurationSeconds = 60
-    requestsPerSecond = 50
+    requestsPerSecond = 20
 }
 ```
 
@@ -83,7 +83,7 @@ All scripts receive these environment variables from the plugin:
 | `WARMUP_SECONDS` | `30`                    | Warmup phase duration |
 | `MEASURE_SECONDS`| `60`                    | Measurement window duration |
 | `TOTAL_SECONDS`  | `90`                    | Sum of warmup + measure |
-| `RPS`            | `50`                    | Target requests per second |
+| `RPS`            | `20`                    | Target requests per second |
 
 ---
 
@@ -104,7 +104,7 @@ chmod +x /usr/local/bin/oha
 brew install oha
 
 # Run standalone
-oha --no-tui --duration 60s --qps 50 http://localhost:8080/
+oha --no-tui --duration 60s --qps 20 http://localhost:8080/
 ```
 
 ---
@@ -159,7 +159,7 @@ omission" problem and gives more reproducible energy measurements.
 git clone https://github.com/giltene/wrk2 && cd wrk2 && make
 
 # Run standalone
-wrk2 -t4 -c20 -d60s -R50 -s examples/workloads/wrk2/petclinic.lua http://localhost:8080
+wrk2 -t4 -c20 -d60s -R20 -s examples/workloads/wrk2/petclinic.lua http://localhost:8080
 ```
 
 ---
@@ -171,7 +171,7 @@ breakdowns) and supports assertions that can fail the build on SLA violations.
 
 ```bash
 # Run via the provided script (auto-downloads Gatling bundle, requires Java 17+)
-APP_URL=http://localhost:8080 MEASURE_SECONDS=60 RPS=10 \
+APP_URL=http://localhost:8080 MEASURE_SECONDS=60 RPS=20 \
   bash examples/workloads/gatling/run.sh
 ```
 

@@ -4,6 +4,7 @@
 
 | Version | Supported |
 |---|---|
+| 0.2.x | ✅ Yes (development) |
 | 0.1.x | ✅ Yes |
 
 ---

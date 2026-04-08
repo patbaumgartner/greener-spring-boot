@@ -111,4 +111,59 @@ class BaselineManagerTest {
 		assertThat(result.get().getParent().getFileName().toString()).isEqualTo("oha");
 	}
 
+	// ---- resolveLatestReport ----
+
+	@Test
+	void resolveLatestReport_prefersExplicitFile(@TempDir Path tmp) throws IOException {
+		EnergyReport explicit = EnergyReport.of("explicit", Instant.now(), 60L,
+				List.of(new EnergyMeasurement("app", 42.0)));
+		Path explicitFile = tmp.resolve("explicit-report.json");
+		manager.saveBaseline(explicit, explicitFile);
+
+		EnergyReport other = EnergyReport.of("other", Instant.now(), 60L, List.of(new EnergyMeasurement("app", 99.0)));
+		Path baselineFile = tmp.resolve("energy-baseline.json");
+		manager.saveBaseline(other, baselineFile);
+
+		Optional<EnergyReport> result = manager.resolveLatestReport(explicitFile, null, baselineFile);
+
+		assertThat(result).isPresent();
+		assertThat(result.get().totalEnergyJoules()).isEqualTo(42.0);
+	}
+
+	@Test
+	void resolveLatestReport_discoversFromReportDir(@TempDir Path tmp) throws IOException {
+		Path toolDir = tmp.resolve("reports/oha");
+		Files.createDirectories(toolDir);
+		EnergyReport report = EnergyReport.of("r1", Instant.now(), 60L, List.of(new EnergyMeasurement("app", 55.0)));
+		manager.saveBaseline(report, toolDir.resolve("latest-energy-report.json"));
+
+		Path baselineFile = tmp.resolve("energy-baseline.json");
+
+		Optional<EnergyReport> result = manager.resolveLatestReport(null, tmp.resolve("reports"), baselineFile);
+
+		assertThat(result).isPresent();
+		assertThat(result.get().totalEnergyJoules()).isEqualTo(55.0);
+	}
+
+	@Test
+	void resolveLatestReport_fallsBackToBaseline(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("r1", Instant.now(), 60L, List.of(new EnergyMeasurement("app", 77.0)));
+		Path baselineFile = tmp.resolve("energy-baseline.json");
+		manager.saveBaseline(report, baselineFile);
+
+		Optional<EnergyReport> result = manager.resolveLatestReport(null, null, baselineFile);
+
+		assertThat(result).isPresent();
+		assertThat(result.get().totalEnergyJoules()).isEqualTo(77.0);
+	}
+
+	@Test
+	void resolveLatestReport_returnsEmptyWhenNothingAvailable(@TempDir Path tmp) throws IOException {
+		Path baselineFile = tmp.resolve("nonexistent.json");
+
+		Optional<EnergyReport> result = manager.resolveLatestReport(null, null, baselineFile);
+
+		assertThat(result).isEmpty();
+	}
+
 }

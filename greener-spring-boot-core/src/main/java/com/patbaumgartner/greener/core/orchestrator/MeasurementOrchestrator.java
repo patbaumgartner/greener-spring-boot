@@ -9,6 +9,7 @@ import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
@@ -106,6 +107,23 @@ public class MeasurementOrchestrator {
 	 * @return the JoularJX report, or {@code null} if no results were found
 	 */
 	public EnergyReport readJoularJxResults(Path workingDir, int duration) {
+		MethodLevelReports reports = readJoularJxMethodLevelReports(workingDir, duration);
+		if (reports == null || !reports.hasData()) {
+			return null;
+		}
+		// For backwards compatibility, return whichever report has data (prefer app)
+		return reports.hasAppData() ? reports.appReport() : reports.allReport();
+	}
+
+	/**
+	 * Reads both filtered (app-only) and unfiltered (all methods) JoularJX results from
+	 * the working directory, returning them as a {@link MethodLevelReports}.
+	 * @param workingDir the working directory where JoularJX writes its results
+	 * @param duration measurement duration in seconds
+	 * @return a {@link MethodLevelReports}, or {@code null} if no results directory
+	 * exists
+	 */
+	public MethodLevelReports readJoularJxMethodLevelReports(Path workingDir, int duration) {
 		Path joularJxResultsDir = workingDir.resolve("joularjx-result");
 		if (!Files.isDirectory(joularJxResultsDir)) {
 			logger.accept("[greener] JoularJX results directory not found: " + joularJxResultsDir);
@@ -113,14 +131,21 @@ public class MeasurementOrchestrator {
 		}
 		try {
 			JoularJxResultReader reader = new JoularJxResultReader();
-			EnergyReport report = reader.readResults(joularJxResultsDir, PluginDefaults.buildRunId(), duration);
-			if (report.measurements().isEmpty()) {
+			MethodLevelReports reports = reader.readAllResults(joularJxResultsDir, PluginDefaults.buildRunId(),
+					duration);
+			if (!reports.hasData()) {
 				logger.accept("[greener] JoularJX produced no method-level data");
 				return null;
 			}
-			logger.accept("[greener] JoularJX: " + report.measurements().size() + " methods, "
-					+ String.format("%.2f J total", report.totalEnergyJoules()));
-			return report;
+			if (reports.hasAppData()) {
+				logger.accept("[greener] JoularJX app methods: " + reports.appReport().measurements().size()
+						+ " methods, " + String.format("%.2f J total", reports.appReport().totalEnergyJoules()));
+			}
+			if (reports.hasAllData()) {
+				logger.accept("[greener] JoularJX all methods: " + reports.allReport().measurements().size()
+						+ " methods, " + String.format("%.2f J total", reports.allReport().totalEnergyJoules()));
+			}
+			return reports;
 		}
 		catch (IOException e) {
 			logger.accept("[greener] Failed to read JoularJX results: " + e.getMessage());
@@ -177,12 +202,14 @@ public class MeasurementOrchestrator {
 	 */
 	public Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,
 			String toolName, Path reportDir, Path runDir, boolean vmMode) throws IOException {
-		return generateFinalReports(report, comparison, workloadStats, toolName, reportDir, runDir, vmMode, null);
+		return generateFinalReports(report, comparison, workloadStats, toolName, reportDir, runDir, vmMode,
+				(MethodLevelReports) null);
 	}
 
 	/**
-	 * Generates console and HTML reports including optional JoularJX method-level data,
-	 * saves the run entry, and produces an aggregated report when multiple runs exist.
+	 * Generates console and HTML reports including optional JoularJX method-level data
+	 * (both app-only and all methods), saves the run entry, and produces an aggregated
+	 * report when multiple runs exist.
 	 * @param report the energy report
 	 * @param comparison the baseline comparison result
 	 * @param workloadStats workload statistics
@@ -190,19 +217,23 @@ public class MeasurementOrchestrator {
 	 * @param reportDir top-level report directory
 	 * @param runDir tool-specific run directory
 	 * @param vmMode whether VM mode was used
-	 * @param joularJxReport optional JoularJX method-level report ({@code null} if not
-	 * used)
+	 * @param methodLevelReports optional JoularJX method-level reports ({@code null} if
+	 * not used)
 	 * @return path to the generated HTML report
 	 */
 	public Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,
-			String toolName, Path reportDir, Path runDir, boolean vmMode, EnergyReport joularJxReport)
+			String toolName, Path reportDir, Path runDir, boolean vmMode, MethodLevelReports methodLevelReports)
 			throws IOException {
 		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
-		new ConsoleReporter().report(report, comparison, workloadStats, powerSource, joularJxReport);
+		// Console reporter uses app-only report for backwards compatibility
+		EnergyReport consoleJoularJxReport = methodLevelReports != null && methodLevelReports.hasAppData()
+				? methodLevelReports.appReport() : (methodLevelReports != null && methodLevelReports.hasAllData()
+						? methodLevelReports.allReport() : null);
+		new ConsoleReporter().report(report, comparison, workloadStats, powerSource, consoleJoularJxReport);
 
 		HtmlReporter htmlReporter = new HtmlReporter();
-		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource, joularJxReport,
-				runDir);
+		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
+				methodLevelReports, runDir);
 		logger.accept("[greener] HTML report: " + htmlReport);
 
 		RunEntryStore runEntryStore = new RunEntryStore();

@@ -19,7 +19,7 @@
 #   APP_PORT         Port                  (default: 8080)
 #   WARMUP_SECONDS   Warmup duration       (default: 5)
 #   MEASURE_SECONDS  Measurement duration  (default: 15)
-#   RPS              Requests per second   (default: 10)
+#   RPS              Requests per second   (default: 20)
 
 set -euo pipefail
 
@@ -29,7 +29,7 @@ APP_HOST="${APP_HOST:-localhost}"
 APP_PORT="${APP_PORT:-8080}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-5}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-15}"
-RPS="${RPS:-10}"
+RPS="${RPS:-20}"
 TOTAL_SECONDS=$((WARMUP_SECONDS + MEASURE_SECONDS))
 
 export APP_URL APP_HOST APP_PORT WARMUP_SECONDS MEASURE_SECONDS RPS TOTAL_SECONDS

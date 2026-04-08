@@ -47,6 +47,7 @@
 #   VM_POWER_FILE          VM power file path              (default: unset)
 #   WORK_DIR               Temporary working directory     (default: $env:TEMP\greener-all-tools)
 #   RESET_BASELINES        Delete stored baselines first   (default: unset)
+#   APP_PORT               HTTP port for Spring Boot        (default: random free port)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -62,6 +63,10 @@ $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }     
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
 $TdpWatts           = if ($env:TDP_WATTS)            { $env:TDP_WATTS }            else { "100" }
 $WorkDir            = if ($env:WORK_DIR)             { $env:WORK_DIR }             else { Join-Path $env:TEMP "greener-all-tools" }
+$AppPort            = if ($env:APP_PORT)              { $env:APP_PORT }              else {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start(); $p = $listener.LocalEndpoint.Port; $listener.Stop(); $p
+}
 
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
@@ -331,7 +336,7 @@ foreach ($tool in $ToolList) {
             "--batch-mode", "--no-transfer-progress",
             "com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure",
             "-Dgreener.joularCoreBinaryPath=$JoularCoreBinary",
-            "-Dgreener.baseUrl=http://localhost:8080",
+            "-Dgreener.baseUrl=http://localhost:$AppPort",
             "-Dgreener.externalTrainingScriptFile=$ToolScript",
             "-Dgreener.warmupDurationSeconds=$WarmupSeconds",
             "-Dgreener.measureDurationSeconds=$MeasureSeconds",

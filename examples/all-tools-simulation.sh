@@ -48,6 +48,7 @@
 #   VM_POWER_FILE          Scaphandre VM power file path   (default: unset)
 #   WORK_DIR               Temporary working directory     (default: /tmp/greener-all-tools)
 #   RESET_BASELINES        Delete stored baselines first   (default: unset)
+#   APP_PORT               HTTP port for Spring Boot        (default: random free port)
 
 set -euo pipefail
 
@@ -59,6 +60,7 @@ WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"
 TDP_WATTS="${TDP_WATTS:-100}"
 WORK_DIR="${WORK_DIR:-/tmp/greener-all-tools}"
+APP_PORT="${APP_PORT:-$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -273,7 +275,7 @@ for tool in ${TOOLS}; do
     if mvn --batch-mode --no-transfer-progress \
         com.patbaumgartner:greener-spring-boot-maven-plugin:0.2.0-SNAPSHOT:measure \
         -Dgreener.joularCoreBinaryPath="${JOULAR_CORE_BINARY}" \
-        -Dgreener.baseUrl="http://localhost:8080" \
+        -Dgreener.baseUrl="http://localhost:${APP_PORT}" \
         -Dgreener.externalTrainingScriptFile="${TOOL_SCRIPT}" \
         -Dgreener.warmupDurationSeconds="${WARMUP_SECONDS}" \
         -Dgreener.measureDurationSeconds="${MEASURE_SECONDS}" \

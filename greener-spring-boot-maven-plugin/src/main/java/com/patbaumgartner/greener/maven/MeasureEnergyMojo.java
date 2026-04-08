@@ -6,6 +6,7 @@ import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
@@ -18,10 +19,11 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.io.IOException;
+import java.util.function.Supplier;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
@@ -74,7 +76,7 @@ import java.io.IOException;
  * }</pre>
  */
 @Mojo(name = "measure", defaultPhase = LifecyclePhase.INTEGRATION_TEST, threadSafe = false)
-@SuppressWarnings({ "PMD.AvoidDuplicateLiterals", "PMD.GuardLogStatement" })
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public class MeasureEnergyMojo extends AbstractMojo {
 
 	// ---- Application ----
@@ -319,7 +321,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		if (skip) {
-			getLog().info("greener:measure skipped (greener.skip=true)");
+			logInfo("greener:measure skipped (greener.skip=true)");
 			return;
 		}
 
@@ -336,9 +338,19 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		}
 	}
 
+	private void logInfo(Supplier<String> messageSupplier) {
+		if (getLog().isInfoEnabled()) {
+			getLog().info(messageSupplier.get());
+		}
+	}
+
+	private void logInfo(String message) {
+		getLog().info(message);
+	}
+
 	private void executeInternal()
 			throws IOException, InterruptedException, MojoFailureException, MojoExecutionException {
-		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(msg -> getLog().info(msg));
+		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(this::logInfo);
 
 		// 1. Resolve Joular Core binary
 		Path joularCoreBinary = resolveJoularCoreBinary();
@@ -390,12 +402,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				threshold, autoUpdateBaseline, commitSha, branch);
 
 		// 9b. Read JoularJX method-level results (if available)
-		EnergyReport joularJxReport = joularJxAgentPath != null
-				? orchestrator.readJoularJxResults(workingDir, measureDurationSeconds) : null;
+		MethodLevelReports methodLevelReports = joularJxAgentPath != null
+				? orchestrator.readJoularJxMethodLevelReports(workingDir, measureDurationSeconds) : null;
 
 		// 10, 11 & 12. Report and Aggregate
 		Path htmlReport = orchestrator.generateFinalReports(report, comparison, workloadStats, toolName,
-				effectiveReportDir, runDir, vmMode, joularJxReport);
+				effectiveReportDir, runDir, vmMode, methodLevelReports);
 
 		// 13. Create latest symlink for timestamped reports
 		if (timestampReports) {
@@ -416,22 +428,23 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 	private Process startApplication(ApplicationRunner appRunner, Path joularCoreBinary, Path workingDir)
 			throws IOException {
-		getLog().info("[greener] Starting application: " + springBootJar.getName());
-		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(appArgs, joularJxAgentPath != null);
+		logInfo(() -> "[greener] Starting application: " + springBootJar.getName());
+		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(appArgs, joularJxAgentPath != null,
+				baseUrl);
 		Path joularJxJar = joularJxAgentPath != null ? joularJxAgentPath.toPath() : null;
 		Path joularJxConfig = joularJxConfigPath != null ? joularJxConfigPath.toPath() : null;
 		joularJxConfig = PluginDefaults.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
 		Process appProcess = appRunner.start(springBootJar.toPath(), joularJxJar, joularJxConfig, workingDir, jvmArgs,
 				effectiveAppArgs);
-		getLog().info("[greener] Application PID: " + appProcess.pid());
+		logInfo(() -> "[greener] Application PID: " + appProcess.pid());
 		return appProcess;
 	}
 
 	private void waitForApplicationReady(ApplicationRunner appRunner, Process appProcess)
 			throws IOException, InterruptedException {
-		getLog().info("[greener] Waiting for health check ...");
+		logInfo("[greener] Waiting for health check ...");
 		appRunner.waitForStartup(appProcess, baseUrl, healthCheckPath, startupTimeoutSeconds);
-		getLog().info("[greener] Application is ready");
+		logInfo("[greener] Application is ready");
 	}
 
 	private JoularCoreConfig createJoularCoreConfig(Path binary, long pid, Path outputCsv) {
@@ -445,7 +458,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	}
 
 	private void startJoularCore(JoularCoreRunner runner, JoularCoreConfig config, long pid) throws IOException {
-		getLog().info("[greener] Starting Joular Core (PID " + pid + ")");
+		logInfo(() -> "[greener] Starting Joular Core (PID " + pid + ")");
 		runner.start(config);
 	}
 
@@ -474,11 +487,11 @@ public class MeasureEnergyMojo extends AbstractMojo {
 						"Configured joularCoreBinaryPath does not exist: " + joularCoreBinaryPath
 								+ ". Remove <joularCoreBinaryPath> to enable auto-download, or fix the path.");
 			}
-			getLog().info("[greener] Using Joular Core binary: " + joularCoreBinaryPath);
+			logInfo(() -> "[greener] Using Joular Core binary: " + joularCoreBinaryPath);
 			return joularCoreBinaryPath.toPath();
 		}
 
-		getLog().info("[greener] Downloading Joular Core " + joularCoreVersion + " ...");
+		logInfo(() -> "[greener] Downloading Joular Core " + joularCoreVersion + " ...");
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
 		return downloader.download(joularCoreVersion, JoularCoreDownloader.defaultCacheDir());
 	}
@@ -525,7 +538,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				throw new MojoExecutionException("springBootJar not configured and build directory not found: "
 						+ buildDirectory + ". Set <springBootJar> explicitly.");
 			}
-			getLog().info("[greener] Auto-detected Spring Boot jar: " + jar.get());
+			logInfo(() -> "[greener] Auto-detected Spring Boot jar: " + jar.get());
 			return jar.get();
 		}
 		catch (IllegalStateException e) {
