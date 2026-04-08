@@ -90,6 +90,32 @@ public class BaselineManager {
 	}
 
 	/**
+	 * Resolves the latest energy report by trying three sources in order:
+	 * <ol>
+	 * <li>An explicit report file path ({@code latestReportFile})</li>
+	 * <li>Auto-discovery from subdirectories of {@code reportDir}</li>
+	 * <li>The existing baseline file</li>
+	 * </ol>
+	 * @param latestReportFile explicit report file path (may be {@code null})
+	 * @param reportDir report output directory for auto-discovery (may be {@code null})
+	 * @param baselineFile fallback baseline file path
+	 * @return the resolved energy report, or empty if none could be found
+	 */
+	public Optional<EnergyReport> resolveLatestReport(Path latestReportFile, Path reportDir, Path baselineFile)
+			throws IOException {
+		if (latestReportFile != null) {
+			return loadBaseline(latestReportFile).map(EnergyBaseline::report);
+		}
+
+		Optional<Path> discovered = discoverLatestReport(reportDir);
+		if (discovered.isPresent()) {
+			return loadBaseline(discovered.get()).map(EnergyBaseline::report);
+		}
+
+		return loadBaseline(baselineFile).map(EnergyBaseline::report);
+	}
+
+	/**
 	 * Scans immediate subdirectories of the given directory for
 	 * {@code latest-energy-report.json} and returns the most recently modified match.
 	 * @param reportDir root report output directory

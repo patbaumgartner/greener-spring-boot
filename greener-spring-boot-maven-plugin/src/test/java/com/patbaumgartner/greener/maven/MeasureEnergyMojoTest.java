@@ -155,6 +155,20 @@ class MeasureEnergyMojoTest {
 			.hasMessageContaining("No jar found");
 	}
 
+	@Test
+	void failsWhenExternalTrainingCommandIsBlank() throws Exception {
+		File fakeJar = tempDir.resolve("app.jar").toFile();
+		Files.createFile(fakeJar.toPath());
+
+		MeasureEnergyMojo mojo = new MeasureEnergyMojo();
+		setField(mojo, "skip", false);
+		setField(mojo, "springBootJar", fakeJar);
+		setField(mojo, "measureDurationSeconds", 60);
+		setField(mojo, "externalTrainingCommand", "   ");
+
+		assertThatThrownBy(mojo::execute).isInstanceOf(MojoExecutionException.class);
+	}
+
 	private static void setField(Object target, String fieldName, Object value) throws Exception {
 		Field field = target.getClass().getDeclaredField(fieldName);
 		field.setAccessible(true);

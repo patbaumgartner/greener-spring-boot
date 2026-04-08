@@ -43,7 +43,7 @@ fi
 APP_URL="${APP_URL:-http://localhost:8080}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
-RPS="${RPS:-50}"
+RPS="${RPS:-20}"
 
 # Derive connection / thread count from RPS (rough heuristic)
 THREADS=$(( RPS / 10 < 2 ? 2 : RPS / 10 ))

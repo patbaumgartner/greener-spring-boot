@@ -59,7 +59,7 @@ jobs:
       - name: Set release version
         if: inputs.version != ''
         run: |
-          mvn -B versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+          mvn --batch-mode --no-transfer-progress versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
           sed -i "s/^version=.*/version=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
           sed -i "s/^coreVersion=.*/coreVersion=${{ inputs.version }}/" greener-spring-boot-gradle-plugin/gradle.properties
 
@@ -69,7 +69,7 @@ jobs:
         env:
           CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-        run: mvn -B -Ppublication
+        run: mvn --batch-mode --no-transfer-progress -Ppublication
 
       - name: Deploy Gradle snapshot
         if: inputs.version == ''
@@ -82,7 +82,7 @@ jobs:
       # ── 5. Release (stage locally, then JReleaser bundles + uploads) ────────
       - name: Stage Maven artifacts
         if: inputs.version != ''
-        run: mvn -B -Ppublication -DaltDeploymentRepository=local::file:./target/staging-deploy
+        run: mvn --batch-mode --no-transfer-progress -Ppublication -DaltDeploymentRepository=local::file:./target/staging-deploy
 
       - name: Stage Gradle plugin artifacts
         if: inputs.version != ''
@@ -92,7 +92,7 @@ jobs:
 
       - name: Release
         if: inputs.version != ''
-        run: mvn -B jreleaser:full-release -N -Djreleaser.config.file=jreleaser.yml
+        run: mvn --batch-mode --no-transfer-progress jreleaser:full-release -N -Djreleaser.config.file=jreleaser.yml
 
       - name: Publish Gradle Plugin
         if: inputs.version != ''
@@ -112,7 +112,7 @@ jobs:
           IFS='.' read -r major minor patch <<< "${{ inputs.version }}"
           NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
           echo "Bumping to next development version: ${NEXT_VERSION}"
-          mvn -B versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
+          mvn --batch-mode --no-transfer-progress versions:set -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
           sed -i "s/^version=.*/version=${NEXT_VERSION}/" greener-spring-boot-gradle-plugin/gradle.properties
           sed -i "s/^coreVersion=.*/coreVersion=${NEXT_VERSION}/" greener-spring-boot-gradle-plugin/gradle.properties
           git config user.name "github-actions[bot]"
