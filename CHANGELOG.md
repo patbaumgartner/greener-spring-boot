@@ -9,18 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- JoularJX method-level energy monitoring as an optional add-on to process-level
+  Joular Core measurements; new `joularJxAgentPath` and `joularJxConfigPath`
+  parameters (Maven + Gradle) to enable per-method energy granularity
+- `externalTrainingCommand` parameter (Maven + Gradle) for inline workload commands
+  (e.g. `oha -n 500 -c 10 ${APP_URL}/actuator/health`) without a separate script file
+- `topN` parameter (Maven + Gradle) to limit the number of top energy-consuming
+  methods shown in the HTML report (default: 20)
 - `autoUpdateBaseline` parameter (Maven + Gradle) to auto-promote measurement results
   to the baseline file after a successful run, eliminating separate `update-baseline` calls
 - `timestampReports` parameter (Maven + Gradle) to append a `yyyyMMdd-HHmmss` timestamp
   to the report output directory and create a `latest` symlink
 - `commitSha` and `branch` parameters (Maven + Gradle) to record VCS metadata in the
   baseline file when auto-updating
+- `skip` parameter for Gradle plugin to skip execution entirely
+- SHA-256 digest verification for auto-downloaded Joular Core binaries using checksums
+  published in the GitHub Release API
+- `MeasurementOrchestrator` to coordinate the full measurement lifecycle (warmup,
+  measurement, result processing, baseline comparison, report generation) shared by
+  both Maven and Gradle plugins
+- `AppArgsBuilder` to assemble Spring Boot application arguments with automatic
+  health-probe injection, Actuator shutdown endpoint, and port extraction
+- `JoularCoreProbe` to auto-detect which power component (CPU/GPU) delivers non-zero
+  readings and augment JoularJX config accordingly
+- `MeasurementConfig` record to centralise shared configuration for the orchestrator
+- `MeasurementResult` record aggregating energy report, baseline comparison, workload
+  stats, optional method-level reports, and HTML report path
+- `MethodLevelReports` record combining filtered (app-only) and unfiltered (all methods)
+  JoularJX energy reports for method-level analysis
 - `BaselineManager.discoverLatestReport(Path)` to scan report subdirectories for the
   most recently modified `latest-energy-report.json`
 - `PluginDefaults.resolveToolName(File, String)` to derive a workload tool name from
   the configured training script or command
 - `PluginDefaults.buildTimestampedDir(Path)` and `createLatestLink(Path, String)` for
   timestamped report directory management
+- `setup-energy-measurement` composite GitHub Action to detect power source, start
+  the CI CPU power estimator, and build/cache the Joular Core binary
+- `energy-local-simulation.yml` workflow for local multi-tool simulation runs
+- `detect-power-source.sh` utility for automatic RAPL / Scaphandre / estimator detection
+- `CODEOWNERS` file for automatic PR review assignment
+- `QUALITY_GATES.md` documenting SpotBugs, PMD, CodeQL, and test coverage gates
+- SpotBugs and PMD quality-gate executions added to the Maven plugin module
+- Joularjx simulation scripts (`joularjx-simulation.sh`, `joularjx-simulation.ps1`)
+- Playwright-based HTML report integration tests (`HtmlReporterPlaywrightTest`)
+- Tests for `MeasurementOrchestrator`, `AppArgsBuilder`, `MeasurementResult`,
+  `ApplicationRunner`, `JoularCoreRunner`, `TrainingRunner`, and `JoularCoreDownloader`
 - Tests for `discoverLatestReport`, `resolveToolName`, `buildTimestampedDir`, and
   `createLatestLink`
 - Negative tests for `ExternalToolOutputParser` covering malformed and partial output
@@ -33,15 +66,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `good first issue` and `help wanted` guidance in CONTRIBUTING.md to help new contributors
   find entry points
 - Mockito test dependency to Gradle plugin (`mockito-junit-jupiter`) for parity with Maven modules
+- No-baseline warning banner in energy PR comparison comments when no baseline exists
 
 ### Changed
 
+- `externalTrainingCommand` or `externalTrainingScriptFile` is now **required** -
+  the plugin fails at runtime if neither is configured
+- Default Joular Core version updated from `0.0.1-alpha-11` to `0.0.1-beta-1`
+- Measurement logic extracted from Maven and Gradle plugins into shared
+  `MeasurementOrchestrator` in core module
+- `AppArgsBuilder` extracted from `PluginDefaults` into its own class
+- `JoularCoreProbe` extracted from `PluginDefaults` into its own class
 - `discoverLatestReport` logic extracted from `UpdateBaselineMojo` and `UpdateBaselineTask`
   into shared `BaselineManager`
 - `resolveToolName` logic extracted from `MeasureEnergyMojo` and `MeasureEnergyTask`
   into shared `PluginDefaults`
+- Energy workflows refactored to use `setup-energy-measurement` composite action,
+  extracting `GREENER_VERSION` env var to eliminate version drift
+- Joular Core downloader now verifies downloads against SHA-256 digests from the
+  GitHub Release API; mismatched binaries are deleted
+- `TrainingRunner` now supports inline commands and captures stdout output for
+  `ExternalToolOutputParser` workload statistics extraction
+- Gradle `UpdateBaselineTask` error handling aligned with Maven: warn+return
+  instead of throwing an exception
 - Simulation scripts simplified to use `autoUpdateBaseline=true` instead of separate
   `update-baseline` calls
+- README configuration sections split into minimal and full examples for both
+  Maven and Gradle
 - Expanded "Supported CI systems" table in README with GitLab CI and Jenkins rows
 - `baseUrl` and `requestsPerSecond` parameter descriptions clarified as env vars for external scripts
 - README quickstart snapshot warning replaced with a prominent GitHub-rendered `[!WARNING]` alert
@@ -57,12 +108,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WorkloadStats.builtIn()` factory method
 - Duplicate `discoverLatestReport()` methods in `UpdateBaselineMojo` and `UpdateBaselineTask`
 - Duplicate `resolveToolName()` body in `MeasureEnergyMojo` and `MeasureEnergyTask`
+- `SharedMojoUtils` class (logic moved to `PluginDefaults` and `MeasurementOrchestrator`)
 
 ### Fixed
 
 - CodeQL `NumberFormatException` alerts in `ExternalToolOutputParser` (safe parsing helpers)
 - CodeQL relative-path-command alert in `TrainingRunner` (absolute path resolution)
+- CodeQL workflow fixed to build with Java 17 (plugins target Java 17; Java 25 is
+  only needed by the Spring Petclinic energy workflows)
+- PMD violations in `MeasureEnergyMojo`: stack traces now preserved in catch blocks
 - Em dashes replaced with standard dashes in all documentation files
+- Method-level energy card now merges application methods from the filtered JoularJX report
+  into the all-methods table so the "Show App Only" filter works correctly
+- Method-level "Total Energy" label renamed to "Total Energy (all threads)" to avoid
+  confusion with the process-level total in the Measurement Summary card
+- Explanatory note added to the Method-Level Energy card when the JoularJX total exceeds
+  the Joular Core process-level energy, clarifying the difference in measurement scope
+- PowerShell `$OhaScript` variable scope fix in `local-simulation.ps1`
+- `Join-Path` three-argument incompatibility fix in PowerShell simulation scripts
+- Unicode character encoding fixed for Windows PowerShell 5.x compatibility
 
 ## [0.1.0] - 2026-04-03
 

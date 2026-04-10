@@ -58,26 +58,26 @@ class PluginDefaultsTest {
 
 	@Test
 	void buildEffectiveAppArgsWithNullInput() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null);
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null);
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
 	}
 
 	@Test
 	void buildEffectiveAppArgsWithEmptyInput() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(Collections.emptyList());
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(Collections.emptyList());
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
 	}
 
 	@Test
 	void buildEffectiveAppArgsPreservesUserArgs() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(Arrays.asList("--server.port=9090", "--debug"));
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(Arrays.asList("--server.port=9090", "--debug"));
 		assertThat(result).containsExactly("--server.port=9090", "--debug",
 				"--management.endpoint.health.probes.enabled=true");
 	}
 
 	@Test
 	void buildEffectiveAppArgsWithShutdownEndpoint() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, true);
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, true);
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true",
 				"--management.endpoint.shutdown.enabled=true",
 				"--management.endpoints.web.exposure.include=health,shutdown");
@@ -85,25 +85,25 @@ class PluginDefaultsTest {
 
 	@Test
 	void buildEffectiveAppArgsWithoutShutdownEndpoint() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false);
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, false);
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
 	}
 
 	@Test
 	void buildEffectiveAppArgsInjectsServerPortFromBaseUrl() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, "http://localhost:9123");
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, false, "http://localhost:9123");
 		assertThat(result).contains("--server.port=9123");
 	}
 
 	@Test
 	void buildEffectiveAppArgsSkipsPortInjectionForDefault8080() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, "http://localhost:8080");
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, false, "http://localhost:8080");
 		assertThat(result).noneMatch(a -> a.startsWith("--server.port="));
 	}
 
 	@Test
 	void buildEffectiveAppArgsSkipsPortInjectionWhenUserAlreadySpecified() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(Arrays.asList("--server.port=7777"), false,
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(Arrays.asList("--server.port=7777"), false,
 				"http://localhost:9123");
 		assertThat(result).contains("--server.port=7777");
 		assertThat(result).doesNotContain("--server.port=9123");
@@ -111,13 +111,13 @@ class PluginDefaultsTest {
 
 	@Test
 	void buildEffectiveAppArgsWithNullBaseUrl() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, false, null);
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, false, null);
 		assertThat(result).containsExactly("--management.endpoint.health.probes.enabled=true");
 	}
 
 	@Test
 	void buildEffectiveAppArgsWithBaseUrlAndShutdownEndpoint() {
-		List<String> result = PluginDefaults.buildEffectiveAppArgs(null, true, "http://localhost:12345");
+		List<String> result = AppArgsBuilder.buildEffectiveAppArgs(null, true, "http://localhost:12345");
 		assertThat(result).contains("--server.port=12345", "--management.endpoint.shutdown.enabled=true");
 	}
 

@@ -39,7 +39,7 @@
 #
 # Environment variables (all optional — sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
@@ -53,7 +53,7 @@ set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PETCLINIC_VERSION="${PETCLINIC_VERSION:-main}"
-JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-alpha-11}"
+JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-beta-1}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"
@@ -125,9 +125,11 @@ mvn --version 2>&1 | head -1
 
 mkdir -p "${WORK_DIR}"
 
+ok "All preflight checks passed"
+
 # ── Baseline management ──────────────────────────────────────────────────────
 if [ "${RESET_BASELINES:-}" = "true" ] && [ -f "${BASELINE_FILE}" ]; then
-    info "RESET_BASELINES=true — removing stored baseline"
+    info "RESET_BASELINES=true - removing stored baseline"
     rm -f "${BASELINE_FILE}"
 fi
 
@@ -174,7 +176,7 @@ elif [ "$IS_WSL" = true ] && sc.exe query ScaphandreDrv 2>/dev/null | grep -q RU
     info "For direct RAPL readings, run local-simulation.ps1 natively on Windows."
 elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
     POWER_SOURCE="vm-file"
-    ok "Scaphandre VM power file found."
+    ok "VM power file found at ${VM_POWER_FILE}."
 elif [ -f /proc/stat ]; then
     POWER_SOURCE="ci-estimated"
     info "Using CPU-time x TDP software estimation."
@@ -340,9 +342,13 @@ PYEOF
 
 echo ""
 echo "Reports saved to:"
-echo "  Baseline  : ${REPORTS_BASELINE}/"
-echo "  Comparison: ${REPORTS_COMPARISON}/"
+echo "  Baseline   : ${REPORTS_BASELINE}/"
+echo "  Comparison : ${REPORTS_COMPARISON}/"
 echo "  Baseline JSON: ${BASELINE_FILE}"
+echo ""
+echo "Open in browser:"
+echo "  Baseline   : file://${REPORTS_BASELINE}/oha/greener-energy-report.html"
+echo "  Comparison : file://${REPORTS_COMPARISON}/oha/greener-energy-report.html"
 
 # ── Symlink latest reports ────────────────────────────────────────────────────
 LATEST_BASELINE="${WORK_DIR}/greener-reports-baseline-latest"

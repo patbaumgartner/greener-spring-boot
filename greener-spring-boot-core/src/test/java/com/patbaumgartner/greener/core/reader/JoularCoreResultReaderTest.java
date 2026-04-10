@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JoularCoreResultReaderTest {
 
@@ -38,7 +39,7 @@ class JoularCoreResultReaderTest {
 
 	@Test
 	void readResults_joularCoreV0Header_parsedCorrectly(@TempDir Path tmp) throws IOException {
-		// Joular Core v0.0.1-alpha-11 uses a different column order
+		// Joular Core v0.0.1-beta-1 uses a different column order
 		Path csv = tmp.resolve("joularcore.csv");
 		Files.writeString(csv, """
 				Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
@@ -101,32 +102,29 @@ class JoularCoreResultReaderTest {
 	}
 
 	@Test
-	void readResults_missingFile_returnsEmptyReport(@TempDir Path tmp) throws IOException {
+	void readResults_missingFile_throwsIOException(@TempDir Path tmp) {
 		Path missing = tmp.resolve("missing.csv");
-		EnergyReport report = reader.readResults(missing, "run-x", 60L, APP_ID);
 
-		assertThat(report.measurements()).isEmpty();
-		assertThat(report.totalEnergyJoules()).isEqualTo(0.0);
+		assertThatThrownBy(() -> reader.readResults(missing, "run-x", 60L, APP_ID)).isInstanceOf(IOException.class)
+			.hasMessageContaining("not found");
 	}
 
 	@Test
-	void readResults_emptyCsv_returnsEmptyReport(@TempDir Path tmp) throws IOException {
+	void readResults_emptyCsv_throwsIOException(@TempDir Path tmp) throws IOException {
 		Path csv = tmp.resolve("empty.csv");
 		Files.writeString(csv, "");
 
-		EnergyReport report = reader.readResults(csv, "run-empty", 60L, APP_ID);
-
-		assertThat(report.measurements()).isEmpty();
+		assertThatThrownBy(() -> reader.readResults(csv, "run-empty", 60L, APP_ID)).isInstanceOf(IOException.class)
+			.hasMessageContaining("no valid power samples");
 	}
 
 	@Test
-	void readResults_headerOnlyCsv_returnsEmptyReport(@TempDir Path tmp) throws IOException {
+	void readResults_headerOnlyCsv_throwsIOException(@TempDir Path tmp) throws IOException {
 		Path csv = tmp.resolve("header-only.csv");
 		Files.writeString(csv, "timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power\n");
 
-		EnergyReport report = reader.readResults(csv, "run-hdr", 60L, APP_ID);
-
-		assertThat(report.measurements()).isEmpty();
+		assertThatThrownBy(() -> reader.readResults(csv, "run-hdr", 60L, APP_ID)).isInstanceOf(IOException.class)
+			.hasMessageContaining("no valid power samples");
 	}
 
 	@Test

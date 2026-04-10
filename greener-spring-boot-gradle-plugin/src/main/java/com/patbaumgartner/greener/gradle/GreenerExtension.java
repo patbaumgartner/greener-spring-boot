@@ -19,7 +19,7 @@ import org.gradle.api.provider.Property;
  *
  *     // Joular Core
  *     joularCoreBinaryPath.set(file("/usr/local/bin/joularcore"))  // optional, auto-downloaded if absent
- *     joularCoreVersion.set("0.0.1-alpha-11")
+ *     joularCoreVersion.set("0.0.1-beta-1")
  *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
  *     // JoularJX (optional method-level monitoring)
@@ -30,11 +30,11 @@ import org.gradle.api.provider.Property;
  *     vmMode.set(true)
  *     vmPowerFilePath.set(file("/tmp/vm-power.txt"))  // host writes watts here every second
  *
- *     // Training workload
+ *     // Training workload — REQUIRED: set one of externalTrainingCommand / externalTrainingScriptFile
  *     baseUrl.set("http://localhost:8080")
  *     requestsPerSecond.set(5)
- *     externalTrainingScriptFile.set(file("examples/workloads/oha/run.sh"))  // optional
- *     externalTrainingCommand.set("k6 run load-test.js")                  // alternative to script
+ *     externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")   // option A: inline command
+ *     externalTrainingScriptFile.set(file("examples/workloads/oha/run.sh"))          // option B: script (takes precedence)
  *     warmupDurationSeconds.set(30)
  *     measureDurationSeconds.set(60)
  *     startupTimeoutSeconds.set(120)
@@ -52,6 +52,9 @@ import org.gradle.api.provider.Property;
  *     timestampReports.set(false)    // append timestamp, create latest symlink
  *     commitSha.set("...")           // git SHA recorded in baseline (auto-detected from GITHUB_SHA)
  *     branch.set("...")              // branch recorded in baseline (auto-detected from GITHUB_REF_NAME)
+ *
+ *     // Report customisation
+ *     topN.set(20)                   // max methods in HTML report tables
  *
  *     // Skip execution
  *     skip.set(false)
@@ -255,5 +258,11 @@ public abstract class GreenerExtension {
 	 * @return the skip property
 	 */
 	public abstract Property<Boolean> getSkip();
+
+	/**
+	 * Maximum number of methods to display in HTML report tables.
+	 * @return the topN property
+	 */
+	public abstract Property<Integer> getTopN();
 
 }

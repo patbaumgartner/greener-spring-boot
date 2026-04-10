@@ -23,11 +23,13 @@ com.patbaumgartner.greener.core
 ├── baseline/        BaselineManager - load / save energy-baseline.json
 │                    RunEntryStore - persist / load AggregatedRunEntry JSON files
 ├── comparator/      EnergyComparator - diff report vs baseline
-├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults
+├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults,
+│                    AppArgsBuilder, JoularCoreProbe
 ├── downloader/      JoularCoreDownloader - auto-download Joular Core binaries
+│                    with SHA-256 verification
 ├── model/           EnergyReport, EnergyBaseline, EnergyMeasurement,
 │                    ComparisonResult, WorkloadStats, AggregatedRunEntry,
-│                    MethodLevelReports, PowerSource (enum)
+│                    MethodLevelReports, MeasurementResult, PowerSource (enum)
 ├── reader/          JoularCoreResultReader, JoularJxResultReader
 ├── orchestrator/    MeasurementOrchestrator - coordinates warmup, measurement,
 │                    result processing, baseline comparison, and report generation
@@ -40,19 +42,25 @@ com.patbaumgartner.greener.core
 
 - **`PluginDefaults`** - shared utility used by both Maven and Gradle plugins
   for `buildRunId()`, `resolvePowerSource(boolean vmMode)`, `normalise(String)`,
-  `buildEffectiveAppArgs(List)`, `autoDetectJar(Path, String...)`,
+  `autoDetectJar(Path, String...)`,
   `formatBaselineUpdateSummary(...)`, `saveAndLogBaseline(...)`,
   `resolveToolName(File, String)`, `buildTimestampedDir(Path)`,
   `createLatestLink(Path, String)`, `validateMeasureDuration(int)`,
-  `validateExternalScript(File)`, `ensureJoularCoreParameters(Path, Path, Path)`,
-  `probeJoularCoreComponent(Path)`, and `resolveJoularCoreParameters(Path)`.
+  and `validateExternalScript(File)`.
+- **`AppArgsBuilder`** - builds the effective Spring Boot application argument list;
+  handles health probe injection, Actuator shutdown endpoint, and port extraction
+  from the base URL. Extracted from `PluginDefaults`.
+- **`JoularCoreProbe`** - probes the Joular Core binary to discover which power
+  component delivers non-zero readings; optionally augments a JoularJX config
+  file with the detected parameters. Extracted from `PluginDefaults`.
 - **`BaselineManager`** - saves/loads `EnergyBaseline` JSON files and discovers
   the most recent report via `discoverLatestReport(Path)`.
 - **`RunEntryStore`** - persists and loads `AggregatedRunEntry` JSON files so that
   multi-tool simulation runs can be collected into a single aggregated report.
 - **`MeasurementOrchestrator`** - shared measurement workflow used by both Maven
   and Gradle plugins; coordinates warmup, measurement, result processing, baseline
-  comparison, and report generation.
+  comparison, and report generation. Returns a `MeasurementResult` from
+  `processAndReport()`. Accepts a configurable `topN` for the HTML reporter.
 - **`PowerSource`** - enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
   with `detect(boolean vmMode)` and `fromString(String)`.
 - **`ExternalToolOutputParser`** - extracts request counts from stdout of
@@ -61,10 +69,15 @@ com.patbaumgartner.greener.core
   captures stdout for `ExternalToolOutputParser`.
 - **`HtmlReporter`** - generates self-contained HTML reports; supports
   single-tool and multi-tool aggregated reports via `generateAggregatedReport()`.
+  Method-level card merges app methods from the filtered report into the all-methods
+  table and shows an explanatory note when JoularJX totals exceed process-level energy.
 - **`MethodLevelReports`** - record combining filtered (app-only) and unfiltered
   (all methods) JoularJX energy reports for method-level analysis.
 - **`AggregatedRunEntry`** - record combining tool name, report, workload
   stats, and comparison for multi-tool aggregated reports.
+- **`MeasurementResult`** - record aggregating energy report, baseline comparison,
+  workload stats, optional method-level reports, and HTML report path; returned
+  by `MeasurementOrchestrator.processAndReport()`.
 
 ## Build & Test
 
@@ -85,7 +98,8 @@ cd greener-spring-boot-gradle-plugin && ./gradlew build --no-daemon
 - **Builder-style setters** - configuration classes (`JoularCoreConfig`, `TrainingConfig`)
   use fluent `return this` setters, not JavaBean setters.
 - **Records for value objects** - `EnergyBaseline`, `EnergyMeasurement`, `EnergyReport`,
-  `ComparisonResult`, `WorkloadStats`, `AggregatedRunEntry`, `MethodLevelReports` are all records.
+  `ComparisonResult`, `WorkloadStats`, `AggregatedRunEntry`, `MethodLevelReports`,
+  `MeasurementResult` are all records.
 - **Logging** - use `java.util.logging.Logger` in core; Maven uses `getLog()`, Gradle uses
   `getLogger().lifecycle()`.
 - **No Lombok** - the project does not use Lombok.
@@ -135,7 +149,8 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 3. **VM mode** - for CI/CD and VMs without RAPL, a CPU-time × TDP estimator writes
    power values to a file that Joular Core reads in `--vm` mode.
 4. **Auto-download** - Joular Core binaries are auto-downloaded from GitHub Releases
-   and cached in `~/.greener/cache/joularcore/`.
+   and cached in `~/.greener/cache/joularcore/`. Downloads are verified against
+   SHA-256 digests published in the GitHub Release API.
 
 ## Changelog & Versioning
 

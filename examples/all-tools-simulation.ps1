@@ -39,7 +39,7 @@
 #
 # Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
@@ -57,7 +57,7 @@ $ErrorActionPreference = "Stop"
 
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
-$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
+$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-beta-1" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
@@ -394,13 +394,17 @@ foreach ($tool in $ToolList) {
 Write-Output ""
 Write-Output "  Passed: $($Passed.Count)  |  Failed: $($Failed.Count)  |  Skipped: $($Skipped.Count)"
 Write-Output ""
-Write-Output "  Reports saved under: $ReportsDir\"
-Write-Output "  Baselines saved under: $BaselineDir\"
-Write-Output "  Latest copy: $LatestDir\"
+Write-Output ""
+Write-Output "Reports saved to:"
+Write-Output "  Reports dir  : $ReportsDir\"
+Write-Output "  Baselines dir: $BaselineDir\"
+Write-Output "  Latest copy  : $LatestDir\"
 
 $AggregatedReport = Join-Path $ReportsDir "greener-aggregated-report.html"
 if (Test-Path $AggregatedReport) {
-    Write-Output "  Aggregated report: $AggregatedReport"
+    Write-Output ""
+    Write-Output "Open in browser:"
+    Write-Output "  file:///$($AggregatedReport -replace '\\', '/')"
 }
 
 if ($Failed.Count -gt 0) {

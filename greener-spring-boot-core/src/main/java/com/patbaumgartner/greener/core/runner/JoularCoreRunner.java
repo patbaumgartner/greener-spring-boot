@@ -30,11 +30,26 @@ import java.util.logging.Logger;
  * ({@code -a}). Using PID is preferred because it avoids ambiguity when multiple Java
  * processes run on the same host.
  */
-public class JoularCoreRunner {
+public class JoularCoreRunner implements AutoCloseable {
 
 	private static final Logger LOG = Logger.getLogger(JoularCoreRunner.class.getName());
 
+	private static final int DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15;
+
+	private int shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_SECONDS;
+
 	private Process joularCoreProcess;
+
+	/**
+	 * Sets the maximum number of seconds to wait for Joular Core to terminate gracefully
+	 * before force-killing.
+	 * @param seconds timeout in seconds (must be positive)
+	 * @return this runner for fluent chaining
+	 */
+	public JoularCoreRunner shutdownTimeoutSeconds(int seconds) {
+		this.shutdownTimeout = seconds;
+		return this;
+	}
 
 	/**
 	 * Starts Joular Core with the supplied configuration.
@@ -56,7 +71,7 @@ public class JoularCoreRunner {
 		Files.createDirectories(config.getOutputCsvPath().getParent());
 
 		List<String> command = config.buildCommand(config.getBinaryPath());
-		LOG.log(Level.FINE, () -> "Joular Core command: " + String.join(" ", command));
+		LOG.fine(() -> "Joular Core command: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).inheritIO();
 
@@ -64,7 +79,7 @@ public class JoularCoreRunner {
 		Map<String, String> vmEnv = config.buildVmEnvironment();
 		if (!vmEnv.isEmpty()) {
 			pb.environment().putAll(vmEnv);
-			LOG.log(Level.FINE, () -> "VM mode environment: " + vmEnv);
+			LOG.fine(() -> "VM mode environment: " + vmEnv);
 		}
 
 		if (config.isSilent()) {
@@ -75,7 +90,7 @@ public class JoularCoreRunner {
 		}
 
 		joularCoreProcess = pb.start();
-		LOG.log(Level.FINE, () -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
+		LOG.fine(() -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
 	}
 
 	/**
@@ -90,16 +105,29 @@ public class JoularCoreRunner {
 			return;
 		}
 
-		LOG.log(Level.FINE, () -> "Stopping Joular Core (PID " + joularCoreProcess.pid() + ")");
+		LOG.fine(() -> "Stopping Joular Core (PID " + joularCoreProcess.pid() + ")");
 		joularCoreProcess.destroy();
 
-		boolean exited = joularCoreProcess.waitFor(15, TimeUnit.SECONDS);
+		boolean exited = joularCoreProcess.waitFor(shutdownTimeout, TimeUnit.SECONDS);
 		if (!exited) {
-			LOG.warning("Joular Core did not stop in 15 s — force-killing");
+			LOG.warning(() -> "Joular Core did not stop in " + shutdownTimeout + " s — force-killing");
+
 			joularCoreProcess.destroyForcibly();
 		}
 		else {
-			LOG.log(Level.FINE, "Joular Core stopped");
+			LOG.fine("Joular Core stopped");
+		}
+		joularCoreProcess = null; // NOPMD NullAssignment - intentional to prevent
+									// double-stop
+	}
+
+	@Override
+	public void close() {
+		try {
+			stop();
+		}
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
 		}
 	}
 

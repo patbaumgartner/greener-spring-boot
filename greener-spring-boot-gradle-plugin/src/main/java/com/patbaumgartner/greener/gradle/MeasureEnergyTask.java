@@ -1,12 +1,13 @@
 package com.patbaumgartner.greener.gradle;
 
+import com.patbaumgartner.greener.core.config.AppArgsBuilder;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.config.JoularCoreProbe;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
-import com.patbaumgartner.greener.core.model.ComparisonResult;
-import com.patbaumgartner.greener.core.model.EnergyReport;
-import com.patbaumgartner.greener.core.model.MethodLevelReports;
+import com.patbaumgartner.greener.core.model.MeasurementConfig;
+import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
@@ -300,6 +301,13 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract Property<Boolean> getSkip();
 
 	/**
+	 * Number of top energy-consuming methods to show in the HTML report.
+	 * @return the top N property
+	 */
+	@Input
+	public abstract Property<Integer> getTopN();
+
+	/**
 	 * Runs the energy measurement workflow.
 	 * @throws IOException if an I/O error occurs during measurement
 	 * @throws InterruptedException if the measurement is interrupted
@@ -314,40 +322,44 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		File springBootJarFile = resolveSpringBootJar();
 
 		PluginDefaults.validateMeasureDuration(getMeasureDurationSeconds().get());
+		if (getExternalTrainingScriptFile().isPresent()) {
+			PluginDefaults.validateExternalScript(getExternalTrainingScriptFile().get().getAsFile());
+		}
 
-		// Resolve Joular Core binary
+		// 1. Resolve Joular Core binary
 		Path joularCoreBinary = resolveJoularCoreBinary();
 
-		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(msg -> getLogger().lifecycle(msg));
+		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(msg -> getLogger().lifecycle(msg),
+				getTopN().get());
 
 		int warmup = getWarmupDurationSeconds().get();
 		int measure = getMeasureDurationSeconds().get();
 		String baseUrl = getBaseUrl().get();
 
+		// 2. Build configs
 		Path reportDir = resolveEffectiveReportDir();
 		String toolName = resolveToolName();
 		Path runDir = reportDir.resolve(toolName);
 		Path workingDir = runDir.resolve("work");
 
-		// Start application
+		// 3. Start application
 		ApplicationRunner appRunner = new ApplicationRunner();
 		Process appProcess = startApplication(appRunner, springBootJarFile, joularCoreBinary, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats;
 		try {
+			// 4. Wait for startup
 			waitForApplicationReady(appRunner, appProcess, baseUrl);
 
+			// 5. Configure and start Joular Core
 			JoularCoreConfig joularCoreConfig = createJoularCoreConfig(joularCoreBinary, appProcess.pid(), outputCsv);
-			JoularCoreRunner joularCoreRunner = new JoularCoreRunner();
-			startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
+			try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
+				startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
 
-			try {
+				// 6. Execute workloads
 				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
 						() -> buildTrainingConfig(baseUrl), warmup, measure);
-			}
-			finally {
-				joularCoreRunner.stop();
 			}
 
 		}
@@ -358,31 +370,23 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			appRunner.stop(appProcess);
 		}
 
-		// Process results, reports, and baseline
+		// 7. Process, compare, and report
 		String appId = springBootJarFile.getName().replace(".jar", "");
-		EnergyReport report = orchestrator.processResults(outputCsv, measure, appId);
+		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measure, appId, resolveBaselinePath(),
+				reportDir, runDir, toolName, getVmMode().get(), getThreshold().get(), getAutoUpdateBaseline().get(),
+				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir, getJoularJxAgentPath().isPresent());
+		MeasurementResult result = orchestrator.processAndReport(measurementConfig, workloadStats);
 
-		Path baselinePath = resolveBaselinePath();
-		ComparisonResult comparison = orchestrator.processBaselineComparison(report, baselinePath, runDir,
-				getThreshold().get(), getAutoUpdateBaseline().get(), getCommitSha().getOrNull(),
-				getBranch().getOrNull());
-
-		// Read JoularJX method-level results (if available)
-		MethodLevelReports methodLevelReports = getJoularJxAgentPath().isPresent()
-				? orchestrator.readJoularJxMethodLevelReports(workingDir, measure) : null;
-
-		Path htmlReport = orchestrator.generateFinalReports(report, comparison, workloadStats, toolName, reportDir,
-				runDir, getVmMode().get(), methodLevelReports);
-
-		// Create latest symlink for timestamped reports
+		// 8. Create latest symlink for timestamped reports
 		if (getTimestampReports().get()) {
 			PluginDefaults.createLatestLink(reportDir, resolveReportDir().getFileName() + "-latest");
 		}
 
-		if (getFailOnRegression().get() && comparison.isFailed()) {
+		// 9. Fail build on regression
+		if (getFailOnRegression().get() && result.comparison().isFailed()) {
 			throw new GradleException(String.format(
 					"Energy regression detected: %.2f%% increase exceeds threshold of %.1f%%. " + "See report at: %s",
-					comparison.totalDeltaPercent(), getThreshold().get(), htmlReport));
+					result.comparison().totalDeltaPercent(), getThreshold().get(), result.htmlReport()));
 		}
 	}
 
@@ -412,14 +416,14 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	private Process startApplication(ApplicationRunner appRunner, File springBootJarFile, Path joularCoreBinary,
 			Path workingDir) throws IOException {
 		getLogger().lifecycle("[greener] Starting application: " + springBootJarFile.getName());
-		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(getAppArgs().getOrNull(),
+		List<String> effectiveAppArgs = AppArgsBuilder.buildEffectiveAppArgs(getAppArgs().getOrNull(),
 				getJoularJxAgentPath().isPresent(), getBaseUrl().get());
 		List<String> effectiveJvmArgs = getJvmArgs().getOrNull();
 		Path joularJxJar = getJoularJxAgentPath().isPresent() ? getJoularJxAgentPath().get().getAsFile().toPath()
 				: null;
 		Path joularJxConfig = getJoularJxConfigPath().isPresent() ? getJoularJxConfigPath().get().getAsFile().toPath()
 				: null;
-		joularJxConfig = PluginDefaults.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
+		joularJxConfig = JoularCoreProbe.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
 		Process appProcess = appRunner.start(springBootJarFile.toPath(), joularJxJar, joularJxConfig, workingDir,
 				effectiveJvmArgs, effectiveAppArgs);
 		getLogger().lifecycle("[greener] Application PID: " + appProcess.pid());

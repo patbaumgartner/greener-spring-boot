@@ -1,12 +1,14 @@
 package com.patbaumgartner.greener.maven;
 
+import com.patbaumgartner.greener.core.config.AppArgsBuilder;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.config.JoularCoreProbe;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
-import com.patbaumgartner.greener.core.model.EnergyReport;
-import com.patbaumgartner.greener.core.model.MethodLevelReports;
+import com.patbaumgartner.greener.core.model.MeasurementConfig;
+import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
@@ -46,32 +48,21 @@ import java.util.function.Supplier;
  *
  * <h2>Minimal configuration example</h2>
  *
+ * <p>
+ * An external workload tool is <b>required</b> &mdash; set either
+ * {@code externalTrainingCommand} (inline) or {@code externalTrainingScriptFile} (path to
+ * a shell script). The plugin will fail at runtime if neither is configured.
+ * </p>
+ *
  * <pre>{@code
  * <plugin>
  *   <groupId>com.patbaumgartner</groupId>
  *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
  *   <version>0.2.0-SNAPSHOT</version>
  *   <configuration>
- *     <!-- optional — auto-detected from ${project.build.directory} when omitted -->
- *     <springBootJar>${project.build.directory}/myapp.jar</springBootJar>
- *
- *     <!-- optional JVM and Spring Boot application args -->
- *     <jvmArgs>
- *       <jvmArg>-Xmx512m</jvmArg>
- *       <jvmArg>-Duser.timezone=UTC</jvmArg>
- *     </jvmArgs>
- *     <appArgs>
- *       <appArg>--server.port=8081</appArg>
- *       <appArg>--spring.profiles.active=perf</appArg>
- *     </appArgs>
- *
- *     <measureDurationSeconds>60</measureDurationSeconds>
+ *     <!-- REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile -->
+ *     <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
  *   </configuration>
- *   <executions>
- *     <execution>
- *       <goals><goal>measure</goal></goals>
- *     </execution>
- *   </executions>
  * </plugin>
  * }</pre>
  */
@@ -265,6 +256,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	private double threshold;
 
 	/**
+	 * Number of top energy-consuming methods to show in the HTML report.
+	 */
+	@Parameter(property = "greener.topN", defaultValue = "20")
+	private int topN;
+
+	/**
 	 * When {@code true}, the build is failed if energy consumption regressed beyond
 	 * {@link #threshold}.
 	 */
@@ -350,7 +347,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 	private void executeInternal()
 			throws IOException, InterruptedException, MojoFailureException, MojoExecutionException {
-		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(this::logInfo);
+		MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(this::logInfo, topN);
 
 		// 1. Resolve Joular Core binary
 		Path joularCoreBinary = resolveJoularCoreBinary();
@@ -375,16 +372,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 			// 5. Configure and start Joular Core
 			JoularCoreConfig joularCoreConfig = createJoularCoreConfig(joularCoreBinary, appProcess.pid(), outputCsv);
-			JoularCoreRunner joularCoreRunner = new JoularCoreRunner();
-			startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
+			try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
+				startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
 
-			try {
-				// 6 & 7. Execute Workloads
+				// 6. Execute workloads
 				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
 						this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds);
-			}
-			finally {
-				joularCoreRunner.stop();
 			}
 
 		}
@@ -395,27 +388,20 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			appRunner.stop(appProcess);
 		}
 
-		// 8 & 9. Process Results and Baseline
+		// 7. Process, compare, and report
 		String appIdentifier = springBootJar.getName().replace(".jar", "");
-		EnergyReport report = orchestrator.processResults(outputCsv, measureDurationSeconds, appIdentifier);
-		ComparisonResult comparison = orchestrator.processBaselineComparison(report, baselineFile.toPath(), runDir,
-				threshold, autoUpdateBaseline, commitSha, branch);
+		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measureDurationSeconds, appIdentifier,
+				baselineFile.toPath(), effectiveReportDir, runDir, toolName, vmMode, threshold, autoUpdateBaseline,
+				commitSha, branch, workingDir, joularJxAgentPath != null);
+		MeasurementResult result = orchestrator.processAndReport(measurementConfig, workloadStats);
 
-		// 9b. Read JoularJX method-level results (if available)
-		MethodLevelReports methodLevelReports = joularJxAgentPath != null
-				? orchestrator.readJoularJxMethodLevelReports(workingDir, measureDurationSeconds) : null;
-
-		// 10, 11 & 12. Report and Aggregate
-		Path htmlReport = orchestrator.generateFinalReports(report, comparison, workloadStats, toolName,
-				effectiveReportDir, runDir, vmMode, methodLevelReports);
-
-		// 13. Create latest symlink for timestamped reports
+		// 8. Create latest symlink for timestamped reports
 		if (timestampReports) {
 			PluginDefaults.createLatestLink(effectiveReportDir, reportOutputDir.getName() + "-latest");
 		}
 
-		// 14. Fail build on regression
-		handleRegression(comparison, htmlReport);
+		// 9. Fail build on regression
+		handleRegression(result.comparison(), result.htmlReport());
 	}
 
 	private Path resolveEffectiveReportDir() throws IOException {
@@ -429,11 +415,11 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	private Process startApplication(ApplicationRunner appRunner, Path joularCoreBinary, Path workingDir)
 			throws IOException {
 		logInfo(() -> "[greener] Starting application: " + springBootJar.getName());
-		List<String> effectiveAppArgs = PluginDefaults.buildEffectiveAppArgs(appArgs, joularJxAgentPath != null,
+		List<String> effectiveAppArgs = AppArgsBuilder.buildEffectiveAppArgs(appArgs, joularJxAgentPath != null,
 				baseUrl);
 		Path joularJxJar = joularJxAgentPath != null ? joularJxAgentPath.toPath() : null;
 		Path joularJxConfig = joularJxConfigPath != null ? joularJxConfigPath.toPath() : null;
-		joularJxConfig = PluginDefaults.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
+		joularJxConfig = JoularCoreProbe.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
 		Process appProcess = appRunner.start(springBootJar.toPath(), joularJxJar, joularJxConfig, workingDir, jvmArgs,
 				effectiveAppArgs);
 		logInfo(() -> "[greener] Application PID: " + appProcess.pid());

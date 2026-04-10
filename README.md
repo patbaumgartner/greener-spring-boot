@@ -169,6 +169,24 @@ greener-spring-boot/
 
 ### Minimal configuration
 
+An external workload tool is **required** — set either `externalTrainingCommand` (inline)
+or `externalTrainingScriptFile` (path to a shell script). If neither is configured the
+plugin will fail at runtime.
+
+```xml
+<plugin>
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>greener-spring-boot-maven-plugin</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <configuration>
+    <!-- REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile -->
+    <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
+  </configuration>
+</plugin>
+```
+
+### Full configuration
+
 ```xml
 <plugin>
   <groupId>com.patbaumgartner</groupId>
@@ -177,6 +195,12 @@ greener-spring-boot/
   <configuration>
     <!-- springBootJar is auto-detected from target/ - set only if needed -->
     <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
+
+    <!-- REQUIRED – pick ONE of the two options below -->
+    <!-- Option A: inline command -->
+    <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
+    <!-- Option B: external script (takes precedence over command if both set) -->
+    <!-- <externalTrainingScriptFile>examples/workloads/oha/run.sh</externalTrainingScriptFile> -->
 
     <!-- Optional JVM and Spring Boot app arguments -->
     <jvmArgs>
@@ -230,14 +254,14 @@ mvn greener:update-baseline
 | `jvmArgs` | *(none)* | Extra JVM args passed when starting the Spring Boot app (e.g. `-Xmx512m`) |
 | `appArgs` | *(none)* | Extra application args passed to Spring Boot (health-probe flag is always appended) |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
-| `joularCoreVersion` | `0.0.1-alpha-11` | Version to download |
+| `joularCoreVersion` | `0.0.1-beta-1` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
 | `joularJxAgentPath` | *(none)* | Path to the JoularJX Java agent jar for per-method energy monitoring |
 | `joularJxConfigPath` | *(none)* | Path to the JoularJX `config.properties` file (used only with `joularJxAgentPath`) |
 | `baseUrl` | `http://localhost:8080` | Base URL passed to external scripts as `APP_URL` env var |
 | `requestsPerSecond` | `5` | Requests per second passed to external scripts as `RPS` env var |
-| `externalTrainingCommand` | *(none)* | External load test command (e.g. `k6 run`) |
-| `externalTrainingScriptFile` | *(none)* | Path to an external shell script (e.g. `examples/workloads/oha/run.sh`) |
+| `externalTrainingCommand` | *(none)* | **Required\*** - External load test command (e.g. `oha -n 500 -c 10 ${APP_URL}/actuator/health`) |
+| `externalTrainingScriptFile` | *(none)* | **Required\*** - Path to an external shell script (e.g. `examples/workloads/oha/run.sh`) |
 | `vmMode` | `false` | Enable Joular Core VM mode (no direct RAPL; reads power from `vmPowerFilePath`) |
 | `vmPowerFilePath` | *(none)* | File that provides VM power in Watts; updated every second by the host or the estimator script |
 | `warmupDurationSeconds` | `30` | Warmup before recording (discarded) |
@@ -246,6 +270,7 @@ mvn greener:update-baseline
 | `healthCheckPath` | `/actuator/health/readiness` | Health endpoint path (readiness probe) |
 | `baselineFile` | `energy-baseline.json` | JSON baseline file |
 | `threshold` | `10` | % regression threshold |
+| `topN` | `20` | Number of top energy-consuming methods shown in the HTML report |
 | `failOnRegression` | `false` | Fail build if regression > threshold |
 | `reportOutputDir` | `target/greener-reports` | HTML report directory |
 | `autoUpdateBaseline` | `false` | Auto-promote measurement to baseline after a successful run |
@@ -253,6 +278,10 @@ mvn greener:update-baseline
 | `commitSha` | `${env.GITHUB_SHA}` | Git commit SHA recorded in the baseline |
 | `branch` | `${env.GITHUB_REF_NAME}` | Branch name recorded in the baseline |
 | `skip` | `false` | Skip execution |
+
+> **\*** At least one of `externalTrainingCommand` or `externalTrainingScriptFile` must be set.
+> If both are set, `externalTrainingScriptFile` takes precedence.
+> See `examples/workloads/` for ready-to-use scripts for oha, wrk, k6, Gatling, and others.
 
 ### `update-baseline` parameters (Maven)
 
@@ -269,7 +298,10 @@ mvn greener:update-baseline
 
 ## Gradle plugin
 
-### Apply the plugin
+### Minimal configuration
+
+An external workload tool is **required** — set either `externalTrainingCommand` (inline)
+or `externalTrainingScriptFile` (path to a shell script).
 
 ```kotlin
 plugins {
@@ -277,11 +309,31 @@ plugins {
 }
 
 greener {
+    // REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile
+    externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")
+}
+```
+
+### Full configuration
+
+```kotlin
+plugins {
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
+}
+
+greener {
+    // REQUIRED – pick ONE of the two options below
+    // Option A: inline command
+    externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")
+    // Option B: external script (takes precedence over command if both set)
+    // externalTrainingScriptFile.set(file("examples/workloads/oha/run.sh"))
+
     springBootJar.set(file("build/libs/myapp.jar"))
     jvmArgs.set(listOf("-Xmx512m"))
     appArgs.set(listOf("--server.port=8080"))
     measureDurationSeconds.set(60)
     threshold.set(10.0)
+    topN.set(20)                      // top methods in HTML report
     failOnRegression.set(false)
     autoUpdateBaseline.set(false)     // auto-promote measurement to baseline
     timestampReports.set(false)       // append timestamp to report dir
@@ -431,7 +483,8 @@ throttling.  For more stable results:
 ### Joular Core download fails
 
 The plugin auto-downloads Joular Core from [GitHub Releases](https://github.com/joular/joularcore/releases)
-into `~/.greener/cache/joularcore/`.  If the download fails:
+into `~/.greener/cache/joularcore/` and verifies each download against the SHA-256 digest
+published in the GitHub Release API.  If the download fails:
 
 - Check internet connectivity and proxy/firewall settings.
 - Download manually and set `joularCoreBinaryPath` to the local path.
