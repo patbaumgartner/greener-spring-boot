@@ -40,7 +40,7 @@
 #
 # Environment variables (all optional — sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
@@ -54,7 +54,7 @@ set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PETCLINIC_VERSION="${PETCLINIC_VERSION:-main}"
-JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-alpha-11}"
+JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-beta-1}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"
@@ -114,7 +114,7 @@ ok "All preflight checks passed"
 
 # ── Baseline management ──────────────────────────────────────────────────────
 if [ "${RESET_BASELINES:-}" = "true" ] && [ -d "${BASELINE_DIR}" ]; then
-    info "RESET_BASELINES=true — removing stored baselines"
+    info "RESET_BASELINES=true - removing stored baselines"
     rm -rf "${BASELINE_DIR}"
 fi
 mkdir -p "${BASELINE_DIR}"
@@ -155,18 +155,18 @@ fi
 
 if [ -r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj ]; then
     POWER_SOURCE="rapl"
-    ok "RAPL readable — hardware energy measurement."
+    ok "RAPL readable - hardware energy measurement."
 elif [ "$IS_WSL" = true ] && sc.exe query ScaphandreDrv 2>/dev/null | grep -q RUNNING 2>/dev/null; then
     POWER_SOURCE="ci-estimated"
     ok "WSL: Hubblo RAPL driver (ScaphandreDrv) detected on Windows host."
 elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
     POWER_SOURCE="vm-file"
-    ok "Scaphandre VM power file found."
+    ok "VM power file found at ${VM_POWER_FILE}."
 elif [ -f /proc/stat ]; then
     POWER_SOURCE="ci-estimated"
-    info "Using CPU-time × TDP software estimation."
+    info "Using CPU-time x TDP software estimation."
 else
-    warn "No power source — measurement will be skipped."
+    warn "No power source - measurement will be skipped."
 fi
 
 if [ "${POWER_SOURCE}" = "none" ]; then
@@ -183,7 +183,7 @@ if [ "${POWER_SOURCE}" = "ci-estimated" ]; then
     CI_ESTIMATOR_PID=$!
     export VM_POWER_FILE="${CI_POWER_FILE}"
     sleep 2
-    info "Estimator running — current estimate: $(cat "${CI_POWER_FILE}") W"
+    info "Estimator running - current estimate: $(cat "${CI_POWER_FILE}") W"
 fi
 
 # ── Joular Core ──────────────────────────────────────────────────────────────
@@ -333,13 +333,16 @@ for _ in ${SKIPPED}; do SKIP_COUNT=$((SKIP_COUNT + 1)); done
 echo ""
 echo "  Passed: ${PASS_COUNT}  |  Failed: ${FAIL_COUNT}  |  Skipped: ${SKIP_COUNT}"
 echo ""
-echo "  Reports saved under: ${REPORTS_DIR}/"
-echo "  Baselines saved under: ${BASELINE_DIR}/"
+echo "Reports saved to:"
+echo "  Reports dir  : ${REPORTS_DIR}/"
+echo "  Baselines dir: ${BASELINE_DIR}/"
 echo "  Latest symlink: ${LATEST_LINK}"
 
 AGGREGATED_REPORT="${REPORTS_DIR}/greener-aggregated-report.html"
 if [ -f "${AGGREGATED_REPORT}" ]; then
-    echo "  Aggregated report: ${AGGREGATED_REPORT}"
+    echo ""
+    echo "Open in browser:"
+    echo "  file://${AGGREGATED_REPORT}"
 fi
 
 if [ "${FAIL_COUNT}" -gt 0 ]; then

@@ -30,14 +30,14 @@
 #   - Maven
 #   - git -- must be on PATH
 #   - Rust toolchain (cargo) -- installed automatically via rustup if missing
-#   - oha -- downloaded automatically if missing
+#   - oha -- installed automatically by the workload script if missing
 #
 # Usage:
 #   .\examples\local-simulation.ps1
 #
 # Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
@@ -55,7 +55,7 @@ $ErrorActionPreference = "Stop"
 
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
-$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
+$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-beta-1" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
 $Threshold          = if ($env:THRESHOLD)            { $env:THRESHOLD }            else { "10" }
@@ -303,35 +303,6 @@ if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
 }
 # When PowerSource is "rapl", no VM flags are needed -- Joular Core reads RAPL directly
 
-# -- Ensure oha is available ---------------------------------------------------
-Banner "Preparing oha (HTTP load generator)"
-
-$OhaVersion  = if ($env:OHA_VERSION) { $env:OHA_VERSION } else { "1.14.0" }
-$OhaCacheDir = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "oha"
-$OhaBinary   = Join-Path $OhaCacheDir "oha.exe"
-
-if (Get-Command oha -ErrorAction SilentlyContinue) {
-    Ok "oha found on PATH: $((Get-Command oha).Source)"
-} elseif (Test-Path $OhaBinary) {
-    Ok "oha found in cache: $OhaBinary"
-    $env:PATH = "$OhaCacheDir;$env:PATH"
-} else {
-    if (-not (Test-Path $OhaCacheDir)) {
-        New-Item -ItemType Directory -Path $OhaCacheDir -Force | Out-Null
-    }
-    $OhaUrl = "https://github.com/hatoo/oha/releases/download/v${OhaVersion}/oha-windows-amd64.exe"
-    Info "Downloading oha from $OhaUrl ..."
-    try {
-        Invoke-WebRequest -Uri $OhaUrl -OutFile $OhaBinary -UseBasicParsing
-        Ok "oha downloaded and cached."
-    } catch {
-        throw ("Failed to download oha $OhaVersion.`n" +
-               "Download it manually from: https://github.com/hatoo/oha/releases`n" +
-               "Place it at: $OhaBinary")
-    }
-    $env:PATH = "$OhaCacheDir;$env:PATH"
-}
-
 # -- Run 1: Baseline measurement ----------------------------------------------
 Banner "RUN 1 - BASELINE"
 
@@ -419,9 +390,13 @@ if ([Math]::Abs($pct) -le [double]$Threshold) {
 
 Write-Output ""
 Write-Output "Reports saved to:"
-Write-Output "  Baseline  : $ReportsBaseline"
-Write-Output "  Comparison: $ReportsComparison"
+Write-Output "  Baseline   : $ReportsBaseline"
+Write-Output "  Comparison : $ReportsComparison"
 Write-Output "  Baseline JSON: $BaselineFile"
+Write-Output ""
+Write-Output "Open in browser:"
+Write-Output "  Baseline   : file:///$($ReportsBaseline -replace '\\', '/')/oha/greener-energy-report.html"
+Write-Output "  Comparison : file:///$($ReportsComparison -replace '\\', '/')/oha/greener-energy-report.html"
 
 # -- Copy latest reports -------------------------------------------------------
 $LatestBaseline   = Join-Path $WorkDir "greener-reports-baseline-latest"

@@ -9,6 +9,8 @@ import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MeasurementConfig;
+import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
@@ -43,10 +45,19 @@ import java.util.function.Supplier;
  */
 public class MeasurementOrchestrator {
 
+	private static final int DEFAULT_TOP_N = 20;
+
 	private final Consumer<String> logger;
 
+	private final int topN;
+
 	public MeasurementOrchestrator(Consumer<String> logger) {
+		this(logger, DEFAULT_TOP_N);
+	}
+
+	public MeasurementOrchestrator(Consumer<String> logger, int topN) {
 		this.logger = logger;
+		this.topN = topN;
 	}
 
 	/**
@@ -231,7 +242,7 @@ public class MeasurementOrchestrator {
 						? methodLevelReports.allReport() : null);
 		new ConsoleReporter().report(report, comparison, workloadStats, powerSource, consoleJoularJxReport);
 
-		HtmlReporter htmlReporter = new HtmlReporter();
+		HtmlReporter htmlReporter = new HtmlReporter(topN);
 		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
 				methodLevelReports, runDir);
 		logger.accept("[greener] HTML report: " + htmlReport);
@@ -247,6 +258,26 @@ public class MeasurementOrchestrator {
 		}
 
 		return htmlReport;
+	}
+
+	/**
+	 * Convenience method that combines result processing, baseline comparison,
+	 * method-level reading, and report generation into a single call.
+	 * @param config measurement configuration aggregating all parameters
+	 * @param workloadStats workload statistics from the measurement phase
+	 * @return a {@link MeasurementResult} aggregating all outputs
+	 */
+	public MeasurementResult processAndReport(MeasurementConfig config, WorkloadStats workloadStats)
+			throws IOException {
+		EnergyReport report = processResults(config.outputCsv(), config.measureDurationSeconds(),
+				config.appIdentifier());
+		ComparisonResult comparison = processBaselineComparison(report, config.baselinePath(), config.runDir(),
+				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch());
+		MethodLevelReports methodLevelReports = config.hasJoularJx()
+				? readJoularJxMethodLevelReports(config.joularJxWorkingDir(), config.measureDurationSeconds()) : null;
+		Path htmlReport = generateFinalReports(report, comparison, workloadStats, config.toolName(), config.reportDir(),
+				config.runDir(), config.vmMode(), methodLevelReports);
+		return new MeasurementResult(report, comparison, workloadStats, methodLevelReports, htmlReport);
 	}
 
 	private Optional<EnergyBaseline> loadBaselineSafely(BaselineManager manager, Path baselinePath) {

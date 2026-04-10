@@ -34,24 +34,6 @@ public class ExternalToolOutputParser {
 
 	private static final int BOMBARDIER_CLIENT_ERROR_CLASS = 4;
 
-	private static int safeParseInt(String value) {
-		try {
-			return Integer.parseInt(value);
-		}
-		catch (NumberFormatException e) {
-			return 0;
-		}
-	}
-
-	private static long safeParseLong(String value) {
-		try {
-			return Long.parseLong(value);
-		}
-		catch (NumberFormatException e) {
-			return 0;
-		}
-	}
-
 	// oha: "[200] 49820 responses"
 	private static final Pattern OHA_STATUS = Pattern.compile("^\\s*\\[(\\d{3})]\\s+(\\d+)\\s+responses",
 			Pattern.MULTILINE);
@@ -263,6 +245,26 @@ public class ExternalToolOutputParser {
 		if (hasResults())
 			return;
 		parseLocust(output);
+	}
+
+	// ---- Static utility methods ----
+
+	private static int safeParseInt(String value) {
+		try {
+			return Integer.parseInt(value);
+		}
+		catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	private static long safeParseLong(String value) {
+		try {
+			return Long.parseLong(value);
+		}
+		catch (NumberFormatException e) {
+			return 0;
+		}
 	}
 
 }

@@ -11,6 +11,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,6 +44,13 @@ import java.util.logging.Logger;
 public class TrainingRunner {
 
 	private static final Logger LOG = Logger.getLogger(TrainingRunner.class.getName());
+
+	private static final boolean IS_WINDOWS = System.getProperty("os.name", "")
+		.toLowerCase(Locale.ENGLISH)
+		.startsWith("win");
+
+	/** Maximum number of characters to capture from process output (10 MB). */
+	private static final int OUTPUT_BUFFER_CAP = 10 * 1024 * 1024;
 
 	/**
 	 * Runs the full training cycle and returns statistics about the workload.
@@ -95,7 +103,7 @@ public class TrainingRunner {
 		String toolName = deriveToolName(script.getFileName().toString(),
 				script.getParent() != null ? script.getParent().getFileName().toString() : null);
 
-		LOG.log(Level.FINE, () -> "Running external training script [" + toolName + "]: " + script);
+		LOG.fine(() -> "Running external training script [" + toolName + "]: " + script);
 
 		String[] shellCommand = resolveScriptCommand(script.toAbsolutePath().toString());
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -105,20 +113,32 @@ public class TrainingRunner {
 		long start = System.currentTimeMillis();
 		Process process = pb.start();
 		String output = captureAndForwardOutput(process);
-		int exitCode = process.waitFor();
+		int exitCode;
+		int timeout = config.getTimeoutSeconds();
+		if (timeout > 0) {
+			boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
+			if (!finished) {
+				process.destroyForcibly();
+				throw new IOException("Training script timed out after " + timeout + " seconds: " + script);
+			}
+			exitCode = process.exitValue();
+		}
+		else {
+			exitCode = process.waitFor();
+		}
 		long elapsed = (System.currentTimeMillis() - start) / 1_000;
 
 		if (exitCode != 0) {
 			throw new IOException("Training script exited with code " + exitCode + ": " + script);
 		}
-		LOG.log(Level.FINE, () -> "Training script [" + toolName + "] completed in " + elapsed + " s");
+		LOG.fine(() -> "Training script [" + toolName + "] completed in " + elapsed + " s");
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
 			throws IOException, InterruptedException {
 
-		LOG.log(Level.FINE, () -> "Running external training command: " + command);
+		LOG.fine(() -> "Running external training command: " + command);
 
 		String[] shellCommand = resolveShellCommand("-c", command);
 		ProcessBuilder pb = new ProcessBuilder(shellCommand);
@@ -128,22 +148,30 @@ public class TrainingRunner {
 		long start = System.currentTimeMillis();
 		Process process = pb.start();
 		String output = captureAndForwardOutput(process);
-		int exitCode = process.waitFor();
+		int exitCode;
+		int timeout = config.getTimeoutSeconds();
+		if (timeout > 0) {
+			boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
+			if (!finished) {
+				process.destroyForcibly();
+				throw new IOException("External training command timed out after " + timeout + " seconds: " + command);
+			}
+			exitCode = process.exitValue();
+		}
+		else {
+			exitCode = process.waitFor();
+		}
 		long elapsed = (System.currentTimeMillis() - start) / 1_000;
 
 		if (exitCode != 0) {
 			throw new IOException("External training command exited with code " + exitCode + ": " + command);
 		}
-		LOG.log(Level.FINE, () -> "External training command completed in " + elapsed + " s");
+		LOG.fine(() -> "External training command completed in " + elapsed + " s");
 		String toolName = deriveToolName(command, null);
 		return buildExternalStats(toolName, output, elapsed);
 	}
 
 	// -------------------------------------------------------------------------
-
-	private static final boolean IS_WINDOWS = System.getProperty("os.name", "")
-		.toLowerCase(Locale.ENGLISH)
-		.startsWith("win");
 
 	/**
 	 * Builds a command array for executing script files.
@@ -183,11 +211,35 @@ public class TrainingRunner {
 	 * for Windows installation directories.
 	 */
 	private String findWindowsShell() throws IOException {
-		// 1. Check Git for Windows / MSYS2 sh.exe — preferred because it shares the
-		// Windows PATH and filesystem so tools installed on the host are visible.
-		// Note: System32\bash.exe is deliberately excluded because it launches WSL,
-		// which runs in a separate Linux environment where host-installed tools
-		// (oha, wrk, etc.) are not available.
+		// 1. Check PATH first using 'where' — handles Scoop, Chocolatey, MSYS2,
+		// and custom Git installations without hardcoded paths.
+		try {
+			Process where = new ProcessBuilder("where", "sh.exe").redirectErrorStream(true).start();
+			try (BufferedReader reader = new BufferedReader(
+					new InputStreamReader(where.getInputStream(), StandardCharsets.UTF_8))) {
+				String line = reader.readLine();
+				if (line != null && !line.isBlank()) {
+					try {
+						Path candidate = Path.of(line.strip());
+						// Exclude WSL bash — it runs in a separate Linux environment
+						if (Files.isExecutable(candidate)
+								&& !candidate.toString().toLowerCase(Locale.ENGLISH).contains("system32")) {
+							LOG.fine(() -> "Using sh.exe from PATH: " + candidate);
+							return candidate.toString();
+						}
+					}
+					catch (java.nio.file.InvalidPathException ex) {
+						LOG.fine(() -> "Ignoring non-path output from 'where': " + line);
+					}
+				}
+			}
+			where.waitFor(5, TimeUnit.SECONDS);
+		}
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+
+		// 2. Check well-known Git for Windows locations
 		String[] gitShells = { "C:\\Program Files\\Git\\bin\\sh.exe", "C:\\Program Files (x86)\\Git\\bin\\sh.exe" };
 		for (String shell : gitShells) {
 			if (Files.isExecutable(Path.of(shell))) {
@@ -195,13 +247,13 @@ public class TrainingRunner {
 			}
 		}
 
-		// 2. Check environment-based Git for Windows locations
+		// 3. Check environment-based Git for Windows locations
 		String[] candidates = { System.getenv("ProgramFiles") + "\\Git\\bin\\sh.exe",
 				System.getenv("ProgramFiles(x86)") + "\\Git\\bin\\sh.exe",
 				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
 		for (String candidate : candidates) {
 			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
-				LOG.log(Level.FINE, () -> "Using Git Bash shell: " + candidate);
+				LOG.fine(() -> "Using Git Bash shell: " + candidate);
 				return candidate;
 			}
 		}
@@ -228,12 +280,22 @@ public class TrainingRunner {
 	 */
 	private String captureAndForwardOutput(Process process) throws IOException {
 		StringBuilder sb = new StringBuilder();
+		boolean capped = false;
 		try (BufferedReader reader = new BufferedReader(
 				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
 			String line = reader.readLine();
 			while (line != null) {
 				LOG.fine(line);
-				sb.append(line).append('\n');
+				if (!capped) {
+					if (sb.length() + line.length() + 1 <= OUTPUT_BUFFER_CAP) {
+						sb.append(line).append('\n');
+					}
+					else {
+						capped = true;
+						LOG.warning("Output capture buffer cap reached (" + OUTPUT_BUFFER_CAP
+								+ " chars); further output will not be captured.");
+					}
+				}
 				line = reader.readLine();
 			}
 		}
@@ -244,8 +306,8 @@ public class TrainingRunner {
 		ExternalToolOutputParser parser = new ExternalToolOutputParser();
 		parser.parse(toolName, output);
 		if (parser.hasResults()) {
-			LOG.log(Level.FINE, () -> String.format("Parsed %d total requests (%d failed) from %s output",
-					parser.totalRequests(), parser.failedRequests(), toolName));
+			LOG.fine(() -> String.format("Parsed %d total requests (%d failed) from %s output", parser.totalRequests(),
+					parser.failedRequests(), toolName));
 			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
 		}
 		return WorkloadStats.external(toolName, elapsed);

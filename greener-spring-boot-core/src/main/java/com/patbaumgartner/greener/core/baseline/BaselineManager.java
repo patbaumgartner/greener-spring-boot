@@ -60,7 +60,7 @@ public class BaselineManager {
 		}
 
 		objectMapper.writeValue(baselineFile.toFile(), baseline);
-		LOG.log(Level.INFO, () -> "Saved energy baseline to: " + baselineFile);
+		LOG.info(() -> "Saved energy baseline to: " + baselineFile);
 	}
 
 	/**
@@ -71,12 +71,12 @@ public class BaselineManager {
 	 */
 	public Optional<EnergyBaseline> loadBaseline(Path baselineFile) throws IOException {
 		if (!Files.exists(baselineFile)) {
-			LOG.log(Level.INFO, () -> "No baseline file found at: " + baselineFile);
+			LOG.info(() -> "No baseline file found at: " + baselineFile);
 			return Optional.empty();
 		}
 
 		EnergyBaseline baseline = objectMapper.readValue(baselineFile.toFile(), EnergyBaseline.class);
-		LOG.log(Level.INFO, () -> {
+		LOG.info(() -> {
 			StringBuilder sb = new StringBuilder("Loaded energy baseline from: ").append(baselineFile)
 				.append(" (created: ")
 				.append(baseline.createdAt());

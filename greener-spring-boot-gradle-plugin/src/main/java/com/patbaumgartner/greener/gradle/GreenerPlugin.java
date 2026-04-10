@@ -20,16 +20,20 @@ import org.gradle.api.provider.ProviderFactory;
  *
  * <h2>Minimal {@code build.gradle.kts} configuration</h2>
  *
+ * <p>
+ * An external workload tool is <b>required</b> &mdash; set either
+ * {@code externalTrainingCommand} (inline) or {@code externalTrainingScriptFile} (path to
+ * a shell script). The plugin will fail at runtime if neither is configured.
+ * </p>
+ *
  * <pre>{@code
  * plugins {
  *     id("com.patbaumgartner.greener-spring-boot") version "<version>"
  * }
  *
  * greener {
- *     // springBootJar auto-detected from build/libs/ when omitted
- *     measureDurationSeconds.set(60)
- *     threshold.set(10.0)
- *     failOnRegression.set(false)
+ *     // REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile
+ *     externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")
  * }
  * }</pre>
  */
@@ -62,6 +66,7 @@ public class GreenerPlugin implements Plugin<Project> {
 		extension.getAutoUpdateBaseline().convention(false);
 		extension.getTimestampReports().convention(false);
 		extension.getSkip().convention(false);
+		extension.getTopN().convention(20);
 
 		// Apply useful project-level conventions down to the extension so tasks don't
 		// need getProject()
@@ -110,6 +115,7 @@ public class GreenerPlugin implements Plugin<Project> {
 			task.getBranch().convention(extension.getBranch());
 			task.getTimestampReports().convention(extension.getTimestampReports());
 			task.getSkip().convention(extension.getSkip());
+			task.getTopN().convention(extension.getTopN());
 		});
 	}
 

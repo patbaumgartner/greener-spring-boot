@@ -500,4 +500,57 @@ class GreenerPluginTest {
 			.isInstanceOf(GradleException.class);
 	}
 
+	@Test
+	void topNConventionPropagatesFromExtension() {
+		Project project = ProjectBuilder.builder().build();
+		project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+		GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+		ext.getTopN().set(50);
+
+		MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+		assertThat(task.getTopN().get()).isEqualTo(50);
+	}
+
+	@Test
+	void measureEnergyFailsEarlyWhenExternalScriptMissing(@TempDir Path tempDir) throws IOException {
+		Path fakeJar = tempDir.resolve("app.jar");
+		Files.createFile(fakeJar);
+		Path missingScript = tempDir.resolve("missing-run.sh");
+
+		Project project = ProjectBuilder.builder().build();
+		project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+		MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+		task.getSpringBootJar().set(fakeJar.toFile());
+		task.getExternalTrainingScriptFile().set(missingScript.toFile());
+
+		assertThatThrownBy(task::measureEnergy).isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("externalTrainingScriptFile does not exist");
+	}
+
+	@Test
+	void autoUpdateBaselineConventionPropagatesFromExtension() {
+		Project project = ProjectBuilder.builder().build();
+		project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+		GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+		ext.getAutoUpdateBaseline().set(true);
+
+		MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+		assertThat(task.getAutoUpdateBaseline().get()).isTrue();
+	}
+
+	@Test
+	void timestampReportsConventionPropagatesFromExtension() {
+		Project project = ProjectBuilder.builder().build();
+		project.getPlugins().apply("com.patbaumgartner.greener-spring-boot");
+
+		GreenerExtension ext = project.getExtensions().getByType(GreenerExtension.class);
+		ext.getTimestampReports().set(true);
+
+		MeasureEnergyTask task = (MeasureEnergyTask) project.getTasks().getByName("measureEnergy");
+		assertThat(task.getTimestampReports().get()).isTrue();
+	}
+
 }

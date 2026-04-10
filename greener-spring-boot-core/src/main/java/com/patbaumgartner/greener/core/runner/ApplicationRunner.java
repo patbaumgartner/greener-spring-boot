@@ -33,6 +33,27 @@ public class ApplicationRunner {
 
 	private static final Logger LOG = Logger.getLogger(ApplicationRunner.class.getName());
 
+	private static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 3;
+
+	private final HttpClient httpClient;
+
+	private final int requestTimeoutSeconds;
+
+	public ApplicationRunner() {
+		this(DEFAULT_REQUEST_TIMEOUT_SECONDS);
+	}
+
+	/**
+	 * Creates an application runner with a custom per-request timeout for health-check
+	 * polling. The overall startup timeout is controlled by
+	 * {@link #waitForStartup(Process, String, String, int)}.
+	 * @param requestTimeoutSeconds timeout in seconds for each individual HTTP request
+	 */
+	public ApplicationRunner(int requestTimeoutSeconds) {
+		this.requestTimeoutSeconds = requestTimeoutSeconds;
+		this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(requestTimeoutSeconds)).build();
+	}
+
 	/**
 	 * Starts the Spring Boot application.
 	 * @param springBootJar path to the executable Spring Boot fat-jar
@@ -58,7 +79,7 @@ public class ApplicationRunner {
 
 		if (joularJxJar != null && Files.exists(joularJxJar)) {
 			command.add("-javaagent:" + joularJxJar.toAbsolutePath());
-			LOG.log(Level.INFO, () -> "JoularJX agent attached: " + joularJxJar);
+			LOG.info(() -> "JoularJX agent attached: " + joularJxJar);
 		}
 
 		if (joularJxConfig != null && Files.exists(joularJxConfig)) {
@@ -76,14 +97,14 @@ public class ApplicationRunner {
 			command.addAll(appArgs);
 		}
 
-		LOG.log(Level.FINE, () -> "Command: " + String.join(" ", command));
+		LOG.fine(() -> "Command: " + String.join(" ", command));
 
 		ProcessBuilder pb = new ProcessBuilder(command).directory(workingDir.toFile())
 			.redirectOutput(workingDir.resolve("app-stdout.log").toFile())
 			.redirectError(workingDir.resolve("app-stderr.log").toFile());
 
 		Process process = pb.start();
-		LOG.log(Level.FINE, () -> "Application started with PID " + process.pid());
+		LOG.fine(() -> "Application started with PID " + process.pid());
 		return process;
 	}
 
@@ -98,9 +119,7 @@ public class ApplicationRunner {
 			throws IOException, InterruptedException {
 
 		String healthUrl = baseUrl + healthPath;
-		LOG.log(Level.FINE, () -> "Polling health endpoint: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
-
-		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+		LOG.fine(() -> "Polling health endpoint: " + healthUrl + " (timeout: " + timeoutSeconds + "s)");
 
 		long deadline = System.currentTimeMillis() + (long) timeoutSeconds * 1_000;
 
@@ -113,14 +132,14 @@ public class ApplicationRunner {
 			try {
 				HttpRequest request = HttpRequest.newBuilder()
 					.uri(URI.create(healthUrl))
-					.timeout(Duration.ofSeconds(3))
+					.timeout(Duration.ofSeconds(requestTimeoutSeconds))
 					.GET()
 					.build();
 
-				HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+				HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
 				if (response.statusCode() >= 200 && response.statusCode() < 300) {
-					LOG.log(Level.FINE, () -> "Health check passed (HTTP " + response.statusCode() + ")");
+					LOG.fine(() -> "Health check passed (HTTP " + response.statusCode() + ")");
 					return;
 				}
 			}
@@ -156,7 +175,7 @@ public class ApplicationRunner {
 		}
 
 		long pid = process.pid();
-		LOG.log(Level.FINE, () -> "Stopping application (PID " + pid + ")");
+		LOG.fine(() -> "Stopping application (PID " + pid + ")");
 
 		if (isWindows()) {
 			try {
@@ -166,7 +185,7 @@ public class ApplicationRunner {
 					.waitFor(10, TimeUnit.SECONDS);
 			}
 			catch (IOException ex) {
-				LOG.log(Level.FINE, () -> "taskkill failed, falling back to destroy: " + ex.getMessage());
+				LOG.fine(() -> "taskkill failed, falling back to destroy: " + ex.getMessage());
 				process.destroy();
 			}
 		}
@@ -180,7 +199,7 @@ public class ApplicationRunner {
 			process.destroyForcibly();
 		}
 		else {
-			LOG.log(Level.FINE, () -> "Application stopped (exit code " + process.exitValue() + ")");
+			LOG.fine(() -> "Application stopped (exit code " + process.exitValue() + ")");
 		}
 	}
 
@@ -205,31 +224,29 @@ public class ApplicationRunner {
 			return false;
 		}
 		String shutdownUrl = baseUrl + "/actuator/shutdown";
-		LOG.log(Level.FINE, () -> "Requesting graceful shutdown via " + shutdownUrl);
+		LOG.fine(() -> "Requesting graceful shutdown via " + shutdownUrl);
 
 		try {
-			HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 			HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(shutdownUrl))
 				.timeout(Duration.ofSeconds(5))
 				.POST(HttpRequest.BodyPublishers.noBody())
 				.build();
 
-			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+			HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
 			if (response.statusCode() >= 200 && response.statusCode() < 300) {
-				LOG.log(Level.INFO, () -> "Graceful shutdown requested via Actuator (HTTP " + response.statusCode()
-						+ "): " + response.body());
+				LOG.info(() -> "Graceful shutdown requested via Actuator (HTTP " + response.statusCode() + "): "
+						+ response.body());
 				return true;
 			}
-			LOG.log(Level.FINE,
-					() -> "Actuator shutdown returned HTTP " + response.statusCode() + ": " + response.body());
+			LOG.fine(() -> "Actuator shutdown returned HTTP " + response.statusCode() + ": " + response.body());
 		}
 		catch (ConnectException ex) {
-			LOG.log(Level.FINE, () -> "Application already stopped or shutdown endpoint not available");
+			LOG.fine(() -> "Application already stopped or shutdown endpoint not available");
 		}
 		catch (IOException | InterruptedException ex) {
-			LOG.log(Level.FINE, () -> "Actuator shutdown request failed: " + ex.getMessage());
+			LOG.fine(() -> "Actuator shutdown request failed: " + ex.getMessage());
 		}
 		return false;
 	}

@@ -23,14 +23,14 @@
 #   - Java 17+
 #   - Maven
 #   - git -- must be on PATH
-#   - oha -- downloaded automatically if missing
+#   - oha -- installed automatically by the workload script if missing
 #
 # Usage:
 #   .\examples\joularjx-simulation.ps1
 #
 # Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   JOULARJX_VERSION       JoularJX release tag            (default: 3.1.0)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
-$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-alpha-11" }
+$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-beta-1" }
 $JoularJxVersion    = if ($env:JOULARJX_VERSION)    { $env:JOULARJX_VERSION }    else { "3.1.0" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }
@@ -308,7 +308,7 @@ if (Test-Path $JoularJxJar) {
 # -- Generate JoularJX config.properties ---------------------------------------
 # Note: joular-core-parameters is intentionally omitted here.
 # The greener Maven/Gradle plugin auto-detects the best power component
-# (cpu or gpu) at startup via PluginDefaults.ensureJoularCoreParameters().
+# (cpu or gpu) at startup via JoularCoreProbe.ensureJoularCoreParameters().
 Banner "Generating JoularJX config.properties"
 
 $JoularJxConfig = Join-Path $WorkDir "joularjx-config.properties"
@@ -357,35 +357,6 @@ $ConfigContent -split "`n" | Where-Object { $_ -notmatch "^#" -and $_ -ne "" } |
 $VmFlags = @()
 if ($PowerSource -eq "vm-file" -or $PowerSource -eq "ci-estimated") {
     $VmFlags = @("-Dgreener.vmMode=true", "-Dgreener.vmPowerFilePath=$($env:VM_POWER_FILE)")
-}
-
-# -- Ensure oha is available ---------------------------------------------------
-Banner "Preparing oha (HTTP load generator)"
-
-$OhaVersion  = if ($env:OHA_VERSION) { $env:OHA_VERSION } else { "1.14.0" }
-$OhaCacheDir = Join-Path (Join-Path (Join-Path $HOME ".greener") "cache") "oha"
-$OhaBinary   = Join-Path $OhaCacheDir "oha.exe"
-
-if (Get-Command oha -ErrorAction SilentlyContinue) {
-    Ok "oha found on PATH: $((Get-Command oha).Source)"
-} elseif (Test-Path $OhaBinary) {
-    Ok "oha found in cache: $OhaBinary"
-    $env:PATH = "$OhaCacheDir;$env:PATH"
-} else {
-    if (-not (Test-Path $OhaCacheDir)) {
-        New-Item -ItemType Directory -Path $OhaCacheDir -Force | Out-Null
-    }
-    $OhaUrl = "https://github.com/hatoo/oha/releases/download/v${OhaVersion}/oha-windows-amd64.exe"
-    Info "Downloading oha from $OhaUrl ..."
-    try {
-        Invoke-WebRequest -Uri $OhaUrl -OutFile $OhaBinary -UseBasicParsing
-        Ok "oha downloaded and cached."
-    } catch {
-        throw ("Failed to download oha $OhaVersion.`n" +
-               "Download it manually from: https://github.com/hatoo/oha/releases`n" +
-               "Place it at: $OhaBinary")
-    }
-    $env:PATH = "$OhaCacheDir;$env:PATH"
 }
 
 # -- Run measurement with JoularJX --------------------------------------------
@@ -447,7 +418,6 @@ if (Test-Path $BaselineFile) {
 }
 
 Write-Output ""
-Write-Output "Greener report: $ReportsDir"
 
 # -- Display JoularJX results -------------------------------------------------
 Banner "JOULARJX RESULTS (method-level)"
@@ -521,15 +491,17 @@ Banner "SUMMARY"
 Write-Output "  This simulation demonstrated JoularJX method-level energy monitoring"
 Write-Output "  running alongside the greener-spring-boot Maven plugin."
 Write-Output ""
-Write-Output "  What was produced:"
-Write-Output "    1. Greener process-level energy report (HTML + console)"
-Write-Output "       -> $ReportsDir"
-Write-Output "    2. JoularJX per-method energy CSVs"
-Write-Output "       -> $ReportsDir\joularjx-result\"
-Write-Output ""
 Write-Output "  The greener report shows total process energy consumption."
 Write-Output "  The JoularJX CSVs show which individual methods consumed the most energy."
 Write-Output "  Together, they provide both a high-level overview and method-level detail."
+Write-Output ""
+Write-Output "Reports saved to:"
+Write-Output "  Greener report : $ReportsDir"
+Write-Output "  JoularJX CSVs  : $ReportsDir\joularjx-result\"
+Write-Output "  Baseline JSON  : $BaselineFile"
+Write-Output ""
+Write-Output "Open in browser:"
+Write-Output "  file:///$($ReportsDir -replace '\\', '/')/oha/greener-energy-report.html"
 
 } finally {
     # Run cleanup

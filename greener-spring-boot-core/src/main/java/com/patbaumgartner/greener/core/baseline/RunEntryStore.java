@@ -51,7 +51,7 @@ public class RunEntryStore {
 			Files.createDirectories(parent);
 		}
 		objectMapper.writeValue(file.toFile(), entry);
-		LOG.log(Level.INFO, () -> "Saved run entry [" + entry.tool() + "] to: " + file);
+		LOG.info(() -> "Saved run entry [" + entry.tool() + "] to: " + file);
 	}
 
 	/**
@@ -85,13 +85,12 @@ public class RunEntryStore {
 						entries.add(load(entryFile));
 					}
 					catch (IOException e) {
-						LOG.log(Level.WARNING,
-								() -> "Failed to load run entry from " + entryFile + ": " + e.getMessage());
+						LOG.warning(() -> "Failed to load run entry from " + entryFile + ": " + e.getMessage());
 					}
 				}
 			}
 		}
-		LOG.log(Level.INFO, () -> "Loaded " + entries.size() + " run entries from: " + directory);
+		LOG.info(() -> "Loaded " + entries.size() + " run entries from: " + directory);
 		return entries;
 	}
 
