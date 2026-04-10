@@ -64,6 +64,12 @@ public class TrainingConfig {
 	 */
 	private String externalScriptFile = null;
 
+	/**
+	 * Maximum number of seconds to wait for an external script or command to complete. A
+	 * value of {@code 0} (the default) means no timeout — the plugin waits indefinitely.
+	 */
+	private int timeoutSeconds = 0;
+
 	// ---- Builder-style setters ----
 
 	/**
@@ -120,6 +126,15 @@ public class TrainingConfig {
 		return this;
 	}
 
+	/**
+	 * Sets the maximum timeout for external script/command execution. @param
+	 * timeoutSeconds seconds; {@code 0} means no timeout @return this
+	 */
+	public TrainingConfig timeoutSeconds(int timeoutSeconds) {
+		this.timeoutSeconds = timeoutSeconds;
+		return this;
+	}
+
 	// ---- Getters ----
 
 	public String getBaseUrl() {
@@ -144,6 +159,10 @@ public class TrainingConfig {
 
 	public String getExternalScriptFile() {
 		return externalScriptFile;
+	}
+
+	public int getTimeoutSeconds() {
+		return timeoutSeconds;
 	}
 
 	/** Total training duration: warmup + measurement. */

@@ -28,7 +28,7 @@ import java.util.Map;
 public class JoularCoreConfig {
 
 	/** Default version used when auto-downloading Joular Core. */
-	public static final String DEFAULT_VERSION = "0.0.1-alpha-11";
+	public static final String DEFAULT_VERSION = "0.0.1-beta-1";
 
 	/**
 	 * Path to the joularcore binary (may be {@code null} to trigger auto-download).
