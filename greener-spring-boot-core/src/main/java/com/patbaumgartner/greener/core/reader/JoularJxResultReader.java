@@ -46,6 +46,8 @@ public class JoularJxResultReader {
 
 	private static final Logger LOG = Logger.getLogger(JoularJxResultReader.class.getName());
 
+	private static final int CSV_COLUMN_COUNT = 2;
+
 	/**
 	 * Reads JoularJX results from the given root directory.
 	 *
@@ -62,17 +64,17 @@ public class JoularJxResultReader {
 	public EnergyReport readResults(Path joularJxResultsRoot, String runId, long durationSeconds) throws IOException {
 
 		if (!Files.isDirectory(joularJxResultsRoot)) {
-			LOG.log(Level.WARNING, () -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
+			LOG.warning(() -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
 		Path runDir = findLatestRunDirectory(joularJxResultsRoot);
 		if (runDir == null) {
-			LOG.log(Level.WARNING, () -> "No JoularJX run directory found under: " + joularJxResultsRoot);
+			LOG.warning(() -> "No JoularJX run directory found under: " + joularJxResultsRoot);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, List.of());
 		}
 
-		LOG.log(Level.INFO, () -> "Reading JoularJX results from: " + runDir);
+		LOG.info(() -> "Reading JoularJX results from: " + runDir);
 
 		// Prefer filtered 'app' results; fall back to 'all'
 		Path methodsDir = runDir.resolve("app/total/methods");
@@ -90,7 +92,7 @@ public class JoularJxResultReader {
 
 		List<EnergyMeasurement> measurements = readMethodsDirectory(methodsDir);
 
-		LOG.log(Level.INFO, () -> "Read " + measurements.size() + " method measurements from JoularJX results");
+		LOG.info(() -> "Read " + measurements.size() + " method measurements from JoularJX results");
 
 		// Aggregate by method name — runtime data may contain duplicate entries
 		// (one per second) that need to be summed into totals
@@ -117,17 +119,17 @@ public class JoularJxResultReader {
 			throws IOException {
 
 		if (!Files.isDirectory(joularJxResultsRoot)) {
-			LOG.log(Level.WARNING, () -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
+			LOG.warning(() -> "JoularJX results directory does not exist: " + joularJxResultsRoot);
 			return new MethodLevelReports(null, null);
 		}
 
 		Path runDir = findLatestRunDirectory(joularJxResultsRoot);
 		if (runDir == null) {
-			LOG.log(Level.WARNING, () -> "No JoularJX run directory found under: " + joularJxResultsRoot);
+			LOG.warning(() -> "No JoularJX run directory found under: " + joularJxResultsRoot);
 			return new MethodLevelReports(null, null);
 		}
 
-		LOG.log(Level.INFO, () -> "Reading JoularJX app + all results from: " + runDir);
+		LOG.info(() -> "Reading JoularJX app + all results from: " + runDir);
 
 		// Read app-filtered results
 		EnergyReport appReport = readFromCategory(runDir, "app", runId, durationSeconds);
@@ -161,12 +163,12 @@ public class JoularJxResultReader {
 						measurements.addAll(parseCsv(csv));
 					}
 					catch (IOException e) {
-						LOG.log(Level.WARNING, () -> "Failed to parse CSV file " + csv + ": " + e.getMessage());
+						LOG.warning(() -> "Failed to parse CSV file " + csv + ": " + e.getMessage());
 					}
 				});
 			}
 			catch (IOException e) {
-				LOG.log(Level.WARNING, () -> "Failed to list CSV files in " + methodsDir + ": " + e.getMessage());
+				LOG.warning(() -> "Failed to list CSV files in " + methodsDir + ": " + e.getMessage());
 			}
 		}
 		return measurements;
@@ -182,8 +184,6 @@ public class JoularJxResultReader {
 		}
 		return energyByMethod.entrySet().stream().map(e -> new EnergyMeasurement(e.getKey(), e.getValue())).toList();
 	}
-
-	private static final int CSV_COLUMN_COUNT = 2;
 
 	/**
 	 * Parses a single JoularJX CSV file into energy measurements.
@@ -210,7 +210,7 @@ public class JoularJxResultReader {
 					}
 				}
 				catch (NumberFormatException e) {
-					LOG.log(Level.FINE, () -> "Skipping non-numeric line in " + csvFile + ": " + trimmedLine);
+					LOG.fine(() -> "Skipping non-numeric line in " + csvFile + ": " + trimmedLine);
 				}
 			}
 		}

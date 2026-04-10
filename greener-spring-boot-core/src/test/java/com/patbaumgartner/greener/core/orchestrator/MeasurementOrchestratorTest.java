@@ -9,6 +9,7 @@ import com.patbaumgartner.greener.core.model.WorkloadStats;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MeasurementOrchestratorTest {
 
@@ -126,13 +128,11 @@ class MeasurementOrchestratorTest {
 	}
 
 	@Test
-	void processResults_missingCsv_returnsEmptyReport(@TempDir Path tempDir) throws Exception {
+	void processResults_missingCsv_throwsIOException(@TempDir Path tempDir) {
 		Path outputCsv = tempDir.resolve("nonexistent.csv");
 
-		EnergyReport report = orchestrator.processResults(outputCsv, 60, "test-app");
-
-		assertThat(report).isNotNull();
-		assertThat(report.measurements()).isEmpty();
+		assertThatThrownBy(() -> orchestrator.processResults(outputCsv, 60, "test-app")).isInstanceOf(IOException.class)
+			.hasMessageContaining("not found");
 	}
 
 	// ---- generateFinalReports ----

@@ -31,7 +31,7 @@
 #
 # Environment variables (all optional — sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-alpha-11)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
 #   JOULARJX_VERSION       JoularJX release tag            (default: 3.1.0)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
@@ -46,7 +46,7 @@ set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PETCLINIC_VERSION="${PETCLINIC_VERSION:-main}"
-JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-alpha-11}"
+JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-beta-1}"
 JOULARJX_VERSION="${JOULARJX_VERSION:-3.1.0}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
@@ -164,7 +164,7 @@ elif [ "$IS_WSL" = true ] && sc.exe query ScaphandreDrv 2>/dev/null | grep -q RU
     ok "WSL: Hubblo RAPL driver (ScaphandreDrv) detected on Windows host."
 elif [ -n "${VM_POWER_FILE:-}" ] && [ -f "${VM_POWER_FILE}" ]; then
     POWER_SOURCE="vm-file"
-    ok "Scaphandre VM power file found."
+    ok "VM power file found at ${VM_POWER_FILE}."
 elif [ -f /proc/stat ]; then
     POWER_SOURCE="ci-estimated"
     info "Using CPU-time x TDP software estimation."
@@ -260,7 +260,7 @@ fi
 # ── Generate JoularJX config.properties ──────────────────────────────────────
 # Note: joular-core-parameters is intentionally omitted here.
 # The greener Maven/Gradle plugin auto-detects the best power component
-# (cpu or gpu) at startup via PluginDefaults.ensureJoularCoreParameters().
+# (cpu or gpu) at startup via JoularCoreProbe.ensureJoularCoreParameters().
 banner "Generating JoularJX config.properties"
 
 JOULARJX_CONFIG="${WORK_DIR}/joularjx-config.properties"
@@ -363,7 +363,6 @@ else
 fi
 
 echo ""
-echo "Greener report: ${REPORTS_DIR}/"
 
 # ── Display JoularJX results ─────────────────────────────────────────────────
 banner "JOULARJX RESULTS (method-level)"
@@ -433,12 +432,14 @@ banner "SUMMARY"
 echo "  This simulation demonstrated JoularJX method-level energy monitoring"
 echo "  running alongside the greener-spring-boot Maven plugin."
 echo ""
-echo "  What was produced:"
-echo "    1. Greener process-level energy report (HTML + console)"
-echo "       → ${REPORTS_DIR}/"
-echo "    2. JoularJX per-method energy CSVs"
-echo "       → ${REPORTS_DIR}/joularjx-result/"
-echo ""
 echo "  The greener report shows total process energy consumption."
 echo "  The JoularJX CSVs show which individual methods consumed the most energy."
 echo "  Together, they provide both a high-level overview and method-level detail."
+echo ""
+echo "Reports saved to:"
+echo "  Greener report : ${REPORTS_DIR}/"
+echo "  JoularJX CSVs  : ${REPORTS_DIR}/joularjx-result/"
+echo "  Baseline JSON  : ${BASELINE_FILE}"
+echo ""
+echo "Open in browser:"
+echo "  file://${REPORTS_DIR}/oha/greener-energy-report.html"

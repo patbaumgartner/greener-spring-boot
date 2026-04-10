@@ -15,12 +15,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * Generates a self-contained HTML report showing current energy measurements and
@@ -112,7 +114,7 @@ public class HtmlReporter {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-energy-report.html");
 		Files.writeString(reportFile, buildHtml(current, comparison, workloadStats, powerSource, methodLevelReports));
-		LOG.log(Level.INFO, () -> "HTML report written to: " + reportFile);
+		LOG.info(() -> "HTML report written to: " + reportFile);
 		return reportFile;
 	}
 
@@ -130,7 +132,7 @@ public class HtmlReporter {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-aggregated-report.html");
 		Files.writeString(reportFile, buildAggregatedHtml(runs, powerSource));
-		LOG.log(Level.INFO, () -> "Aggregated HTML report written to: " + reportFile);
+		LOG.info(() -> "Aggregated HTML report written to: " + reportFile);
 		return reportFile;
 	}
 
@@ -221,7 +223,7 @@ public class HtmlReporter {
 		}
 
 		if (methodLevelReports != null && methodLevelReports.hasData()) {
-			sb.append(buildMethodLevelCard(methodLevelReports));
+			sb.append(buildMethodLevelCard(methodLevelReports, current.totalEnergyJoules()));
 		}
 
 		sb.append(htmlFooter());
@@ -381,7 +383,7 @@ public class HtmlReporter {
 		return sb.toString();
 	}
 
-	private String buildMethodLevelCard(MethodLevelReports methodLevelReports) {
+	private String buildMethodLevelCard(MethodLevelReports methodLevelReports, double processLevelEnergyJoules) {
 		// Determine which report to display — prefer allReport (all methods), fall back
 		// to appReport
 		EnergyReport displayReport = methodLevelReports.hasAllData() ? methodLevelReports.allReport()
@@ -415,18 +417,44 @@ public class HtmlReporter {
 		if (hasFilter) {
 			sb.append(metric("App Methods", String.valueOf(methodLevelReports.appReport().measurements().size())));
 		}
-		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, displayReport.totalEnergyJoules())));
+		sb.append(metric("Total Energy (all threads)",
+				String.format(FMT_ENERGY_JOULES, displayReport.totalEnergyJoules())));
 		sb.append(metric(LABEL_DURATION, displayReport.durationSeconds() + " s"));
 		sb.append(METRICS_CLOSE);
+
+		double methodTotal = displayReport.totalEnergyJoules();
+		if (methodTotal > processLevelEnergyJoules && processLevelEnergyJoules > 0) {
+			sb.append("    <div class=\"note\">")
+				.append(String.format(
+						"Method-level total (%.2f J) is higher than the process-level energy (%.2f J) "
+								+ "because JoularJX distributes the full CPU power across all JVM threads. "
+								+ "Joular Core measures only this application's share. "
+								+ "Use the per-method share (%%) to identify expensive methods.",
+						methodTotal, processLevelEnergyJoules))
+				.append("</div>\n");
+		}
 
 		sb.append(TABLE_OPEN)
 			.append("<th class=\"num\">#</th><th>Method</th><th class=\"num\">Energy (J)</th><th class=\"num\">Share</th>")
 			.append(THEAD_CLOSE);
 
+		// Merge app methods that are missing from the all-methods report so they
+		// are always visible and can be tagged with the app-method CSS class.
+		List<EnergyMeasurement> mergedMeasurements = new ArrayList<>(displayReport.measurements());
+		if (hasFilter) {
+			Set<String> allMethodNames = mergedMeasurements.stream()
+				.map(EnergyMeasurement::methodName)
+				.collect(Collectors.toSet());
+			for (EnergyMeasurement am : methodLevelReports.appReport().measurements()) {
+				if (!allMethodNames.contains(am.methodName())) {
+					mergedMeasurements.add(am);
+				}
+			}
+		}
+
 		double total = displayReport.totalEnergyJoules();
 		int rank = 0;
-		for (EnergyMeasurement m : displayReport.measurements()
-			.stream()
+		for (EnergyMeasurement m : mergedMeasurements.stream()
 			.sorted(Comparator.comparingDouble(EnergyMeasurement::energyJoules).reversed())
 			.toList()) {
 			rank++;
@@ -583,7 +611,11 @@ public class HtmlReporter {
 	private String escHtml(String s) {
 		if (s == null)
 			return "";
-		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+		return s.replace("&", "&amp;")
+			.replace("<", "&lt;")
+			.replace(">", "&gt;")
+			.replace("\"", "&quot;")
+			.replace("'", "&#39;");
 	}
 
 	private String htmlHead(String title) {
@@ -655,7 +687,8 @@ public class HtmlReporter {
 				    h3{color:var(--red);font-size:14px;text-transform:uppercase;letter-spacing:1px;
 				       margin:20px 0 12px}
 				    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
-				          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s}
+				          padding:24px;margin-bottom:20px;transition:border-color .2s,background .3s;
+				          overflow-x:auto}
 				    .card:hover{border-color:var(--cyan)}
 				    .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
 				    .metric{flex:1;min-width:130px;padding:14px 18px;
@@ -687,7 +720,9 @@ public class HtmlReporter {
 				           line-height:1.5}
 				    .alert-danger{background:var(--alert-danger-bg);border:1px solid var(--alert-danger-border);color:var(--red)}
 				    code{background:var(--code-bg);padding:2px 7px;border-radius:4px;font-size:12px;
-				         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}		    .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+				         color:var(--cyan);font-family:'JetBrains Mono','Fira Code',monospace}
+				    td code{word-break:break-all}
+				    .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 				  th.num{text-align:right}				    .footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0 12px;
 				            border-top:1px solid var(--border);margin-top:36px}
 				    .footer a{color:var(--cyan);text-decoration:none}
