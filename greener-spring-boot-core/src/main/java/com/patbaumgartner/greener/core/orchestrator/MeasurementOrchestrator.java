@@ -507,7 +507,7 @@ public class MeasurementOrchestrator {
 		if (baselinePath == null) {
 			return java.util.Collections.emptyList();
 		}
-		Path trendFile = baselinePath.resolveSibling(TrendHistoryStore.TREND_FILE);
+		Path trendFile = TrendHistoryStore.trendFileFor(baselinePath);
 		TrendHistoryStore store = new TrendHistoryStore();
 		double total = report.totalEnergyJoules();
 		Double perReq = null;

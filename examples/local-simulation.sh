@@ -147,7 +147,7 @@ ok "All preflight checks passed"
 if [ "${RESET_BASELINES:-}" = "true" ] && [ -f "${BASELINE_FILE}" ]; then
     info "RESET_BASELINES=true - removing stored baseline"
     rm -f "${BASELINE_FILE}"
-    rm -f "${WORK_DIR}/greener-energy-trend.json"
+    rm -f "${WORK_DIR}/energy-baseline-trend.json"
 fi
 
 # ── Build greener-spring-boot plugins ─────────────────────────────────────────

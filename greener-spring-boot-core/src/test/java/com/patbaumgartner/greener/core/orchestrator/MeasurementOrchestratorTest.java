@@ -219,7 +219,7 @@ class MeasurementOrchestratorTest {
 		Path runDir = reportDir.resolve("oha");
 		Files.createDirectories(runDir);
 		Path baselinePath = tempDir.resolve("baselines").resolve("greener-energy-baseline.json");
-		Path trendFile = baselinePath.resolveSibling(TrendHistoryStore.TREND_FILE);
+		Path trendFile = TrendHistoryStore.trendFileFor(baselinePath);
 
 		WorkloadStats stats = WorkloadStats.external("oha", 1000, 5, 60);
 
@@ -256,8 +256,8 @@ class MeasurementOrchestratorTest {
 		orchestrator.processAndReport(cfg, r, WorkloadStats.external("oha", 100, 1, 60));
 
 		try (var stream = Files.walk(tempDir)) {
-			assertThat(stream.filter(p -> p.getFileName().toString().equals(TrendHistoryStore.TREND_FILE)).findAny())
-				.isEmpty();
+			assertThat(stream.filter(p -> p.getFileName().toString().endsWith(TrendHistoryStore.TREND_FILE_SUFFIX))
+				.findAny()).isEmpty();
 		}
 	}
 
