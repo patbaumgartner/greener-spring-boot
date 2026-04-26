@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-iteration measurement.** New `iterations` parameter (Maven + Gradle, default
+  `1`) runs the measurement window N times back-to-back, archives each iteration's
+  Joular Core CSV under `work/iterations/joularcore-output-iter-N.csv`, computes
+  `Statistics` across runs, and picks the iteration whose total is closest to the
+  median as the representative report. With `iterations >= 2` the comparator
+  automatically gains run-to-run statistical power (Welch's t-test + Cohen's d).
+- **Throughput-aware regression metric.** New `regressionMetric` parameter
+  (`TOTAL_ENERGY` | `ENERGY_PER_REQUEST`). When set to `ENERGY_PER_REQUEST` and both
+  the baseline and current run carry workload request counts, the comparator decides
+  on energy efficiency (mJ/req) instead of raw Joules &mdash; preventing trivial
+  "regressions" that are really throughput improvements. Falls back to
+  `TOTAL_ENERGY` automatically when request counts are missing.
+- **Idle-baseline subtraction.** New `idleProbeSeconds` parameter (default `0` =
+  disabled). When set, the orchestrator measures idle CPU power for N seconds *after*
+  Joular Core is started but *before* warmup, then subtracts `idlePowerW × duration`
+  from each workload measurement (clamped at zero). Surfaces the energy attributable
+  to your code rather than the host.
+- **`EnergyBaseline` schema v1.2.** Optional `WorkloadStats` is persisted alongside
+  the report so future comparisons can normalise per-request without re-measuring
+  the baseline. v1.0 / v1.1 baselines load unchanged.
 - **Statistical regression detection.** New `Statistics` value record captures
   per-iteration descriptive statistics (mean, stddev, min, max, median, 95% CI half-width),
   computes Welch's two-sample t-test and Cohen's d effect size. `EnergyComparator`

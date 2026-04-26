@@ -53,7 +53,23 @@ public class BaselineManager {
 	 */
 	public void saveBaseline(EnergyReport report, String commitSha, String branch, Path baselineFile)
 			throws IOException {
-		EnergyBaseline baseline = EnergyBaseline.of(report, commitSha, branch);
+		saveBaseline(report, commitSha, branch, null, baselineFile);
+	}
+
+	/**
+	 * Persists the given {@link EnergyReport} together with the workload statistics that
+	 * produced it. Storing {@link com.patbaumgartner.greener.core.model.WorkloadStats}
+	 * alongside the baseline enables future runs to compare on energy-per-request rather
+	 * than raw Joules.
+	 * @param report the energy report to persist
+	 * @param commitSha optional git commit SHA (may be {@code null})
+	 * @param branch optional branch name (may be {@code null})
+	 * @param workloadStats optional workload statistics (may be {@code null})
+	 * @param baselineFile target JSON file (will be created or overwritten)
+	 */
+	public void saveBaseline(EnergyReport report, String commitSha, String branch,
+			com.patbaumgartner.greener.core.model.WorkloadStats workloadStats, Path baselineFile) throws IOException {
+		EnergyBaseline baseline = EnergyBaseline.of(report, commitSha, branch, workloadStats);
 
 		Path parent = baselineFile.getParent();
 		if (parent != null) {

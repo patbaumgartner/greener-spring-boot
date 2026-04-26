@@ -6,8 +6,10 @@ import com.patbaumgartner.greener.core.model.ComparisonResult.MethodComparison;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.Statistics;
 import com.patbaumgartner.greener.core.model.Statistics.WelchResult;
+import com.patbaumgartner.greener.core.model.WorkloadStats;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,33 +71,74 @@ public class EnergyComparator {
 	 * @return a {@link ComparisonResult} describing how this run compares to baseline
 	 */
 	public ComparisonResult compare(EnergyReport current, Optional<EnergyBaseline> baseline, double threshold) {
+		return compare(current, baseline, threshold, RegressionMetric.TOTAL_ENERGY, null);
+	}
+
+	/**
+	 * Compares the current report against an optional baseline using the given metric.
+	 *
+	 * <p>
+	 * When {@code metric} is {@link RegressionMetric#ENERGY_PER_REQUEST} and request
+	 * counts are available on <em>both</em> sides (current via {@code currentWorkload};
+	 * baseline via {@link EnergyBaseline#workloadStats()}), the comparator computes the
+	 * delta on millijoules-per-request. When request counts are missing on either side,
+	 * the comparator transparently falls back to {@link RegressionMetric#TOTAL_ENERGY}.
+	 */
+	public ComparisonResult compare(EnergyReport current, Optional<EnergyBaseline> baseline, double threshold,
+			RegressionMetric metric, WorkloadStats currentWorkload) {
+		RegressionMetric effectiveMetric = metric == null ? RegressionMetric.TOTAL_ENERGY : metric;
 		if (baseline.isEmpty()) {
 			return new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, current.totalEnergyJoules(), 0, List.of(),
-					false, threshold);
+					false, threshold, null, null, false, effectiveMetric, null, null);
 		}
 
 		EnergyReport baselineReport = baseline.get().report();
 		double baselineTotal = baselineReport.totalEnergyJoules();
 		double currentTotal = current.totalEnergyJoules();
 
-		double totalDelta = computeDeltaPercent(baselineTotal, currentTotal);
 		List<MethodComparison> methodComparisons = buildMethodComparisons(current, baselineReport);
+
+		WorkloadStats baselineWorkload = baseline.get().workloadStats();
+		Double baselineMjPerReq = perRequestMillijoules(baselineTotal, baselineWorkload);
+		Double currentMjPerReq = perRequestMillijoules(currentTotal, currentWorkload);
+		boolean canUsePerRequest = effectiveMetric == RegressionMetric.ENERGY_PER_REQUEST && baselineMjPerReq != null
+				&& currentMjPerReq != null;
+
+		double comparisonBaseline = canUsePerRequest ? baselineMjPerReq : baselineTotal;
+		double comparisonCurrent = canUsePerRequest ? currentMjPerReq : currentTotal;
+		double totalDelta = computeDeltaPercent(comparisonBaseline, comparisonCurrent);
+		RegressionMetric metricUsed = canUsePerRequest ? RegressionMetric.ENERGY_PER_REQUEST
+				: RegressionMetric.TOTAL_ENERGY;
 
 		Statistics curStats = current.totalEnergyStats();
 		Statistics baseStats = baselineReport.totalEnergyStats();
 		boolean canUseStats = curStats != null && baseStats != null && curStats.n() >= 2 && baseStats.n() >= 2;
 
-		if (baselineTotal == 0) {
+		if (comparisonBaseline == 0) {
 			return new ComparisonResult(ComparisonStatus.NO_BASELINE, baselineTotal, currentTotal, totalDelta,
-					methodComparisons, false, threshold);
+					methodComparisons, false, threshold, null, null, false, metricUsed, baselineMjPerReq,
+					currentMjPerReq);
 		}
 
+		ComparisonResult inner;
 		if (canUseStats) {
-			return decideStatistically(curStats, baseStats, baselineTotal, currentTotal, totalDelta, methodComparisons,
+			inner = decideStatistically(curStats, baseStats, baselineTotal, currentTotal, totalDelta, methodComparisons,
 					threshold);
 		}
+		else {
+			inner = decideByThreshold(baselineTotal, currentTotal, totalDelta, methodComparisons, threshold);
+		}
+		return new ComparisonResult(inner.overallStatus(), baselineTotal, currentTotal, totalDelta, methodComparisons,
+				inner.thresholdBreached(), threshold, inner.pValue(), inner.cohenD(), inner.statisticalDecision(),
+				metricUsed, baselineMjPerReq, currentMjPerReq);
+	}
 
-		return decideByThreshold(baselineTotal, currentTotal, totalDelta, methodComparisons, threshold);
+	private static Double perRequestMillijoules(double totalJoules, WorkloadStats workload) {
+		if (workload == null || !workload.hasRequestCounts()) {
+			return null;
+		}
+		double v = workload.energyPerRequestMillijoules(totalJoules);
+		return Double.isNaN(v) ? null : v;
 	}
 
 	private ComparisonResult decideStatistically(Statistics current, Statistics baseline, double baselineTotal,

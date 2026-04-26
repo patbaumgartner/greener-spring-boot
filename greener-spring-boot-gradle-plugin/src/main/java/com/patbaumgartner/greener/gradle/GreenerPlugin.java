@@ -67,6 +67,9 @@ public class GreenerPlugin implements Plugin<Project> {
 		extension.getTimestampReports().convention(false);
 		extension.getSkip().convention(false);
 		extension.getTopN().convention(20);
+		extension.getIterations().convention(1);
+		extension.getRegressionMetric().convention(com.patbaumgartner.greener.core.model.RegressionMetric.TOTAL_ENERGY);
+		extension.getIdleProbeSeconds().convention(0);
 
 		// Apply useful project-level conventions down to the extension so tasks don't
 		// need getProject()
@@ -116,6 +119,9 @@ public class GreenerPlugin implements Plugin<Project> {
 			task.getTimestampReports().convention(extension.getTimestampReports());
 			task.getSkip().convention(extension.getSkip());
 			task.getTopN().convention(extension.getTopN());
+			task.getIterations().convention(extension.getIterations());
+			task.getRegressionMetric().convention(extension.getRegressionMetric());
+			task.getIdleProbeSeconds().convention(extension.getIdleProbeSeconds());
 		});
 	}
 
