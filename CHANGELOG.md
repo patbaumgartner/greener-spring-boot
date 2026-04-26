@@ -142,6 +142,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Supported CI systems" table expanded with GitLab CI and Jenkins rows.
 - Scaphandre Windows installer link added to hardware requirements.
 - Simulation scripts section added to README.
+- **Energy trend chart** section in README documenting the inline-SVG trend
+  chart, the `greener-energy-trend.json` schema, the rolling 100-entry cap,
+  and how to persist the trend file alongside the baseline in CI.
 - Changelog and versioning instructions added to `copilot-instructions.md`.
 - `good first issue` and `help wanted` guidance added to `CONTRIBUTING.md`.
 
@@ -286,6 +289,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scripts.
 - Unicode character encoding fixed for Windows PowerShell 5.x compatibility.
 - Em dashes replaced with standard dashes in all documentation files.
+- Shell simulation scripts (`local-simulation.sh`, `all-tools-simulation.sh`,
+  `joularjx-simulation.sh`) now refuse to run on native Windows under Git Bash
+  / MSYS / Cygwin and point users at the matching `.ps1` companion or WSL2,
+  preventing confusing late failures from Linux-only paths and `joularcore-linux-*`
+  asset downloads.
+- Broken `{@link EnergyReport}` Javadoc reference in `MeasureEnergyMojo`
+  replaced with the fully-qualified link, removing the Maven build warning.
 
 ## [0.1.0] - 2026-04-03
 
