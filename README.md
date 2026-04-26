@@ -285,7 +285,10 @@ mvn greener:update-baseline
 | `startupTimeoutSeconds` | `120` | Wait for health check |
 | `healthCheckPath` | `/actuator/health/readiness` | Health endpoint path (readiness probe) |
 | `baselineFile` | `energy-baseline.json` | JSON baseline file |
-| `threshold` | `10` | % regression threshold |
+| `threshold` | `10` | % regression threshold (legacy fallback when statistics are unavailable) |
+| `iterations` | `1` | Number of measurement windows. Set to `5+` for **statistical regression detection** (Welch's t-test + Cohen's d) and tighter CI in noisy environments |
+| `regressionMetric` | `ENERGY_PER_REQUEST` | Comparison metric: `TOTAL_ENERGY` (raw Joules) or `ENERGY_PER_REQUEST` (mJ/req). The latter prevents trivial "regressions" from throughput improvements; auto-falls back when request counts are missing |
+| `idleProbeSeconds` | `0` | When > 0, samples idle CPU power for N seconds after Joular Core starts and subtracts `idlePowerW × duration` from each workload measurement. Surfaces *your code's* energy, not the host baseline |
 | `topN` | `20` | Number of top energy-consuming methods shown in the HTML report |
 | `failOnRegression` | `false` | Fail build if regression > threshold |
 | `reportOutputDir` | `target/greener-reports` | HTML report directory |
@@ -309,6 +312,35 @@ mvn greener:update-baseline
 | `commitSha` | `${env.GITHUB_SHA}` | Git commit SHA recorded in baseline metadata |
 | `branch` | `${env.GITHUB_REF_NAME}` | Git branch recorded in baseline metadata |
 | `skip` | `false` | Skip execution |
+
+### `greener:doctor` (preflight)
+
+Run `mvn greener:doctor` (Maven) or `./gradlew energyDoctor` (Gradle) **before** your
+first measurement to verify the environment. It performs PASS / WARN / FAIL checks for
+OS + architecture, RAPL access (`/sys/class/powercap/intel-rapl:0/energy_uj`),
+the `msr` kernel module, the Joular Core binary, the JoularJX agent (when configured),
+your workload tool on `PATH`, and Spring Boot fat-jar auto-detection &mdash; each
+failure includes an actionable hint. The build fails if any check is FAIL by default;
+pass `-Dgreener.doctor.failOnError=false` for advisory-only mode.
+
+### Recommended setup for trustworthy measurements
+
+```xml
+<configuration>
+    <iterations>5</iterations>                       <!-- 5+ for statistical power -->
+    <regressionMetric>ENERGY_PER_REQUEST</regressionMetric>
+    <idleProbeSeconds>10</idleProbeSeconds>          <!-- subtract host idle power -->
+    <warmupDurationSeconds>30</warmupDurationSeconds>
+    <measureDurationSeconds>60</measureDurationSeconds>
+    <failOnRegression>true</failOnRegression>
+</configuration>
+```
+
+With `iterations >= 2` the comparator switches from a fixed-percent rule to
+**Welch's two-sample t-test + Cohen's d** and only flags a regression when
+`|d| >= 0.5` (medium effect), `p < 0.05`, and the percent delta exceeds
+`threshold`. This eliminates false positives from tiny-effect significance and
+false negatives from noise.
 
 ---
 

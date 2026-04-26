@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`EnergyMeasurementException` with hint codes.** Failures inside the measurement
+  pipeline are wrapped in a typed exception that carries an actionable `Hint`
+  (e.g. `EMPTY_OR_MISSING_CSV`, `WORKLOAD_TOOL_MISSING`, `JOULAR_CORE_BINARY_MISSING`).
+  Each hint includes a one-line recovery suggestion in the exception message, so
+  users see *what to fix* rather than just *what went wrong*. Subclass of
+  `IOException`, so existing catch-blocks continue to work.
 - **`greener:doctor` / `energyDoctor` preflight command.** New goal/task runs a series
   of environment checks (OS+arch, RAPL `/sys/class/powercap` access, msr kernel module,
   Joular Core binary presence, JoularJX agent path, workload tool on `PATH`, Spring Boot
