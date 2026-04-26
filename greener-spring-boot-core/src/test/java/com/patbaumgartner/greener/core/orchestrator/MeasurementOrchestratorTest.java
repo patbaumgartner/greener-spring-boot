@@ -4,7 +4,10 @@ import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.MeasurementConfig;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
+import com.patbaumgartner.greener.core.baseline.TrendHistoryStore;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -205,6 +208,57 @@ class MeasurementOrchestratorTest {
 		orchestrator.generateFinalReports(report2, comparison2, stats2, "wrk", reportDir, runDir2, false);
 
 		assertThat(logMessages).anyMatch(msg -> msg.contains("Aggregated report"));
+	}
+
+	// ---- processAndReport: trend-history wiring ----
+
+	@Test
+	void processAndReport_writesTrendFileNextToBaseline_andAccumulatesAcrossRuns(@TempDir Path tempDir)
+			throws Exception {
+		Path reportDir = tempDir.resolve("reports");
+		Path runDir = reportDir.resolve("oha");
+		Files.createDirectories(runDir);
+		Path baselinePath = tempDir.resolve("baselines").resolve("greener-energy-baseline.json");
+		Path trendFile = baselinePath.resolveSibling(TrendHistoryStore.TREND_FILE);
+
+		WorkloadStats stats = WorkloadStats.external("oha", 1000, 5, 60);
+
+		MeasurementConfig cfg = new MeasurementConfig(null, 60, "app", baselinePath, reportDir, runDir, "oha", false,
+				10.0, false, "abcdef0", "main", null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0);
+
+		EnergyReport r1 = EnergyReport.of("run-1", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app [app]", 25.0)));
+		orchestrator.processAndReport(cfg, r1, stats);
+		assertThat(trendFile).exists();
+
+		EnergyReport r2 = EnergyReport.of("run-2", Instant.now().plusSeconds(1), 60,
+				List.of(new EnergyMeasurement("app [app]", 27.0)));
+		orchestrator.processAndReport(cfg, r2, stats);
+
+		var entries = new TrendHistoryStore().load(trendFile);
+		assertThat(entries).hasSize(2);
+		assertThat(entries.get(0).totalEnergyJoules()).isEqualTo(25.0);
+		assertThat(entries.get(1).totalEnergyJoules()).isEqualTo(27.0);
+	}
+
+	@Test
+	void processAndReport_noBaselinePath_skipsTrendFile(@TempDir Path tempDir) throws Exception {
+		Path reportDir = tempDir.resolve("reports");
+		Path runDir = reportDir.resolve("oha");
+		Files.createDirectories(runDir);
+
+		MeasurementConfig cfg = new MeasurementConfig(null, 60, "app", null, reportDir, runDir, "oha", false, 10.0,
+				false, null, null, null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0);
+
+		EnergyReport r = EnergyReport.of("run-1", Instant.now(), 60, List.of(new EnergyMeasurement("app [app]", 25.0)));
+
+		// must not throw, must not create any trend file under tempDir
+		orchestrator.processAndReport(cfg, r, WorkloadStats.external("oha", 100, 1, 60));
+
+		try (var stream = Files.walk(tempDir)) {
+			assertThat(stream.filter(p -> p.getFileName().toString().equals(TrendHistoryStore.TREND_FILE)).findAny())
+				.isEmpty();
+		}
 	}
 
 }
