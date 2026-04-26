@@ -93,6 +93,19 @@ trap cleanup EXIT
 # ── Preflight checks ─────────────────────────────────────────────────────────
 banner "Preflight checks"
 
+case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+        echo "[ERR] This script targets Linux / WSL2 / macOS."
+        echo "      You appear to be running native Windows ($(uname -s))."
+        echo "      Please run the PowerShell companion instead:"
+        echo ""
+        echo "          powershell -ExecutionPolicy Bypass -File examples/joularjx-simulation.ps1"
+        echo ""
+        echo "      Or re-run this script from inside WSL2."
+        exit 1
+        ;;
+esac
+
 command -v java  >/dev/null 2>&1 || { echo "[ERR] java not found. Install JDK 17+."; exit 1; }
 command -v mvn   >/dev/null 2>&1 || { echo "[ERR] mvn not found. Install Maven."; exit 1; }
 
