@@ -264,19 +264,20 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	/**
 	 * Number of independent measurement iterations to run. With {@code iterations >= 2}
 	 * the comparator gains run-to-run statistics and applies Welch's t-test + Cohen's d
-	 * effect-size gating instead of a raw percentage threshold. Recommended value:
-	 * {@code 5} for stable CI gates, {@code 10} for paper-grade results.
+	 * effect-size gating instead of a raw percentage threshold. Default {@code 5} for
+	 * stable CI gates; use {@code 10} for paper-grade results, {@code 1} for a quick
+	 * smoke test.
 	 */
-	@Parameter(property = "greener.iterations", defaultValue = "1")
+	@Parameter(property = "greener.iterations", defaultValue = "5")
 	private int iterations;
 
 	/**
-	 * Regression metric. {@code TOTAL_ENERGY} compares raw Joules (legacy default).
-	 * {@code ENERGY_PER_REQUEST} normalises by successful requests &mdash; recommended
-	 * when throughput may vary between runs. Falls back to {@code TOTAL_ENERGY} when
-	 * request counts are missing on either side.
+	 * Regression metric. {@code ENERGY_PER_REQUEST} (default) normalises by successful
+	 * requests so throughput improvements don't masquerade as energy regressions.
+	 * {@code TOTAL_ENERGY} compares raw Joules; pick this only when request counts are
+	 * unavailable or comparing two runs with identical workloads.
 	 */
-	@Parameter(property = "greener.regressionMetric", defaultValue = "TOTAL_ENERGY")
+	@Parameter(property = "greener.regressionMetric", defaultValue = "ENERGY_PER_REQUEST")
 	private com.patbaumgartner.greener.core.model.RegressionMetric regressionMetric;
 
 	/**

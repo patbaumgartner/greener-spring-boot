@@ -37,7 +37,8 @@ class MeasurementOrchestratorTest {
 		Path runDir = tempDir.resolve("run");
 		Files.createDirectories(runDir);
 
-		ComparisonResult result = orchestrator.processBaselineComparison(report, null, runDir, 10.0, false, null, null);
+		ComparisonResult result = orchestrator.processBaselineComparison(report, null, runDir, 10.0, false, null, null,
+				com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		assertThat(result).isNotNull();
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
@@ -52,7 +53,7 @@ class MeasurementOrchestratorTest {
 		Path baselinePath = tempDir.resolve("nonexistent-baseline.json");
 
 		ComparisonResult result = orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, false,
-				null, null);
+				null, null, com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		assertThat(result).isNotNull();
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
@@ -64,7 +65,8 @@ class MeasurementOrchestratorTest {
 		Path runDir = tempDir.resolve("run");
 		Files.createDirectories(runDir);
 
-		orchestrator.processBaselineComparison(report, null, runDir, 10.0, false, null, null);
+		orchestrator.processBaselineComparison(report, null, runDir, 10.0, false, null, null,
+				com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		Path latestReport = runDir.resolve("latest-energy-report.json");
 		assertThat(latestReport).exists();
@@ -77,7 +79,8 @@ class MeasurementOrchestratorTest {
 		Files.createDirectories(runDir);
 		Path baselinePath = tempDir.resolve("energy-baseline.json");
 
-		orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, true, "abc123", "main");
+		orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, true, "abc123", "main",
+				com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		assertThat(baselinePath).exists();
 		assertThat(logMessages).anyMatch(msg -> msg.contains("Energy baseline updated"));
@@ -90,7 +93,8 @@ class MeasurementOrchestratorTest {
 		Files.createDirectories(runDir);
 		Path baselinePath = tempDir.resolve("energy-baseline.json");
 
-		orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, false, null, null);
+		orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, false, null, null,
+				com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		assertThat(baselinePath).doesNotExist();
 	}
@@ -104,7 +108,7 @@ class MeasurementOrchestratorTest {
 		Files.writeString(baselinePath, "not valid json {{}}");
 
 		ComparisonResult result = orchestrator.processBaselineComparison(report, baselinePath, runDir, 10.0, false,
-				null, null);
+				null, null, com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST, null);
 
 		assertThat(result).isNotNull();
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);

@@ -11,7 +11,7 @@ class EnergyBaselineTest {
 	@Test
 	void of_withVcsMetadata() {
 		EnergyReport report = EnergyReport.of("run-1", Instant.now(), 60, java.util.List.of());
-		EnergyBaseline baseline = EnergyBaseline.of(report, "abc123", "main");
+		EnergyBaseline baseline = EnergyBaseline.of(report, "abc123", "main", null);
 
 		assertThat(baseline.version()).isEqualTo(EnergyBaseline.CURRENT_VERSION);
 		assertThat(baseline.commitSha()).isEqualTo("abc123");
@@ -23,7 +23,7 @@ class EnergyBaselineTest {
 	@Test
 	void of_withoutVcsMetadata() {
 		EnergyReport report = EnergyReport.of("run-1", Instant.now(), 60, java.util.List.of());
-		EnergyBaseline baseline = EnergyBaseline.of(report);
+		EnergyBaseline baseline = EnergyBaseline.of(report, null, null, null);
 
 		assertThat(baseline.commitSha()).isNull();
 		assertThat(baseline.branch()).isNull();

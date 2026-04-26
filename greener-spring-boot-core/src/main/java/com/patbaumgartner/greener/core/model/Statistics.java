@@ -49,8 +49,9 @@ public record Statistics(int n, double mean, double stddev, double min, double m
 	}
 
 	/**
-	 * Treats a single observation as a degenerate sample (no variance information).
-	 * Useful when migrating from a v1.0 baseline that only stored a point estimate.
+	 * Treats a single observation as a degenerate sample (no variance information). Used
+	 * when a baseline was captured with {@code iterations = 1} and only carries a point
+	 * estimate.
 	 */
 	public static Statistics single(double value) {
 		if (Double.isNaN(value) || Double.isInfinite(value)) {

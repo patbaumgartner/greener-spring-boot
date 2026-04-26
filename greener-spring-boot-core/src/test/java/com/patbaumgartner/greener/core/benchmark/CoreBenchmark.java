@@ -130,7 +130,7 @@ public class CoreBenchmark {
 
 		EnergyReport baselineReport = EnergyReport.of("baseline", Instant.now(), 60,
 				List.of(new EnergyMeasurement("petclinic", 120.0)));
-		baseline = Optional.of(EnergyBaseline.of(baselineReport, "abc123", "main"));
+		baseline = Optional.of(EnergyBaseline.of(baselineReport, "abc123", "main", null));
 
 		comparator = new EnergyComparator();
 	}

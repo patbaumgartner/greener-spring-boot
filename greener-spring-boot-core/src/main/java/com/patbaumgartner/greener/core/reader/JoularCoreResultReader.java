@@ -20,23 +20,16 @@ import java.util.logging.Logger;
  * converts the power samples into an {@link EnergyReport}.
  *
  * <h2>Joular Core CSV format</h2> Joular Core writes one row per sample interval
- * (default: 1 second). The header may appear in different column orders depending on the
- * version:
+ * (default: 1 second). A header row is required; column order may vary by version:
  *
  * <pre>
  * Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
  * 1700000001,45.2,30.0,15.2,23.1,12.3
  * </pre>
  *
- * Or the legacy format without header:
- *
- * <pre>
- * timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power
- * 1700000001,45.2,0.0,45.2,23.1,12.3
- * </pre>
- *
- * The reader detects the header automatically and maps columns by name. When no header is
- * present, a legacy fixed-index mapping is used for backward compatibility.
+ * The reader detects the header automatically and maps columns by name (matching both
+ * human-readable headers like {@code "CPU Power (W)"} and snake_case headers like
+ * {@code "cpu_power"}).
  *
  * <h2>Energy calculation</h2> Energy (J) = Σ power_watts × sample_interval_seconds. Since
  * joularcore emits one row per second, sample_interval = 1 s, so: total_energy_J = Σ
@@ -47,8 +40,9 @@ public class JoularCoreResultReader {
 	private static final Logger LOG = Logger.getLogger(JoularCoreResultReader.class.getName());
 
 	/**
-	 * Default CSV column indices (zero-based) used when no header row is present. Matches
-	 * the legacy format: timestamp,cpu_power,gpu_power,total_power,cpu_usage,app_power.
+	 * Default CSV column indices (zero-based) used as fallbacks when the header omits a
+	 * column the reader expects:
+	 * timestamp,cpu_power,gpu_power,total_power,cpu_usage,app_power.
 	 */
 	private static final int DEFAULT_COL_CPU_POWER = 1;
 
@@ -95,7 +89,8 @@ public class JoularCoreResultReader {
 				continue;
 			}
 			if (mapping == null) {
-				mapping = ColumnMapping.legacy();
+				throw new EnergyMeasurementException(Hint.EMPTY_OR_MISSING_CSV,
+						"Joular Core CSV is missing a header row: " + csvFile);
 			}
 			PowerSample sample = parseLine(trimmedLine, mapping);
 			if (sample != null) {
@@ -180,8 +175,8 @@ public class JoularCoreResultReader {
 
 	/**
 	 * Parses a CSV header line and returns a {@link ColumnMapping} based on the column
-	 * names. Recognises both the current Joular Core format (e.g. {@code "Total Power
-	 * (W)"}) and the legacy format (e.g. {@code "cpu_power"}).
+	 * names. Recognises both the human-readable Joular Core format (e.g.
+	 * {@code "Total Power (W)"}) and snake_case headers (e.g. {@code "cpu_power"}).
 	 */
 	ColumnMapping parseHeader(String headerLine) {
 		String[] cols = headerLine.split(",");
@@ -206,7 +201,7 @@ public class JoularCoreResultReader {
 			}
 		}
 
-		// Fall back to legacy indices for any column not found in the header
+		// Apply default indices for any column not found in the header
 		if (cpuPower < 0) {
 			cpuPower = DEFAULT_COL_CPU_POWER;
 		}
@@ -268,11 +263,6 @@ public class JoularCoreResultReader {
 
 	/** Maps semantic column roles to actual CSV column indices. */
 	record ColumnMapping(int cpuPower, int gpuPower, int totalPower, int pidOrAppPower) {
-		/** Legacy column mapping for headerless CSVs. */
-		static ColumnMapping legacy() {
-			return new ColumnMapping(DEFAULT_COL_CPU_POWER, DEFAULT_COL_GPU_POWER, DEFAULT_COL_TOTAL_POWER,
-					DEFAULT_COL_PID_OR_APP_POWER);
-		}
 	}
 
 }

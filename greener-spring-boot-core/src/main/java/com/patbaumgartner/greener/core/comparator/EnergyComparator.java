@@ -47,12 +47,12 @@ import java.util.stream.Collectors;
  * <li>Otherwise &rarr; {@link ComparisonStatus#UNCHANGED}.</li>
  * </ol>
  *
- * <h3>Legacy threshold mode (fallback)</h3>
+ * <h3>Threshold mode (single-iteration)</h3>
  *
- * When statistics are unavailable (e.g. v1.0 baseline, or {@code iterations = 1}), the
- * comparator uses the original percentage rule:
+ * When statistics are unavailable (e.g. {@code iterations = 1} or a baseline produced
+ * before iterations were enabled), the comparator uses the percentage rule:
  * {@code delta = (current − baseline) / baseline × 100 %}; values outside
- * {@code ±threshold} flip the status accordingly. This preserves the v0.1.x contract.
+ * {@code ±threshold} flip the status accordingly.
  */
 public class EnergyComparator {
 
@@ -63,15 +63,17 @@ public class EnergyComparator {
 	private static final double ALPHA = 0.05;
 
 	/**
-	 * Compares the current report against an optional baseline.
+	 * Compares the current report against an optional baseline using
+	 * {@link RegressionMetric#ENERGY_PER_REQUEST} when request counts are available, or
+	 * total energy otherwise.
 	 * @param current the newly measured {@link EnergyReport}
 	 * @param baseline an {@link Optional} wrapping the stored baseline (may be empty)
-	 * @param threshold percentage change above/below which status changes from UNCHANGED
-	 * (used in legacy mode and as a sanity gate in statistical mode)
+	 * @param threshold percentage change above/below which status flips from UNCHANGED
+	 * (used in threshold mode and as a sanity gate in statistical mode)
 	 * @return a {@link ComparisonResult} describing how this run compares to baseline
 	 */
 	public ComparisonResult compare(EnergyReport current, Optional<EnergyBaseline> baseline, double threshold) {
-		return compare(current, baseline, threshold, RegressionMetric.TOTAL_ENERGY, null);
+		return compare(current, baseline, threshold, RegressionMetric.ENERGY_PER_REQUEST, null);
 	}
 
 	/**
@@ -82,11 +84,11 @@ public class EnergyComparator {
 	 * counts are available on <em>both</em> sides (current via {@code currentWorkload};
 	 * baseline via {@link EnergyBaseline#workloadStats()}), the comparator computes the
 	 * delta on millijoules-per-request. When request counts are missing on either side,
-	 * the comparator transparently falls back to {@link RegressionMetric#TOTAL_ENERGY}.
+	 * the comparator transparently degrades to {@link RegressionMetric#TOTAL_ENERGY}.
 	 */
 	public ComparisonResult compare(EnergyReport current, Optional<EnergyBaseline> baseline, double threshold,
 			RegressionMetric metric, WorkloadStats currentWorkload) {
-		RegressionMetric effectiveMetric = metric == null ? RegressionMetric.TOTAL_ENERGY : metric;
+		RegressionMetric effectiveMetric = metric == null ? RegressionMetric.ENERGY_PER_REQUEST : metric;
 		if (baseline.isEmpty()) {
 			return new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, current.totalEnergyJoules(), 0, List.of(),
 					false, threshold, null, null, false, effectiveMetric, null, null);

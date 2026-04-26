@@ -300,21 +300,6 @@ public class MeasurementOrchestrator {
 	}
 
 	/**
-	 * Reads JoularJX method-level results from the working directory.
-	 * @param workingDir the working directory where JoularJX writes its results
-	 * @param duration measurement duration in seconds
-	 * @return the JoularJX report, or {@code null} if no results were found
-	 */
-	public EnergyReport readJoularJxResults(Path workingDir, int duration) {
-		MethodLevelReports reports = readJoularJxMethodLevelReports(workingDir, duration);
-		if (reports == null || !reports.hasData()) {
-			return null;
-		}
-		// For backwards compatibility, return whichever report has data (prefer app)
-		return reports.hasAppData() ? reports.appReport() : reports.allReport();
-	}
-
-	/**
 	 * Reads both filtered (app-only) and unfiltered (all methods) JoularJX results from
 	 * the working directory, returning them as a {@link MethodLevelReports}.
 	 * @param workingDir the working directory where JoularJX writes its results
@@ -350,24 +335,6 @@ public class MeasurementOrchestrator {
 			logger.accept("[greener] Failed to read JoularJX results: " + e.getMessage());
 			return null;
 		}
-	}
-
-	/**
-	 * Loads the baseline, compares the report against it, saves the latest report, and
-	 * optionally auto-updates the baseline.
-	 * @param report the current energy report
-	 * @param baselinePath path to the baseline file ({@code null} if none configured)
-	 * @param runDir directory for the current run
-	 * @param threshold regression threshold percentage
-	 * @param autoUpdate whether to auto-promote the report to baseline
-	 * @param commitSha Git commit SHA (may be {@code null})
-	 * @param branch Git branch name (may be {@code null})
-	 * @return the comparison result
-	 */
-	public ComparisonResult processBaselineComparison(EnergyReport report, Path baselinePath, Path runDir,
-			double threshold, boolean autoUpdate, String commitSha, String branch) throws IOException {
-		return processBaselineComparison(report, baselinePath, runDir, threshold, autoUpdate, commitSha, branch,
-				com.patbaumgartner.greener.core.model.RegressionMetric.TOTAL_ENERGY, null);
 	}
 
 	/**
@@ -438,7 +405,7 @@ public class MeasurementOrchestrator {
 			String toolName, Path reportDir, Path runDir, boolean vmMode, MethodLevelReports methodLevelReports)
 			throws IOException {
 		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
-		// Console reporter uses app-only report for backwards compatibility
+		// Console reporter uses app-only methods (or all methods when app filter empty)
 		EnergyReport consoleJoularJxReport = methodLevelReports != null && methodLevelReports.hasAppData()
 				? methodLevelReports.appReport() : (methodLevelReports != null && methodLevelReports.hasAllData()
 						? methodLevelReports.allReport() : null);
