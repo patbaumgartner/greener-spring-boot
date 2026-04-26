@@ -41,7 +41,8 @@ import java.util.function.Supplier;
  * <li>Run the configurable training workload (warmup + measurement).</li>
  * <li>Stop Joular Core.</li>
  * <li>Stop the Spring Boot application.</li>
- * <li>Read Joular Core CSV output and build an {@link EnergyReport}.</li>
+ * <li>Read Joular Core CSV output and build an
+ * {@link com.patbaumgartner.greener.core.model.EnergyReport EnergyReport}.</li>
  * <li>Compare against baseline; generate console + HTML reports.</li>
  * <li>Optionally fail the build if energy regressed beyond {@code threshold}.</li>
  * </ol>

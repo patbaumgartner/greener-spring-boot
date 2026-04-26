@@ -589,6 +589,16 @@ published in the GitHub Release API.  If the download fails:
 
 A few Windows-specific quirks are worth knowing before you start:
 
+### Use the `.ps1` simulation scripts, not the `.sh` ones
+
+The `examples/*-simulation.sh` scripts target Linux / macOS / WSL2: they
+download a Linux Joular Core binary, write to `/tmp`, and read RAPL via
+`/sys/class/powercap`.  Running them from Git Bash, MSYS or Cygwin on
+**native Windows** is now refused with a clear error message pointing at
+the matching PowerShell companion.  Use `examples/local-simulation.ps1`,
+`examples/all-tools-simulation.ps1`, and `examples/joularjx-simulation.ps1`
+on Windows, or run the `.sh` flow from inside WSL2.
+
 ### Run from a local drive, not a UNC path
 
 `mvn.cmd` invokes `cmd.exe`, which **does not support UNC paths**.  Running the
