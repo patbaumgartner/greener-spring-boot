@@ -88,17 +88,15 @@ class JoularCoreResultReaderTest {
 	}
 
 	@Test
-	void readResults_csvWithoutHeader_parsedCorrectly(@TempDir Path tmp) throws IOException {
+	void readResults_csvWithoutHeader_throwsIOException(@TempDir Path tmp) throws IOException {
 		Path csv = tmp.resolve("joularcore.csv");
 		Files.writeString(csv, """
 				1700000001,50.0,0.0,50.0,20.0,10.0
 				1700000002,52.0,0.0,52.0,22.0,11.0
 				""");
 
-		EnergyReport report = reader.readResults(csv, "run-2", 2L, APP_ID);
-
-		// App energy = 10.0 + 11.0 = 21.0 J; System = 50.0 + 52.0 = 102.0 J
-		assertThat(report.totalEnergyJoules()).isCloseTo(102.0 + 21.0, org.assertj.core.data.Offset.offset(0.01));
+		assertThatThrownBy(() -> reader.readResults(csv, "run-2", 2L, APP_ID)).isInstanceOf(IOException.class)
+			.hasMessageContaining("missing a header row");
 	}
 
 	@Test
@@ -131,7 +129,10 @@ class JoularCoreResultReaderTest {
 	void readResults_appEnergyIsZero_onlySystemCpuRecorded(@TempDir Path tmp) throws IOException {
 		Path csv = tmp.resolve("joularcore.csv");
 		// pid_or_app_power = 0 means process was not monitored or not found
-		Files.writeString(csv, "1700000001,40.0,0.0,40.0,18.0,0.0\n");
+		Files.writeString(csv, """
+				timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power
+				1700000001,40.0,0.0,40.0,18.0,0.0
+				""");
 
 		EnergyReport report = reader.readResults(csv, "run-no-app", 1L, APP_ID);
 
@@ -171,7 +172,7 @@ class JoularCoreResultReaderTest {
 	}
 
 	@Test
-	void parseHeader_legacyFormat_mapsCorrectly() {
+	void parseHeader_snakeCaseFormat_mapsCorrectly() {
 		JoularCoreResultReader.ColumnMapping mapping = reader
 			.parseHeader("timestamp,cpu_power,gpu_power,total_power,cpu_usage,pid_or_app_power");
 

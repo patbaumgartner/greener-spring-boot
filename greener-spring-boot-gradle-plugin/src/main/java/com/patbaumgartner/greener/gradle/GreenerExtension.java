@@ -266,14 +266,14 @@ public abstract class GreenerExtension {
 	public abstract Property<Integer> getTopN();
 
 	/**
-	 * Number of independent measurement iterations (default 1). Values >= 2 enable
+	 * Number of independent measurement iterations (default 5). Values >= 2 enable
 	 * statistical comparison (Welch's t-test, Cohen's d).
 	 * @return the iterations property
 	 */
 	public abstract Property<Integer> getIterations();
 
 	/**
-	 * Regression metric: TOTAL_ENERGY (default) or ENERGY_PER_REQUEST.
+	 * Regression metric: ENERGY_PER_REQUEST (default) or TOTAL_ENERGY.
 	 * @return the regression metric property
 	 */
 	public abstract Property<com.patbaumgartner.greener.core.model.RegressionMetric> getRegressionMetric();
