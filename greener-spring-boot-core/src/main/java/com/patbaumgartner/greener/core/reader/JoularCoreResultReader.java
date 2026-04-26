@@ -1,5 +1,7 @@
 package com.patbaumgartner.greener.core.reader;
 
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 
@@ -72,12 +74,11 @@ public class JoularCoreResultReader {
 	public EnergyReport readResults(Path csvFile, String runId, long durationSeconds, String appIdentifier)
 			throws IOException {
 		if (!Files.exists(csvFile)) {
-			throw new IOException(String.join("\n", "Joular Core CSV file not found: " + csvFile, "  Likely causes:",
-					"    \u2022 Joular Core failed to start (missing binary or unsupported OS).",
-					"    \u2022 The Spring Boot application exited before any sample was written.",
-					"    \u2022 The configured measureDurationSeconds is too short (< 1 s).", "  Hints:",
-					"    \u2022 Run the 'greener:doctor' goal to verify your environment.",
-					"    \u2022 Check the application log for early shutdown stack traces."));
+			throw new EnergyMeasurementException(Hint.EMPTY_OR_MISSING_CSV,
+					String.join("\n", "Joular Core CSV file not found: " + csvFile, "  Likely causes:",
+							"    \u2022 Joular Core failed to start (missing binary or unsupported OS).",
+							"    \u2022 The Spring Boot application exited before any sample was written.",
+							"    \u2022 The configured measureDurationSeconds is too short (< 1 s)."));
 		}
 
 		List<String> lines = Files.readAllLines(csvFile);
@@ -103,14 +104,12 @@ public class JoularCoreResultReader {
 		}
 
 		if (samples.isEmpty()) {
-			throw new IOException(String.join("\n", "Joular Core CSV contains no valid power samples: " + csvFile,
-					"  Likely causes:", "    \u2022 RAPL is not readable (missing 'msr' kernel module on Linux,",
-					"      or non-root access to /sys/class/powercap/intel-rapl:0/energy_uj).",
-					"    \u2022 The CPU is not supported by Joular Core (e.g. Apple Silicon).",
-					"    \u2022 Running inside a VM/container without --vm mode enabled.", "  Hints:",
-					"    \u2022 Run the 'greener:doctor' goal to diagnose RAPL access.",
-					"    \u2022 On Linux: 'sudo modprobe msr' and grant CAP_SYS_RAWIO to the JVM,",
-					"      or enable vmMode=true to use the CPU-time \u00d7 TDP estimator."));
+			throw new EnergyMeasurementException(Hint.EMPTY_OR_MISSING_CSV,
+					String.join("\n", "Joular Core CSV contains no valid power samples: " + csvFile, "  Likely causes:",
+							"    \u2022 RAPL is not readable (missing 'msr' kernel module on Linux,",
+							"      or non-root access to /sys/class/powercap/intel-rapl:0/energy_uj).",
+							"    \u2022 The CPU is not supported by Joular Core (e.g. Apple Silicon).",
+							"    \u2022 Running inside a VM/container without --vm mode enabled."));
 		}
 
 		LOG.info(() -> "Read " + samples.size() + " power samples from Joular Core CSV: " + csvFile);
