@@ -74,7 +74,9 @@ Once you have a baseline, graduate to a proper load tool (oha is recommended for
 its accurate latency histograms) for higher-fidelity numbers. See
 [`examples/workloads/`](examples/workloads/) for ready-to-use scripts.
 
-You'll get an HTML energy report in `target/greener-reports/` (Maven) or `build/greener-reports/` (Gradle).
+You'll get an HTML energy report in `target/greener-reports/` (Maven) or
+`build/greener-reports/` (Gradle), including an inline-SVG **trend chart**
+of your last 100 runs (see [Energy trend chart](#energy-trend-chart) below).
 
 > **Note**: An external workload tool is required. The example above uses [oha](https://github.com/hatoo/oha).
 > See `examples/workloads/` for scripts using wrk, k6, Gatling, and others.
@@ -397,6 +399,49 @@ Both plugins share identical configuration options and defaults.
 ```bash
 ./gradlew measureEnergy
 ./gradlew updateEnergyBaseline
+```
+
+---
+
+## Energy trend chart
+
+Every successful `greener:measure` / `measureEnergy` run appends a single
+data point to **`greener-energy-trend.json`**, written next to the configured
+`baselineFile`. The HTML report embeds an inline-SVG line chart of these
+points so regressions and improvements are visible at a glance:
+
+- **Cyan line** - total energy in Joules (primary axis)
+- **Dashed magenta line** - energy per request in mJ/req on a secondary axis
+  (only when the workload tool reports a request count)
+- **Hoverable tooltips** show timestamp, run id, branch and commit SHA
+
+The history file is a plain JSON array, sorted oldest-first, automatically
+**capped at the most recent 100 entries** to prevent unbounded growth. Each
+entry records:
+
+```json
+{
+  "timestamp": "2026-04-26T12:34:56Z",
+  "runId":     "20260426-123456-abcd123",
+  "totalJoules":          1234.56,
+  "energyPerRequestMilliJoules": 0.421,
+  "commitSha": "abcd123…",
+  "branch":    "main"
+}
+```
+
+The chart only renders when `baselineFile` is configured (it is by default).
+Persistence failures are logged but **never fail the build** - the trend
+file is best-effort telemetry, not a quality gate.
+
+In CI, persist the trend file alongside the baseline so the next run can
+extend the chart - the provided `energy-baseline.yml` workflow already does
+this:
+
+```yaml
+path: |
+  /tmp/energy-baseline.json
+  /tmp/greener-energy-trend.json
 ```
 
 ---
