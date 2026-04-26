@@ -9,10 +9,12 @@ import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.IteratedMeasurement;
 import com.patbaumgartner.greener.core.model.MeasurementConfig;
 import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.Statistics;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
 import com.patbaumgartner.greener.core.reader.JoularJxRenormalizer;
@@ -26,6 +28,9 @@ import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -47,6 +52,8 @@ import java.util.function.Supplier;
 public class MeasurementOrchestrator {
 
 	private static final int DEFAULT_TOP_N = 20;
+
+	private static final String SECONDS_SUFFIX = " s ...";
 
 	private final Consumer<String> logger;
 
@@ -80,7 +87,7 @@ public class MeasurementOrchestrator {
 			Supplier<TrainingConfig> configFactory, int warmupSeconds, int measureSeconds)
 			throws IOException, InterruptedException {
 		if (warmupSeconds > 0) {
-			logger.accept("[greener] Warmup phase: " + warmupSeconds + " s ...");
+			logger.accept("[greener] Warmup phase: " + warmupSeconds + "" + SECONDS_SUFFIX);
 			TrainingConfig warmupConfig = configFactory.get()
 				.warmupDurationSeconds(warmupSeconds)
 				.measureDurationSeconds(0);
@@ -91,11 +98,191 @@ public class MeasurementOrchestrator {
 			runner.start(config);
 		}
 
-		logger.accept("[greener] Measurement phase: " + measureSeconds + " s ...");
+		logger.accept("[greener] Measurement phase: " + measureSeconds + "" + SECONDS_SUFFIX);
 		TrainingConfig measureConfig = configFactory.get()
 			.warmupDurationSeconds(0)
 			.measureDurationSeconds(measureSeconds);
 		return new TrainingRunner().run(measureConfig);
+	}
+
+	/**
+	 * Runs an optional warmup followed by {@code iterations} measurement windows. Each
+	 * iteration rotates the Joular Core CSV (stop, archive, restart) so that per-window
+	 * energy can be parsed independently. The per-iteration totals are aggregated into a
+	 * {@link Statistics} attached to the representative report.
+	 *
+	 * <p>
+	 * <b>Statistical rigor.</b> Multiple independent windows are required to estimate
+	 * baseline variance; with {@code iterations >= 2} the comparator can apply Welch's
+	 * t-test instead of falling back to a raw percentage threshold. Cohen (1988)
+	 * recommends {@code n >= 5} per group for stable effect-size estimates; values lower
+	 * than that are still emitted but treated more conservatively by the comparator
+	 * (effect-size gate of |d| < 0.5).
+	 *
+	 * <p>
+	 * The "representative" report is the iteration whose total energy is closest to the
+	 * <em>median</em> of the iterations &mdash; a robust choice that resists outliers
+	 * caused by noisy neighbours, GC pauses, or kernel housekeeping. Its measurements are
+	 * preserved (the median iteration's per-method or per-process breakdown). Workload
+	 * statistics are summed (request counts) across iterations and rescaled by total
+	 * duration.
+	 * @param appIdentifier application identifier (typically the jar name without
+	 * extension); used to tag the parsed reports
+	 * @param iterationCsvDir directory under which per-iteration CSVs are archived as
+	 * {@code joularcore-output-iter-N.csv}
+	 */
+	public IteratedMeasurement executeIteratedWorkloads(JoularCoreRunner runner, JoularCoreConfig config,
+			Path outputCsv, Supplier<TrainingConfig> configFactory, int warmupSeconds, int measureSeconds,
+			int iterations, String appIdentifier, Path iterationCsvDir) throws IOException, InterruptedException {
+
+		int n = Math.max(1, iterations);
+
+		if (warmupSeconds > 0) {
+			logger.accept("[greener] Warmup phase: " + warmupSeconds + "" + SECONDS_SUFFIX);
+			TrainingConfig warmupConfig = configFactory.get()
+				.warmupDurationSeconds(warmupSeconds)
+				.measureDurationSeconds(0);
+			new TrainingRunner().run(warmupConfig);
+		}
+
+		Files.createDirectories(iterationCsvDir);
+
+		List<EnergyReport> perIteration = new ArrayList<>(n);
+		long totalRequests = 0;
+		long totalFailed = 0;
+		long totalDuration = 0;
+		String toolName = null;
+		boolean anyHasCounts = false;
+
+		for (int i = 1; i <= n; i++) {
+			// Rotate Joular Core: stop, clear CSV, restart for a fresh per-iteration
+			// window. The very first iteration may already have a started runner; either
+			// way we ensure the CSV is empty before this iteration starts.
+			runner.stop();
+			Files.deleteIfExists(outputCsv);
+			runner.start(config);
+
+			logger.accept("[greener] Iteration " + i + "/" + n + " — measurement phase: " + measureSeconds + ""
+					+ SECONDS_SUFFIX);
+			TrainingConfig measureConfig = configFactory.get()
+				.warmupDurationSeconds(0)
+				.measureDurationSeconds(measureSeconds);
+			WorkloadStats stats = new TrainingRunner().run(measureConfig);
+
+			// Stop the runner so the CSV is fully flushed before we read it.
+			runner.stop();
+			Path iterCsv = iterationCsvDir.resolve("joularcore-output-iter-" + i + ".csv");
+			if (Files.exists(outputCsv)) {
+				Files.copy(outputCsv, iterCsv, StandardCopyOption.REPLACE_EXISTING);
+			}
+			EnergyReport report = new JoularCoreResultReader().readResults(iterCsv, PluginDefaults.buildRunId(),
+					measureSeconds, appIdentifier);
+			perIteration.add(report);
+
+			if (toolName == null) {
+				toolName = stats.tool();
+			}
+			if (stats.hasRequestCounts()) {
+				anyHasCounts = true;
+				totalRequests += stats.totalRequests();
+				totalFailed += Math.max(0, stats.failedRequests());
+			}
+			totalDuration += stats.durationSeconds();
+		}
+
+		double[] totals = perIteration.stream().mapToDouble(EnergyReport::totalEnergyJoules).toArray();
+		Statistics stats = totals.length == 0 ? Statistics.empty() : Statistics.of(totals);
+
+		EnergyReport representative = pickMedianClosest(perIteration, stats).withStats(stats);
+
+		WorkloadStats merged;
+		if (toolName == null) {
+			merged = WorkloadStats.external("custom", totalDuration);
+		}
+		else if (anyHasCounts) {
+			merged = WorkloadStats.external(toolName, totalRequests, totalFailed, totalDuration);
+		}
+		else {
+			merged = WorkloadStats.external(toolName, totalDuration);
+		}
+
+		return new IteratedMeasurement(representative, perIteration, merged);
+	}
+
+	/**
+	 * Picks the iteration whose total energy is closest to the median across all
+	 * iterations. Falls back to the first report when the list is empty after filtering
+	 * (defensive; the caller guarantees at least one iteration).
+	 */
+	private static EnergyReport pickMedianClosest(List<EnergyReport> reports, Statistics stats) {
+		final int singleton = 1;
+		if (reports.size() == singleton) {
+			return reports.get(0);
+		}
+		double median = stats.median();
+		EnergyReport best = reports.get(0);
+		double bestDist = Math.abs(best.totalEnergyJoules() - median);
+		for (int i = 1; i < reports.size(); i++) {
+			double dist = Math.abs(reports.get(i).totalEnergyJoules() - median);
+			if (dist < bestDist) {
+				best = reports.get(i);
+				bestDist = dist;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Runs a brief idle window with no workload and returns the per-second power
+	 * consumption observed (mean of the per-second app-share Joules over the idle
+	 * window). The caller may subtract this baseline from a subsequent measurement to
+	 * approximate <em>marginal</em> energy attributable to the workload.
+	 *
+	 * <p>
+	 * Returns {@code 0.0} when {@code idleSeconds <= 0} or no power samples were
+	 * collected. The Joular Core runner is restarted so the idle CSV does not contaminate
+	 * subsequent measurement windows.
+	 */
+	public double measureIdleBaselinePower(JoularCoreRunner runner, JoularCoreConfig config, Path outputCsv,
+			int idleSeconds, String appIdentifier) throws IOException, InterruptedException {
+		if (idleSeconds <= 0) {
+			return 0.0;
+		}
+		logger.accept("[greener] Idle baseline phase: " + idleSeconds + " s (no workload) ...");
+		runner.stop();
+		Files.deleteIfExists(outputCsv);
+		runner.start(config);
+		Thread.sleep(idleSeconds * 1000L);
+		runner.stop();
+		double idlePowerW = 0.0;
+		if (Files.exists(outputCsv)) {
+			EnergyReport idle = new JoularCoreResultReader().readResults(outputCsv,
+					PluginDefaults.buildRunId() + "-idle", idleSeconds, appIdentifier);
+			idlePowerW = idle.durationSeconds() > 0 ? idle.totalEnergyJoules() / idle.durationSeconds() : 0.0;
+		}
+		logger.accept(String.format("[greener] Idle baseline: %.3f W average over %d s", idlePowerW, idleSeconds));
+		// Restart for the upcoming workload phase.
+		Files.deleteIfExists(outputCsv);
+		runner.start(config);
+		return idlePowerW;
+	}
+
+	/**
+	 * Subtracts {@code idlePowerW * durationSeconds} from
+	 * {@code report.totalEnergyJoules} (clamped at zero) and returns a copy with the
+	 * adjusted total. The original statistics, if any, are dropped because they no longer
+	 * correspond to the new total.
+	 */
+	public EnergyReport subtractIdleBaseline(EnergyReport report, double idlePowerW) {
+		if (idlePowerW <= 0.0 || report == null) {
+			return report;
+		}
+		double idleJoules = idlePowerW * report.durationSeconds();
+		double adjusted = Math.max(0.0, report.totalEnergyJoules() - idleJoules);
+		logger
+			.accept(String.format("[greener] Idle subtraction: -%.3f J (workload net = %.3f J)", idleJoules, adjusted));
+		return new EnergyReport(report.runId(), report.timestamp() == null ? Instant.now() : report.timestamp(),
+				report.durationSeconds(), report.measurements(), adjusted, report.totalEnergyStats());
 	}
 
 	/**
@@ -179,18 +366,32 @@ public class MeasurementOrchestrator {
 	 */
 	public ComparisonResult processBaselineComparison(EnergyReport report, Path baselinePath, Path runDir,
 			double threshold, boolean autoUpdate, String commitSha, String branch) throws IOException {
+		return processBaselineComparison(report, baselinePath, runDir, threshold, autoUpdate, commitSha, branch,
+				com.patbaumgartner.greener.core.model.RegressionMetric.TOTAL_ENERGY, null);
+	}
+
+	/**
+	 * Loads the baseline, compares the report against it (using the given metric and
+	 * workload statistics), saves the latest report, and optionally auto-updates the
+	 * baseline.
+	 */
+	public ComparisonResult processBaselineComparison(EnergyReport report, Path baselinePath, Path runDir,
+			double threshold, boolean autoUpdate, String commitSha, String branch,
+			com.patbaumgartner.greener.core.model.RegressionMetric metric,
+			com.patbaumgartner.greener.core.model.WorkloadStats currentWorkload) throws IOException {
 		BaselineManager manager = new BaselineManager();
 		Optional<EnergyBaseline> baseline = loadBaselineSafely(manager, baselinePath);
-		ComparisonResult comparison = new EnergyComparator().compare(report, baseline, threshold);
+		ComparisonResult comparison = new EnergyComparator().compare(report, baseline, threshold, metric,
+				currentWorkload);
 
 		String sha = PluginDefaults.normalise(commitSha);
 		String br = PluginDefaults.normalise(branch);
 
 		Path latestReportPath = runDir.resolve("latest-energy-report.json");
-		manager.saveBaseline(report, sha, br, latestReportPath);
+		manager.saveBaseline(report, sha, br, currentWorkload, latestReportPath);
 
 		if (autoUpdate && baselinePath != null) {
-			manager.saveBaseline(report, sha, br, baselinePath);
+			manager.saveBaseline(report, sha, br, currentWorkload, baselinePath);
 			for (String line : PluginDefaults.formatBaselineUpdateSummary(baselinePath, sha, br,
 					report.totalEnergyJoules())) {
 				logger.accept(line);
@@ -272,8 +473,20 @@ public class MeasurementOrchestrator {
 			throws IOException {
 		EnergyReport report = processResults(config.outputCsv(), config.measureDurationSeconds(),
 				config.appIdentifier());
+		return processAndReport(config, report, workloadStats);
+	}
+
+	/**
+	 * Variant of {@link #processAndReport(MeasurementConfig, WorkloadStats)} that accepts
+	 * a pre-built {@link EnergyReport}. Used by callers that have already parsed the
+	 * Joular Core output (e.g. multi-iteration runs that aggregate per-iteration
+	 * statistics, or idle-baseline-subtracted runs).
+	 */
+	public MeasurementResult processAndReport(MeasurementConfig config, EnergyReport report,
+			WorkloadStats workloadStats) throws IOException {
 		ComparisonResult comparison = processBaselineComparison(report, config.baselinePath(), config.runDir(),
-				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch());
+				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch(), config.regressionMetric(),
+				workloadStats);
 		MethodLevelReports methodLevelReports = config.hasJoularJx()
 				? readJoularJxMethodLevelReports(config.joularJxWorkingDir(), config.measureDurationSeconds()) : null;
 		// Reconcile JoularJX over-attribution against the authoritative Joular Core
