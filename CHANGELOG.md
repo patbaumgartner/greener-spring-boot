@@ -171,7 +171,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `externalTrainingCommand` or `externalTrainingScriptFile` is now **required** -
   the plugin fails at runtime if neither is configured
-- Default Joular Core version updated from `0.0.1-alpha-11` to `0.0.1-beta-1`
+- Default Joular Core version updated from `0.0.1-alpha-11` to `0.0.1-beta-2`
+  (binaries are not yet published for `0.0.1-beta-2` upstream; users without a
+  cached binary should pin `joularCoreVersion` back to `0.0.1-beta-1` or build
+  Joular Core from source - the simulation scripts already do this via cargo)
 - Measurement logic extracted from Maven and Gradle plugins into shared
   `MeasurementOrchestrator` in core module
 - `AppArgsBuilder` extracted from `PluginDefaults` into its own class
@@ -198,6 +201,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maven Central badge in README switched from a hardcoded static badge to a dynamic version badge
 - Redundant `spring-javaformat:validate` CI step removed (already runs as part of `mvn verify`)
 - `SECURITY.md` supported versions table updated to list only released versions
+- README expanded with a **Windows notes** section covering three gotchas surfaced
+  during cross-platform script verification: (1) `mvn.cmd`/`cmd.exe` does not
+  support UNC paths so the project must be built from a local drive (not from
+  `\\wsl.localhost\…`); (2) JoularJX `app/total/methods/` and `all/total/methods/`
+  CSVs are not produced on Windows because `Process.destroy()` maps to
+  `TerminateProcess` which bypasses JVM shutdown hooks (per-second runtime CSVs
+  are still written); (3) workload `run.sh` scripts use `apt-get`/`brew` for
+  auto-install, so on Windows the tools must be pre-installed (e.g. via
+  `choco install oha k6 bombardier`)
 
 ### Removed
 

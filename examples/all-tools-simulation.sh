@@ -40,7 +40,7 @@
 #
 # Environment variables (all optional — sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-2)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
 #   THRESHOLD              Regression threshold in %       (default: 10)
@@ -54,7 +54,7 @@ set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PETCLINIC_VERSION="${PETCLINIC_VERSION:-main}"
-JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-beta-1}"
+JOULAR_CORE_VERSION="${JOULAR_CORE_VERSION:-0.0.1-beta-2}"
 MEASURE_SECONDS="${MEASURE_SECONDS:-60}"
 WARMUP_SECONDS="${WARMUP_SECONDS:-30}"
 THRESHOLD="${THRESHOLD:-10}"

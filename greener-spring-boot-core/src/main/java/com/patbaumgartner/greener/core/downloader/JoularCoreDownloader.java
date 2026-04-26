@@ -65,7 +65,7 @@ public class JoularCoreDownloader {
 	 *
 	 * <p>
 	 * If the binary already exists in the cache it is returned immediately.
-	 * @param version the Joular Core release version, e.g. {@code "0.0.1-beta-1"}
+	 * @param version the Joular Core release version, e.g. {@code "0.0.1-beta-2"}
 	 * @param cacheDir directory where the binary is cached
 	 * @return path to the executable Joular Core binary
 	 */

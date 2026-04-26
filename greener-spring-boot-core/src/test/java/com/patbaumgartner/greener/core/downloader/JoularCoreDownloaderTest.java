@@ -69,7 +69,7 @@ class JoularCoreDownloaderTest {
 		Files.writeString(cachedBinary, "fake-binary-content");
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		Path result = downloader.download("0.0.1-beta-1", tempDir);
+		Path result = downloader.download("0.0.1-beta-2", tempDir);
 
 		assertThat(result).isEqualTo(cachedBinary);
 		assertThat(Files.readString(result)).isEqualTo("fake-binary-content");
@@ -84,7 +84,7 @@ class JoularCoreDownloaderTest {
 		Files.writeString(nestedCache.resolve(assetName), "fake");
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		Path result = downloader.download("0.0.1-beta-1", nestedCache);
+		Path result = downloader.download("0.0.1-beta-2", nestedCache);
 
 		assertThat(result).exists();
 	}
@@ -99,7 +99,7 @@ class JoularCoreDownloaderTest {
 				Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		downloader.download("0.0.1-beta-1", tempDir);
+		downloader.download("0.0.1-beta-2", tempDir);
 
 		Set<PosixFilePermission> perms = Files.getPosixFilePermissions(cachedBinary);
 		assertThat(perms).contains(PosixFilePermission.OWNER_EXECUTE);
