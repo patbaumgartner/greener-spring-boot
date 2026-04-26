@@ -8,6 +8,7 @@ import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.TrendEntry;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 
 import java.io.IOException;
@@ -111,9 +112,23 @@ public class HtmlReporter {
 	 */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource, MethodLevelReports methodLevelReports, Path outputDir) throws IOException {
+		return generateReport(current, comparison, workloadStats, powerSource, methodLevelReports,
+				java.util.Collections.emptyList(), outputDir);
+	}
+
+	/**
+	 * Generates a report including optional JoularJX method-level data and a historical
+	 * trend (sparkline / line chart) of {@code totalEnergyJoules} over prior runs.
+	 * @param trendEntries chronological list of prior-run trend points (oldest-first);
+	 * pass an empty list to omit the trend card
+	 */
+	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
+			PowerSource powerSource, MethodLevelReports methodLevelReports, List<TrendEntry> trendEntries,
+			Path outputDir) throws IOException {
 		Files.createDirectories(outputDir);
 		Path reportFile = outputDir.resolve("greener-energy-report.html");
-		Files.writeString(reportFile, buildHtml(current, comparison, workloadStats, powerSource, methodLevelReports));
+		Files.writeString(reportFile,
+				buildHtml(current, comparison, workloadStats, powerSource, methodLevelReports, trendEntries));
 		LOG.info(() -> "HTML report written to: " + reportFile);
 		return reportFile;
 	}
@@ -137,7 +152,7 @@ public class HtmlReporter {
 	}
 
 	private String buildHtml(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
-			PowerSource powerSource, MethodLevelReports methodLevelReports) {
+			PowerSource powerSource, MethodLevelReports methodLevelReports, List<TrendEntry> trendEntries) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(htmlHead("Greener Spring Boot — Energy Report"));
 		sb.append(
@@ -177,6 +192,11 @@ public class HtmlReporter {
 		else if (comparison != null) {
 			sb.append("  <div class=\"card\"><div class=\"note\">"
 					+ "No baseline found — this run will be saved as the new baseline.</div></div>\n");
+		}
+
+		// Historical trend chart (only meaningful with at least two data points)
+		if (trendEntries != null && trendEntries.size() >= 2) {
+			sb.append(buildTrendChartCard(trendEntries));
 		}
 
 		// Measurements table
@@ -523,6 +543,178 @@ public class HtmlReporter {
 				.append("</div>\n");
 		}
 
+		sb.append(DIV_CLOSE);
+		return sb.toString();
+	}
+
+	/**
+	 * Renders a self-contained inline-SVG line chart of the historical trend. Two series
+	 * are drawn when energy-per-request data is available across runs: total Joules
+	 * (left, cyan) and mJ/req (right, magenta dashed). The most recent point is
+	 * highlighted; X-axis labels are evenly spaced timestamps.
+	 */
+	private String buildTrendChartCard(List<TrendEntry> entries) {
+		final int width = 760;
+		final int height = 220;
+		final int padL = 56;
+		final int padR = 56;
+		final int padT = 16;
+		final int padB = 36;
+		final int plotW = width - padL - padR;
+		final int plotH = height - padT - padB;
+		final int n = entries.size();
+
+		double minTotal = Double.POSITIVE_INFINITY;
+		double maxTotal = Double.NEGATIVE_INFINITY;
+		double minPerReq = Double.POSITIVE_INFINITY;
+		double maxPerReq = Double.NEGATIVE_INFINITY;
+		boolean anyPerReq = false;
+		for (TrendEntry e : entries) {
+			minTotal = Math.min(minTotal, e.totalEnergyJoules());
+			maxTotal = Math.max(maxTotal, e.totalEnergyJoules());
+			Double pr = e.energyPerRequestMillijoules();
+			if (pr != null && !pr.isNaN() && !pr.isInfinite()) {
+				anyPerReq = true;
+				minPerReq = Math.min(minPerReq, pr);
+				maxPerReq = Math.max(maxPerReq, pr);
+			}
+		}
+		// Avoid zero-range axes — pad by 5 % of the value (or an absolute floor).
+		double totalRange = Math.max(maxTotal - minTotal, Math.max(maxTotal * 0.05, 1e-9));
+		double minTotalAxis = minTotal - totalRange * 0.05;
+		double maxTotalAxis = maxTotal + totalRange * 0.05;
+		double perReqRange = anyPerReq ? Math.max(maxPerReq - minPerReq, Math.max(maxPerReq * 0.05, 1e-9)) : 1.0;
+		double minPerReqAxis = anyPerReq ? minPerReq - perReqRange * 0.05 : 0;
+		double maxPerReqAxis = anyPerReq ? maxPerReq + perReqRange * 0.05 : 1;
+
+		java.util.function.IntFunction<Double> xAt = i -> n == 1 ? padL + plotW / 2.0
+				: padL + (plotW * (double) i) / (n - 1);
+		java.util.function.DoubleUnaryOperator yTotal = v -> padT + plotH
+				- ((v - minTotalAxis) / (maxTotalAxis - minTotalAxis)) * plotH;
+		java.util.function.DoubleUnaryOperator yPerReq = v -> padT + plotH
+				- ((v - minPerReqAxis) / (maxPerReqAxis - minPerReqAxis)) * plotH;
+
+		StringBuilder totalPts = new StringBuilder();
+		StringBuilder perReqPts = new StringBuilder();
+		for (int i = 0; i < n; i++) {
+			TrendEntry e = entries.get(i);
+			double x = xAt.apply(i);
+			if (totalPts.length() > 0) {
+				totalPts.append(' ');
+			}
+			totalPts.append(
+					String.format(java.util.Locale.ROOT, "%.1f,%.1f", x, yTotal.applyAsDouble(e.totalEnergyJoules())));
+			Double pr = e.energyPerRequestMillijoules();
+			if (anyPerReq && pr != null && !pr.isNaN() && !pr.isInfinite()) {
+				if (perReqPts.length() > 0) {
+					perReqPts.append(' ');
+				}
+				perReqPts.append(String.format(java.util.Locale.ROOT, "%.1f,%.1f", x, yPerReq.applyAsDouble(pr)));
+			}
+		}
+
+		java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+			.withZone(java.time.ZoneId.systemDefault());
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("  <div class=\"card\">\n    <h2>Energy Trend (last ").append(n).append(" runs)</h2>\n");
+		sb.append("    <svg viewBox=\"0 0 ").append(width).append(' ').append(height).append("\" ");
+		sb.append(
+				"style=\"width:100%;height:auto;font-family:inherit;\" role=\"img\" aria-label=\"Energy trend chart\">\n");
+		// Plot area background grid: 4 horizontal lines.
+		for (int i = 0; i <= 4; i++) {
+			double y = padT + (plotH * i) / 4.0;
+			sb.append("      <line x1=\"")
+				.append(padL)
+				.append("\" x2=\"")
+				.append(padL + plotW)
+				.append("\" y1=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", y))
+				.append("\" y2=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", y))
+				.append("\" stroke=\"var(--border)\" stroke-dasharray=\"2,3\" />\n");
+		}
+		// Y-axis labels (left, total Joules).
+		for (int i = 0; i <= 4; i++) {
+			double v = maxTotalAxis - ((maxTotalAxis - minTotalAxis) * i) / 4.0;
+			double y = padT + (plotH * i) / 4.0;
+			sb.append("      <text x=\"")
+				.append(padL - 6)
+				.append("\" y=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", y + 4))
+				.append("\" text-anchor=\"end\" fill=\"var(--muted)\" font-size=\"10\">")
+				.append(String.format(java.util.Locale.ROOT, "%.2f J", v))
+				.append("</text>\n");
+		}
+		// Y-axis labels (right, mJ/req) — only if applicable.
+		if (anyPerReq) {
+			for (int i = 0; i <= 4; i++) {
+				double v = maxPerReqAxis - ((maxPerReqAxis - minPerReqAxis) * i) / 4.0;
+				double y = padT + (plotH * i) / 4.0;
+				sb.append("      <text x=\"")
+					.append(padL + plotW + 6)
+					.append("\" y=\"")
+					.append(String.format(java.util.Locale.ROOT, "%.1f", y + 4))
+					.append("\" text-anchor=\"start\" fill=\"var(--muted)\" font-size=\"10\">")
+					.append(String.format(java.util.Locale.ROOT, "%.2f mJ", v))
+					.append("</text>\n");
+			}
+		}
+		// X-axis labels: at most 5 evenly-spaced timestamps.
+		int xLabelCount = Math.min(5, n);
+		for (int i = 0; i < xLabelCount; i++) {
+			int idx = xLabelCount == 1 ? 0 : (int) Math.round((double) i * (n - 1) / (xLabelCount - 1));
+			double x = xAt.apply(idx);
+			sb.append("      <text x=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", x))
+				.append("\" y=\"")
+				.append(height - padB + 18)
+				.append("\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">")
+				.append(escHtml(dateFmt.format(entries.get(idx).timestamp())))
+				.append("</text>\n");
+		}
+		// Total energy polyline.
+		sb.append("      <polyline fill=\"none\" stroke=\"var(--cyan)\" stroke-width=\"2\" points=\"")
+			.append(totalPts)
+			.append("\" />\n");
+		// Total energy point markers with tooltips.
+		for (int i = 0; i < n; i++) {
+			TrendEntry e = entries.get(i);
+			double x = xAt.apply(i);
+			double y = yTotal.applyAsDouble(e.totalEnergyJoules());
+			boolean last = i == n - 1;
+			sb.append("      <circle cx=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", x))
+				.append("\" cy=\"")
+				.append(String.format(java.util.Locale.ROOT, "%.1f", y))
+				.append("\" r=\"")
+				.append(last ? 4 : 2.5)
+				.append("\" fill=\"var(--cyan)\"><title>")
+				.append(escHtml(e.runId()))
+				.append(" · ")
+				.append(String.format(java.util.Locale.ROOT, "%.3f J", e.totalEnergyJoules()));
+			if (e.energyPerRequestMillijoules() != null) {
+				sb.append(String.format(java.util.Locale.ROOT, " · %.3f mJ/req", e.energyPerRequestMillijoules()));
+			}
+			sb.append("</title></circle>\n");
+		}
+		// Per-request polyline (dashed magenta) when applicable.
+		if (anyPerReq && perReqPts.length() > 0) {
+			sb.append(
+					"      <polyline fill=\"none\" stroke=\"var(--magenta)\" stroke-width=\"1.5\" stroke-dasharray=\"4,3\" points=\"")
+				.append(perReqPts)
+				.append("\" />\n");
+		}
+		sb.append("    </svg>\n");
+		// Legend.
+		sb.append("    <div class=\"note\" style=\"display:flex;gap:1.5em;flex-wrap:wrap;\">");
+		sb.append(
+				"<span><span style=\"display:inline-block;width:10px;height:2px;background:var(--cyan);vertical-align:middle;\"></span> Total energy (J, left axis)</span>");
+		if (anyPerReq) {
+			sb.append(
+					"<span><span style=\"display:inline-block;width:10px;height:2px;background:var(--magenta);vertical-align:middle;\"></span> Energy / request (mJ, right axis)</span>");
+		}
+		sb.append("</div>\n");
 		sb.append(DIV_CLOSE);
 		return sb.toString();
 	}

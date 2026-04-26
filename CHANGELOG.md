@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **HTML trend chart.** The HTML report now embeds an inline-SVG line chart of the
+  most-recent runs whenever a baseline path is configured. Each measurement appends a
+  point to a sibling `greener-energy-trend.json` file (capped at 100 entries) recording
+  total Joules, energy-per-request (when available), commit SHA, and branch. The chart
+  shows total energy in cyan and energy-per-request in dashed magenta on a secondary
+  axis, with hoverable tooltips per point — making regression vs. improvement trends
+  visible at a glance without leaving the report. Persistence failures never fail the
+  build.
 - **`EnergyMeasurementException` with hint codes.** Failures inside the measurement
   pipeline are wrapped in a typed exception that carries an actionable `Hint`
   (e.g. `EMPTY_OR_MISSING_CSV`, `WORKLOAD_TOOL_MISSING`, `JOULAR_CORE_BINARY_MISSING`).
