@@ -285,8 +285,8 @@ mvn greener:update-baseline
 | `startupTimeoutSeconds` | `120` | Wait for health check |
 | `healthCheckPath` | `/actuator/health/readiness` | Health endpoint path (readiness probe) |
 | `baselineFile` | `energy-baseline.json` | JSON baseline file |
-| `threshold` | `10` | % regression threshold (legacy fallback when statistics are unavailable) |
-| `iterations` | `1` | Number of measurement windows. Set to `5+` for **statistical regression detection** (Welch's t-test + Cohen's d) and tighter CI in noisy environments |
+| `threshold` | `10` | % regression threshold used in single-iteration runs and as the absolute-delta gate when statistics are available |
+| `iterations` | `5` | Number of measurement windows. Statistical regression detection (Welch's t-test + Cohen's d) is active out of the box; set to `1` for a quick smoke test, `10` for paper-grade results |
 | `regressionMetric` | `ENERGY_PER_REQUEST` | Comparison metric: `TOTAL_ENERGY` (raw Joules) or `ENERGY_PER_REQUEST` (mJ/req). The latter prevents trivial "regressions" from throughput improvements; auto-falls back when request counts are missing |
 | `idleProbeSeconds` | `0` | When > 0, samples idle CPU power for N seconds after Joular Core starts and subtracts `idlePowerW × duration` from each workload measurement. Surfaces *your code's* energy, not the host baseline |
 | `topN` | `20` | Number of top energy-consuming methods shown in the HTML report |

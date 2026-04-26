@@ -103,7 +103,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `of(report, commitSha, branch, workloadStats)`. Removed the 14-arg legacy
   `MeasurementConfig` constructor &mdash; use the 17-arg canonical form. Removed the
   7-arg `MeasurementOrchestrator.processBaselineComparison(...)` overload &mdash;
-  pass `regressionMetric` and `currentWorkload` explicitly.
+  pass `regressionMetric` and `currentWorkload` explicitly. **On-disk baseline
+  JSON files written by older releases continue to load unchanged** &mdash; the
+  break is API-only, not data-format.
 - **`ComparisonResult` extended** with three new fields &mdash; `pValue`, `cohenD`
   (both nullable `Double`) and `statisticalDecision` (boolean). Convenience
   7-arg and 10-arg constructors remain for callers that don't care about the
