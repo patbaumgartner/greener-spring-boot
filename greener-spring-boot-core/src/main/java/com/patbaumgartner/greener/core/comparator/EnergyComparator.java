@@ -6,6 +6,8 @@ import com.patbaumgartner.greener.core.model.ComparisonResult.MethodComparison;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.Statistics;
+import com.patbaumgartner.greener.core.model.Statistics.WelchResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,22 +19,53 @@ import java.util.stream.Collectors;
  * Compares the current {@link EnergyReport} against a stored {@link EnergyBaseline}.
  *
  * <h2>Comparison logic</h2>
+ *
+ * <p>
+ * The comparator picks one of two decision modes depending on the input data.
+ *
+ * <h3>Statistical mode (preferred)</h3>
+ *
+ * Activated when <em>both</em> the current report and the baseline report carry
+ * {@link Statistics} with at least two samples each. The comparator then evaluates:
+ * <ul>
+ * <li><b>Welch's two-sample t-test</b> for unequal variances on the per-iteration totals
+ * &rarr; two-sided p-value <em>p</em>.</li>
+ * <li><b>Cohen's d</b> using a pooled standard deviation &rarr; effect size <em>d</em>.
+ * </li>
+ * </ul>
+ * Decision rules (Cohen 1988 conventions):
  * <ol>
- * <li>If no baseline is available, status is {@link ComparisonStatus#NO_BASELINE}.</li>
- * <li>Total energy delta = {@code (current − baseline) / baseline × 100 %}.</li>
- * <li>{@code delta > +threshold} → {@link ComparisonStatus#REGRESSED} (build may
- * fail).</li>
- * <li>{@code delta < −threshold} → {@link ComparisonStatus#IMPROVED}.</li>
- * <li>Otherwise → {@link ComparisonStatus#UNCHANGED}.</li>
+ * <li>{@code |d| < 0.5} (small effect) &rarr; {@link ComparisonStatus#UNCHANGED} <em>even
+ * when</em> {@code p} is significant. This avoids flagging tiny differences that pass
+ * statistical significance only because of large {@code n}.</li>
+ * <li>{@code d ≥ 0.5} <b>and</b> {@code p < 0.05} <b>and</b> {@code delta% ≥ threshold}
+ * &rarr; {@link ComparisonStatus#REGRESSED}.</li>
+ * <li>{@code d ≤ -0.5} <b>and</b> {@code p < 0.05} &rarr;
+ * {@link ComparisonStatus#IMPROVED}.</li>
+ * <li>Otherwise &rarr; {@link ComparisonStatus#UNCHANGED}.</li>
  * </ol>
+ *
+ * <h3>Legacy threshold mode (fallback)</h3>
+ *
+ * When statistics are unavailable (e.g. v1.0 baseline, or {@code iterations = 1}), the
+ * comparator uses the original percentage rule:
+ * {@code delta = (current − baseline) / baseline × 100 %}; values outside
+ * {@code ±threshold} flip the status accordingly. This preserves the v0.1.x contract.
  */
 public class EnergyComparator {
+
+	/** Cohen's d threshold below which the effect is considered "small" (UNCHANGED). */
+	private static final double SMALL_EFFECT_D = 0.5;
+
+	/** Significance level for Welch's t-test. */
+	private static final double ALPHA = 0.05;
 
 	/**
 	 * Compares the current report against an optional baseline.
 	 * @param current the newly measured {@link EnergyReport}
 	 * @param baseline an {@link Optional} wrapping the stored baseline (may be empty)
 	 * @param threshold percentage change above/below which status changes from UNCHANGED
+	 * (used in legacy mode and as a sanity gate in statistical mode)
 	 * @return a {@link ComparisonResult} describing how this run compares to baseline
 	 */
 	public ComparisonResult compare(EnergyReport current, Optional<EnergyBaseline> baseline, double threshold) {
@@ -48,15 +81,60 @@ public class EnergyComparator {
 		double totalDelta = computeDeltaPercent(baselineTotal, currentTotal);
 		List<MethodComparison> methodComparisons = buildMethodComparisons(current, baselineReport);
 
-		ComparisonStatus status;
-		boolean thresholdBreached = false;
+		Statistics curStats = current.totalEnergyStats();
+		Statistics baseStats = baselineReport.totalEnergyStats();
+		boolean canUseStats = curStats != null && baseStats != null && curStats.n() >= 2 && baseStats.n() >= 2;
 
 		if (baselineTotal == 0) {
-			status = ComparisonStatus.NO_BASELINE;
+			return new ComparisonResult(ComparisonStatus.NO_BASELINE, baselineTotal, currentTotal, totalDelta,
+					methodComparisons, false, threshold);
 		}
-		else if (totalDelta > threshold) {
+
+		if (canUseStats) {
+			return decideStatistically(curStats, baseStats, baselineTotal, currentTotal, totalDelta, methodComparisons,
+					threshold);
+		}
+
+		return decideByThreshold(baselineTotal, currentTotal, totalDelta, methodComparisons, threshold);
+	}
+
+	private ComparisonResult decideStatistically(Statistics current, Statistics baseline, double baselineTotal,
+			double currentTotal, double totalDelta, List<MethodComparison> methodComparisons, double threshold) {
+
+		WelchResult welch = current.welchTTest(baseline);
+		double d = current.cohenD(baseline);
+		double p = welch.pValueTwoSided();
+
+		ComparisonStatus status;
+		boolean breached = false;
+
+		if (Math.abs(d) < SMALL_EFFECT_D) {
+			// Small effect size: noise dominates. Don't flag.
+			status = ComparisonStatus.UNCHANGED;
+		}
+		else if (d >= SMALL_EFFECT_D && p < ALPHA && totalDelta >= threshold) {
 			status = ComparisonStatus.REGRESSED;
-			thresholdBreached = true;
+			breached = true;
+		}
+		else if (d <= -SMALL_EFFECT_D && p < ALPHA) {
+			status = ComparisonStatus.IMPROVED;
+		}
+		else {
+			status = ComparisonStatus.UNCHANGED;
+		}
+
+		return new ComparisonResult(status, baselineTotal, currentTotal, totalDelta, methodComparisons, breached,
+				threshold, p, d, true);
+	}
+
+	private ComparisonResult decideByThreshold(double baselineTotal, double currentTotal, double totalDelta,
+			List<MethodComparison> methodComparisons, double threshold) {
+		ComparisonStatus status;
+		boolean breached = false;
+
+		if (totalDelta > threshold) {
+			status = ComparisonStatus.REGRESSED;
+			breached = true;
 		}
 		else if (totalDelta < -threshold) {
 			status = ComparisonStatus.IMPROVED;
@@ -65,8 +143,8 @@ public class EnergyComparator {
 			status = ComparisonStatus.UNCHANGED;
 		}
 
-		return new ComparisonResult(status, baselineTotal, currentTotal, totalDelta, methodComparisons,
-				thresholdBreached, threshold);
+		return new ComparisonResult(status, baselineTotal, currentTotal, totalDelta, methodComparisons, breached,
+				threshold);
 	}
 
 	private List<MethodComparison> buildMethodComparisons(EnergyReport current, EnergyReport baseline) {
