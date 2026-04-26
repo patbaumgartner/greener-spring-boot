@@ -406,9 +406,14 @@ Both plugins share identical configuration options and defaults.
 ## Energy trend chart
 
 Every successful `greener:measure` / `measureEnergy` run appends a single
-data point to **`greener-energy-trend.json`**, written next to the configured
-`baselineFile`. The HTML report embeds an inline-SVG line chart of these
-points so regressions and improvements are visible at a glance:
+data point to a **trend file** that lives next to the configured
+`baselineFile`. The trend file's name is derived from the baseline file:
+the `.json` suffix is replaced with `-trend.json`, so
+`energy-baseline.json` becomes `energy-baseline-trend.json`. Each baseline
+therefore gets its own independent history — handy when you measure
+several workload tools or several branches against distinct baselines.
+The HTML report embeds an inline-SVG line chart of these points so
+regressions and improvements are visible at a glance:
 
 - **Cyan line** - total energy in Joules (primary axis)
 - **Dashed magenta line** - energy per request in mJ/req on a secondary axis
@@ -441,7 +446,7 @@ this:
 ```yaml
 path: |
   /tmp/energy-baseline.json
-  /tmp/greener-energy-trend.json
+  /tmp/energy-baseline-trend.json
 ```
 
 ---

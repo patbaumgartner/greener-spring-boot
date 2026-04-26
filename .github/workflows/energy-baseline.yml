@@ -145,7 +145,7 @@ jobs:
           name: energy-baseline-${{ github.sha }}
           path: |
             /tmp/energy-baseline.json
-            /tmp/greener-energy-trend.json
+            /tmp/energy-baseline-trend.json
           retention-days: 90
           if-no-files-found: ignore
 
@@ -172,5 +172,5 @@ jobs:
         with:
           path: |
             /tmp/energy-baseline.json
-            /tmp/greener-energy-trend.json
+            /tmp/energy-baseline-trend.json
           key: energy-baseline-${{ github.ref_name }}-latest

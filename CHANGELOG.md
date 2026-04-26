@@ -43,10 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **HTML trend chart.** The HTML report embeds an inline-SVG line chart of
   recent runs whenever a baseline path is configured. Each measurement appends
-  to `greener-energy-trend.json` (capped at 100 entries) with total Joules,
-  energy-per-request (when available), commit SHA, and branch. Total energy is
-  drawn in cyan, energy-per-request in dashed magenta on a secondary axis,
-  with hoverable tooltips. Persistence failures never fail the build.
+  to a trend file (capped at 100 entries) with total Joules,
+  energy-per-request (when available), commit SHA, and branch. The trend file
+  lives next to the configured `baselineFile` and is named by replacing
+  `.json` with `-trend.json` (e.g. `energy-baseline.json` →
+  `energy-baseline-trend.json`), so each baseline gets its own independent
+  history. Total energy is drawn in cyan, energy-per-request in dashed
+  magenta on a secondary axis, with hoverable tooltips. Persistence failures
+  never fail the build.
 - **JoularJX method-level energy monitoring** as an optional add-on to
   process-level Joular Core measurements via new `joularJxAgentPath` and
   `joularJxConfigPath` parameters (Maven + Gradle).
@@ -143,8 +147,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scaphandre Windows installer link added to hardware requirements.
 - Simulation scripts section added to README.
 - **Energy trend chart** section in README documenting the inline-SVG trend
-  chart, the `greener-energy-trend.json` schema, the rolling 100-entry cap,
-  and how to persist the trend file alongside the baseline in CI.
+  chart, the trend-file schema (named `<baselineStem>-trend.json` next to
+  the baseline), the rolling 100-entry cap, and how to persist the trend
+  file alongside the baseline in CI.
 - Changelog and versioning instructions added to `copilot-instructions.md`.
 - `good first issue` and `help wanted` guidance added to `CONTRIBUTING.md`.
 
@@ -196,6 +201,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   break is API-only, not data-format.
 - **`externalTrainingCommand` or `externalTrainingScriptFile` is now
   required** - the plugin fails at runtime if neither is configured.
+- **Trend file name derived from baseline file name.** The historical
+  `greener-energy-trend.json` (a single fixed name) has been replaced with
+  `<baselineStem>-trend.json` so every baseline keeps its own history. With
+  the default `energy-baseline.json` the new file is
+  `energy-baseline-trend.json`. Existing CI users either need to rename the
+  cached file or accept that history starts fresh on the next run; CI
+  workflow snippets and example simulation scripts in this repo have been
+  updated accordingly.
 
 #### Defaults
 
@@ -296,6 +309,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asset downloads.
 - Broken `{@link EnergyReport}` Javadoc reference in `MeasureEnergyMojo`
   replaced with the fully-qualified link, removing the Maven build warning.
+- `JoularCoreDownloader` HTTP 404 errors now include an actionable hint
+  pointing users at pinning the previous version (`0.0.1-beta-1`) or
+  building Joular Core from source via `cargo build --release` and
+  configuring `joularCoreBinaryPath`, instead of just reporting the bare
+  HTTP status.
 
 ## [0.1.0] - 2026-04-03
 

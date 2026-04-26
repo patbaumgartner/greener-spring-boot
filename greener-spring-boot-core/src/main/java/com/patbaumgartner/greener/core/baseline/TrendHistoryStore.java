@@ -41,8 +41,27 @@ import java.util.logging.Logger;
  */
 public class TrendHistoryStore {
 
-	/** Well-known file name used by the orchestrator alongside the baseline file. */
-	public static final String TREND_FILE = "greener-energy-trend.json";
+	/**
+	 * Well-known suffix appended to the baseline file's stem to derive the trend file
+	 * name. For example, baseline {@code energy-baseline.json} → trend file
+	 * {@code energy-baseline-trend.json}.
+	 */
+	public static final String TREND_FILE_SUFFIX = "-trend.json";
+
+	/**
+	 * Returns the trend file Path that lives next to the given baseline file. Deriving
+	 * the trend file from the baseline name ensures every distinct baseline (per branch,
+	 * per workload tool, per environment) gets its own independent history rather than
+	 * mixing into a single file.
+	 * @param baselineFile the baseline file (must not be {@code null})
+	 * @return the trend file path that sits next to the baseline
+	 */
+	public static Path trendFileFor(Path baselineFile) {
+		Path parent = baselineFile.toAbsolutePath().getParent();
+		String name = baselineFile.getFileName().toString();
+		String stem = name.endsWith(".json") ? name.substring(0, name.length() - ".json".length()) : name;
+		return (parent != null ? parent : baselineFile.toAbsolutePath()).resolve(stem + TREND_FILE_SUFFIX);
+	}
 
 	/** Default maximum number of entries kept in the trend file. */
 	public static final int DEFAULT_MAX_ENTRIES = 100;
