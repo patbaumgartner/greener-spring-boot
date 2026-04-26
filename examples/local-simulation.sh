@@ -98,6 +98,22 @@ trap cleanup EXIT
 # ── Preflight checks ─────────────────────────────────────────────────────────
 banner "Preflight checks"
 
+# Refuse to run under Git Bash / MSYS / Cygwin on native Windows: this script
+# downloads/builds the Linux Joular Core binary and uses Linux-only paths
+# (/tmp, /sys/class/powercap, ...). Windows users have a dedicated companion.
+case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+        echo "[ERR] This script targets Linux / WSL2 / macOS."
+        echo "      You appear to be running native Windows ($(uname -s))."
+        echo "      Please run the PowerShell companion instead:"
+        echo ""
+        echo "          powershell -ExecutionPolicy Bypass -File examples/local-simulation.ps1"
+        echo ""
+        echo "      Or re-run this script from inside WSL2."
+        exit 1
+        ;;
+esac
+
 command -v java  >/dev/null 2>&1 || { echo "[ERR] java not found. Install JDK 17+."; exit 1; }
 command -v mvn   >/dev/null 2>&1 || { echo "[ERR] mvn not found. Install Maven."; exit 1; }
 
