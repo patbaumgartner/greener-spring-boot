@@ -2,6 +2,7 @@ package com.patbaumgartner.greener.core.orchestrator;
 
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.baseline.RunEntryStore;
+import com.patbaumgartner.greener.core.baseline.TrendHistoryStore;
 import com.patbaumgartner.greener.core.comparator.EnergyComparator;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
@@ -15,6 +16,7 @@ import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.Statistics;
+import com.patbaumgartner.greener.core.model.TrendEntry;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
 import com.patbaumgartner.greener.core.reader.JoularJxRenormalizer;
@@ -404,6 +406,21 @@ public class MeasurementOrchestrator {
 	public Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,
 			String toolName, Path reportDir, Path runDir, boolean vmMode, MethodLevelReports methodLevelReports)
 			throws IOException {
+		return generateFinalReports(report, comparison, workloadStats, toolName, reportDir, runDir, vmMode,
+				methodLevelReports, java.util.Collections.emptyList());
+	}
+
+	/**
+	 * Variant of
+	 * {@link #generateFinalReports(EnergyReport, ComparisonResult, WorkloadStats, String, Path, Path, boolean, MethodLevelReports)}
+	 * that also threads a chronological energy-trend history into the HTML report so it
+	 * can render a sparkline / line chart of prior runs.
+	 * @param trendHistory chronological list of prior-run trend points (oldest-first);
+	 * pass an empty list to omit the chart
+	 */
+	public Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,
+			String toolName, Path reportDir, Path runDir, boolean vmMode, MethodLevelReports methodLevelReports,
+			List<TrendEntry> trendHistory) throws IOException {
 		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
 		// Console reporter uses app-only methods (or all methods when app filter empty)
 		EnergyReport consoleJoularJxReport = methodLevelReports != null && methodLevelReports.hasAppData()
@@ -413,7 +430,7 @@ public class MeasurementOrchestrator {
 
 		HtmlReporter htmlReporter = new HtmlReporter(topN);
 		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
-				methodLevelReports, runDir);
+				methodLevelReports, trendHistory == null ? java.util.Collections.emptyList() : trendHistory, runDir);
 		logger.accept("[greener] HTML report: " + htmlReport);
 
 		RunEntryStore runEntryStore = new RunEntryStore();
@@ -472,8 +489,44 @@ public class MeasurementOrchestrator {
 			}
 		}
 		Path htmlReport = generateFinalReports(report, comparison, workloadStats, config.toolName(), config.reportDir(),
-				config.runDir(), config.vmMode(), methodLevelReports);
+				config.runDir(), config.vmMode(), methodLevelReports,
+				updateTrendHistory(config, report, workloadStats));
 		return new MeasurementResult(report, comparison, workloadStats, methodLevelReports, htmlReport);
+	}
+
+	/**
+	 * Appends the current run's headline numbers to the trend-history file (alongside the
+	 * baseline) and returns the resulting chronological list for chart rendering. Returns
+	 * an empty list when no baseline path is configured (we have no obvious place to
+	 * persist history) or when persistence fails &mdash; the chart is a convenience and
+	 * never blocks the build.
+	 */
+	private List<TrendEntry> updateTrendHistory(MeasurementConfig config, EnergyReport report,
+			WorkloadStats workloadStats) {
+		Path baselinePath = config.baselinePath();
+		if (baselinePath == null) {
+			return java.util.Collections.emptyList();
+		}
+		Path trendFile = baselinePath.resolveSibling(TrendHistoryStore.TREND_FILE);
+		TrendHistoryStore store = new TrendHistoryStore();
+		double total = report.totalEnergyJoules();
+		Double perReq = null;
+		if (workloadStats != null) {
+			double mj = workloadStats.energyPerRequestMillijoules(total);
+			if (!Double.isNaN(mj) && !Double.isInfinite(mj)) {
+				perReq = mj;
+			}
+		}
+		String runId = config.commitSha() != null && !config.commitSha().isBlank() ? config.commitSha()
+				: Instant.now().toString();
+		TrendEntry entry = new TrendEntry(Instant.now(), runId, total, perReq, config.commitSha(), config.branch());
+		try {
+			return store.appendAndSave(trendFile, entry);
+		}
+		catch (IOException e) {
+			logger.accept("[greener] Could not update trend history: " + e.getMessage());
+			return java.util.Collections.emptyList();
+		}
 	}
 
 	private Optional<EnergyBaseline> loadBaselineSafely(BaselineManager manager, Path baselinePath) {
