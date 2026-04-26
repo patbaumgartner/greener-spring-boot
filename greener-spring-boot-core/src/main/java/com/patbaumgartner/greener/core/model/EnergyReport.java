@@ -34,7 +34,9 @@ public record EnergyReport(String runId, Instant timestamp, long durationSeconds
 	}
 
 	/**
-	 * Backwards-compatible constructor that defaults {@code totalEnergyStats} to empty.
+	 * Convenience constructor for callers that don't carry per-iteration statistics
+	 * (single-iteration runs, JSON deserialisers, simple unit tests). Defaults
+	 * {@code totalEnergyStats} to {@link Statistics#empty()}.
 	 */
 	public EnergyReport(String runId, Instant timestamp, long durationSeconds, List<EnergyMeasurement> measurements,
 			double totalEnergyJoules) {
