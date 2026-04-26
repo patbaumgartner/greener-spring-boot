@@ -20,13 +20,13 @@ package com.patbaumgartner.greener.core.model;
  */
 public enum RegressionMetric {
 
-	/** Compare absolute total energy in Joules (legacy behaviour). */
+	/** Compare absolute total energy in Joules. */
 	TOTAL_ENERGY,
 
 	/** Compare energy per successful request in millijoules (recommended). */
 	ENERGY_PER_REQUEST;
 
-	/** Default metric when none is configured: total energy (back-compat). */
-	public static final RegressionMetric DEFAULT = TOTAL_ENERGY;
+	/** Default metric when none is configured. */
+	public static final RegressionMetric DEFAULT = ENERGY_PER_REQUEST;
 
 }

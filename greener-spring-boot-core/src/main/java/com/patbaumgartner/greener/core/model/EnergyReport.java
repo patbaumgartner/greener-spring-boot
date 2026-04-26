@@ -18,7 +18,7 @@ import java.util.List;
  * captures the run-to-run distribution of {@link #totalEnergyJoules} and enables the
  * comparator to apply a statistical significance test instead of a raw percentage
  * threshold. Single-iteration runs leave {@code totalEnergyStats} as
- * {@link Statistics#empty()} for backwards compatibility.
+ * {@link Statistics#empty()}.
  */
 public record EnergyReport(String runId, Instant timestamp, long durationSeconds, List<EnergyMeasurement> measurements,
 		double totalEnergyJoules, Statistics totalEnergyStats) {

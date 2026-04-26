@@ -9,11 +9,6 @@ import java.nio.file.Path;
  * <p>
  * Both the Maven and Gradle plugins construct a {@code MeasurementConfig} from their
  * respective plugin properties and pass it to the shared orchestrator.
- *
- * <p>
- * <b>v0.2 fields:</b> {@code iterations}, {@code regressionMetric}, and
- * {@code idleProbeSeconds} are optional and have backwards-compatible defaults (1,
- * {@link RegressionMetric#TOTAL_ENERGY}, 0). The 14-arg constructor is preserved.
  */
 public record MeasurementConfig(Path outputCsv, int measureDurationSeconds, String appIdentifier, Path baselinePath,
 		Path reportDir, Path runDir, String toolName, boolean vmMode, double threshold, boolean autoUpdate,
@@ -26,19 +21,11 @@ public record MeasurementConfig(Path outputCsv, int measureDurationSeconds, Stri
 			iterations = minIterations;
 		}
 		if (regressionMetric == null) {
-			regressionMetric = RegressionMetric.TOTAL_ENERGY;
+			regressionMetric = RegressionMetric.ENERGY_PER_REQUEST;
 		}
 		if (idleProbeSeconds < 0) {
 			idleProbeSeconds = 0;
 		}
 	}
 
-	/** Backwards-compatible 14-arg constructor (pre-v0.2 fields). */
-	public MeasurementConfig(Path outputCsv, int measureDurationSeconds, String appIdentifier, Path baselinePath,
-			Path reportDir, Path runDir, String toolName, boolean vmMode, double threshold, boolean autoUpdate,
-			String commitSha, String branch, Path joularJxWorkingDir, boolean hasJoularJx) {
-		this(outputCsv, measureDurationSeconds, appIdentifier, baselinePath, reportDir, runDir, toolName, vmMode,
-				threshold, autoUpdate, commitSha, branch, joularJxWorkingDir, hasJoularJx, 1,
-				RegressionMetric.TOTAL_ENERGY, 0);
-	}
 }

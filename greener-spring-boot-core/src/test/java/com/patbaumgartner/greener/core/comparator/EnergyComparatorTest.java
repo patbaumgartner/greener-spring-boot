@@ -35,8 +35,8 @@ class EnergyComparatorTest {
 	void compare_energyImproved_statusImproved() {
 		EnergyReport current = buildReport(80.0); // 20% better
 
-		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
-				THRESHOLD);
+		ComparisonResult result = comparator.compare(current,
+				Optional.of(EnergyBaseline.of(buildReport(100.0), null, null, null)), THRESHOLD);
 
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.IMPROVED);
 		assertThat(result.totalDeltaPercent()).isCloseTo(-20.0, Offset.offset(0.001));
@@ -47,8 +47,8 @@ class EnergyComparatorTest {
 	void compare_energyRegressedBeyondThreshold_failsBuild() {
 		EnergyReport current = buildReport(115.0); // +15% — exceeds 10% threshold
 
-		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
-				THRESHOLD);
+		ComparisonResult result = comparator.compare(current,
+				Optional.of(EnergyBaseline.of(buildReport(100.0), null, null, null)), THRESHOLD);
 
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.REGRESSED);
 		assertThat(result.thresholdBreached()).isTrue();
@@ -60,8 +60,8 @@ class EnergyComparatorTest {
 	void compare_energyRegressedWithinThreshold_unchanged() {
 		EnergyReport current = buildReport(105.0); // +5% — within 10% threshold
 
-		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(buildReport(100.0))),
-				THRESHOLD);
+		ComparisonResult result = comparator.compare(current,
+				Optional.of(EnergyBaseline.of(buildReport(100.0), null, null, null)), THRESHOLD);
 
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.UNCHANGED);
 		assertThat(result.thresholdBreached()).isFalse();
@@ -79,7 +79,8 @@ class EnergyComparatorTest {
 						new EnergyMeasurement("com.example.B.method", 50.0)),
 				110.0);
 
-		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
+		ComparisonResult result = comparator.compare(current,
+				Optional.of(EnergyBaseline.of(baseline, null, null, null)), THRESHOLD);
 
 		assertThat(result.methodComparisons()).hasSize(2);
 
@@ -101,7 +102,8 @@ class EnergyComparatorTest {
 		EnergyReport current = new EnergyReport("c", Instant.now(), 60,
 				List.of(new EnergyMeasurement("com.example.NewMethod.run", 20.0)), 20.0);
 
-		ComparisonResult result = comparator.compare(current, Optional.of(EnergyBaseline.of(baseline)), THRESHOLD);
+		ComparisonResult result = comparator.compare(current,
+				Optional.of(EnergyBaseline.of(baseline, null, null, null)), THRESHOLD);
 
 		boolean hasOldMethod = result.methodComparisons()
 			.stream()
@@ -111,8 +113,8 @@ class EnergyComparatorTest {
 
 	@Test
 	void compare_zeroBaselineEnergy_noBaseline() {
-		ComparisonResult result = comparator.compare(buildReport(5.0), Optional.of(EnergyBaseline.of(buildReport(0.0))),
-				THRESHOLD);
+		ComparisonResult result = comparator.compare(buildReport(5.0),
+				Optional.of(EnergyBaseline.of(buildReport(0.0), null, null, null)), THRESHOLD);
 
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.NO_BASELINE);
 	}
@@ -129,7 +131,8 @@ class EnergyComparatorTest {
 		EnergyReport baseRep = withStats(buildReport(base.mean()), base);
 		EnergyReport currRep = withStats(buildReport(curr.mean()), curr);
 
-		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep)), THRESHOLD);
+		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep, null, null, null)),
+				THRESHOLD);
 
 		assertThat(result.statisticalDecision()).isTrue();
 		assertThat(result.cohenD()).isNotNull();
@@ -148,7 +151,8 @@ class EnergyComparatorTest {
 		EnergyReport baseRep = withStats(buildReport(base.mean()), base);
 		EnergyReport currRep = withStats(buildReport(curr.mean()), curr);
 
-		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep)), THRESHOLD);
+		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep, null, null, null)),
+				THRESHOLD);
 
 		assertThat(result.statisticalDecision()).isTrue();
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.REGRESSED);
@@ -166,7 +170,8 @@ class EnergyComparatorTest {
 		EnergyReport baseRep = withStats(buildReport(base.mean()), base);
 		EnergyReport currRep = withStats(buildReport(curr.mean()), curr);
 
-		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep)), THRESHOLD);
+		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep, null, null, null)),
+				THRESHOLD);
 
 		assertThat(result.overallStatus()).isEqualTo(ComparisonStatus.IMPROVED);
 		assertThat(result.cohenD()).isLessThan(-0.5);
@@ -180,7 +185,8 @@ class EnergyComparatorTest {
 		EnergyReport currRep = withStats(buildReport(130.0), curr);
 		EnergyReport baseRep = buildReport(100.0);
 
-		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep)), THRESHOLD);
+		ComparisonResult result = comparator.compare(currRep, Optional.of(EnergyBaseline.of(baseRep, null, null, null)),
+				THRESHOLD);
 
 		assertThat(result.statisticalDecision()).isFalse();
 		assertThat(result.pValue()).isNull();

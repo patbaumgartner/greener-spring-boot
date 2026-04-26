@@ -316,8 +316,9 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract Property<Integer> getIterations();
 
 	/**
-	 * Regression metric. Either {@code TOTAL_ENERGY} (legacy) or
-	 * {@code ENERGY_PER_REQUEST} (recommended when throughput may vary).
+	 * Regression metric. {@code ENERGY_PER_REQUEST} (default) normalises by successful
+	 * requests so throughput improvements don't masquerade as energy regressions;
+	 * {@code TOTAL_ENERGY} compares raw Joules.
 	 * @return the regression metric property
 	 */
 	@Input
@@ -418,7 +419,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				reportDir, runDir, toolName, getVmMode().get(), getThreshold().get(), getAutoUpdateBaseline().get(),
 				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir, getJoularJxAgentPath().isPresent(),
 				getIterations().getOrElse(1),
-				getRegressionMetric().getOrElse(com.patbaumgartner.greener.core.model.RegressionMetric.TOTAL_ENERGY),
+				getRegressionMetric()
+					.getOrElse(com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST),
 				getIdleProbeSeconds().getOrElse(0));
 
 		MeasurementResult result;
