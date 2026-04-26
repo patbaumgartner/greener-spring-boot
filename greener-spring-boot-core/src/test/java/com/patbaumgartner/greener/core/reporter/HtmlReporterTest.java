@@ -217,4 +217,45 @@ class HtmlReporterTest {
 		assertThat(content).contains("app-method");
 	}
 
+	@Test
+	void generateReport_omitsTrendChart_whenFewerThanTwoEntries(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-t", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app [app]", 10.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 10.0, 0, List.of(), false,
+				10.0);
+		List<com.patbaumgartner.greener.core.model.TrendEntry> single = List
+			.of(new com.patbaumgartner.greener.core.model.TrendEntry(Instant.parse("2025-01-01T00:00:00Z"), "only",
+					10.0, null, null, null));
+
+		Path htmlFile = reporter.generateReport(report, comparison, null, PowerSource.RAPL, null, single, tmp);
+
+		String content = Files.readString(htmlFile);
+		assertThat(content).doesNotContain("Energy Trend");
+	}
+
+	@Test
+	void generateReport_includesTrendChart_whenTwoOrMoreEntries(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-t", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app [app]", 12.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 12.0, 0, List.of(), false,
+				10.0);
+		List<com.patbaumgartner.greener.core.model.TrendEntry> history = List.of(
+				new com.patbaumgartner.greener.core.model.TrendEntry(Instant.parse("2025-01-01T00:00:00Z"), "r1", 10.0,
+						0.5, null, null),
+				new com.patbaumgartner.greener.core.model.TrendEntry(Instant.parse("2025-01-02T00:00:00Z"), "r2", 11.0,
+						0.55, null, null),
+				new com.patbaumgartner.greener.core.model.TrendEntry(Instant.parse("2025-01-03T00:00:00Z"), "r3", 12.0,
+						0.60, null, null));
+
+		Path htmlFile = reporter.generateReport(report, comparison, null, PowerSource.RAPL, null, history, tmp);
+
+		String content = Files.readString(htmlFile);
+		assertThat(content).contains("Energy Trend (last 3 runs)");
+		assertThat(content).contains("<polyline");
+		// Both series should render (cyan total + magenta mJ/req).
+		assertThat(content).contains("var(--cyan)").contains("var(--magenta)");
+		// Tooltips include each runId.
+		assertThat(content).contains("r1").contains("r2").contains("r3");
+	}
+
 }
