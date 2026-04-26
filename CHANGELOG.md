@@ -49,8 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `|Cohen's d| ≥ 0.5` (medium effect) **and** `p < 0.05` **and** percentage delta
   exceeds the threshold. This eliminates false positives from large-N statistical
   significance on tiny effects and false negatives from a noise floor that swallows
-  real regressions. Single-iteration runs and v1.0 baselines automatically fall back
-  to the legacy percentage rule, so no existing workflow breaks.
+  real regressions. Single-iteration runs automatically fall back to the percentage
+  rule.
 - **JoularJX over-attribution renormalisation.** New `JoularJxRenormalizer` rescales
   method-level energies so they sum to the authoritative Joular Core process total
   (`factor = processEnergyJ / Σ methodEnergyJ`). Method shares are preserved; absolute
@@ -86,14 +86,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: Default `iterations` is now `5`** (was `1`). Single-iteration runs are
+  still supported for quick smoke tests; the new default makes every CI run produce
+  enough samples for Welch's t-test + Cohen's d gating out of the box. Set
+  `<iterations>1</iterations>` (Maven) or `iterations.set(1)` (Gradle) to restore
+  the previous behaviour.
+- **BREAKING: Default `regressionMetric` is now `ENERGY_PER_REQUEST`** (was
+  `TOTAL_ENERGY`). Throughput improvements no longer masquerade as energy
+  regressions when the workload tool reports request counts. Falls back to
+  `TOTAL_ENERGY` automatically when request counts are missing on either side.
+- **BREAKING: Removed legacy headerless-CSV path in `JoularCoreResultReader`.**
+  Modern Joular Core (≥0.0.1-beta-1) always emits a header row. Files without one
+  now fail fast with `EnergyMeasurementException(EMPTY_OR_MISSING_CSV)`.
+- **BREAKING: API surface tightened.** Removed `EnergyBaseline.of(report)` and
+  `EnergyBaseline.of(report, sha, branch)` &mdash; use the canonical
+  `of(report, commitSha, branch, workloadStats)`. Removed the 14-arg legacy
+  `MeasurementConfig` constructor &mdash; use the 17-arg canonical form. Removed the
+  7-arg `MeasurementOrchestrator.processBaselineComparison(...)` overload &mdash;
+  pass `regressionMetric` and `currentWorkload` explicitly.
 - **`ComparisonResult` extended** with three new fields &mdash; `pValue`, `cohenD`
-  (both nullable `Double`) and `statisticalDecision` (boolean). The pre-existing
-  7-arg constructor remains as a delegating overload, so source-compatibility is
-  preserved for direct callers.
-- **`EnergyReport` extended** with a `totalEnergyStats` field. The pre-existing
-  5-arg constructor remains as a delegating overload; the new compact constructor
-  coerces a `null` `totalEnergyStats` to `Statistics.empty()`, so deserialised v1.0
-  baselines remain valid.
+  (both nullable `Double`) and `statisticalDecision` (boolean). Convenience
+  7-arg and 10-arg constructors remain for callers that don't care about the
+  statistical fields.
+- **`EnergyReport` extended** with a `totalEnergyStats` field. The compact
+  constructor coerces a `null` `totalEnergyStats` to `Statistics.empty()`, so
+  single-iteration callers and JSON deserialisers can omit it.
 - **Joular Core reader error messages** are now multi-line, list likely root causes
   (RAPL kernel-module access, unsupported CPU, VM/container without `--vm`), and
   point users at the next concrete step. Existing test contracts (substring match

@@ -10,8 +10,8 @@ import java.util.List;
  * <b>Statistical fields.</b> When both the current report and the baseline carry
  * multi-iteration {@link Statistics}, the comparator computes Welch's t-test
  * ({@link #pValue()}) and Cohen's d effect size ({@link #cohenD()}) and sets
- * {@link #statisticalDecision()} to {@code true}. Otherwise these are {@code null} and
- * the comparator falls back to a percentage threshold (the legacy v0.1.x behaviour).
+ * {@link #statisticalDecision()} to {@code true}. With a single-iteration run, those
+ * fields are {@code null} and the comparator decides via the percentage threshold only.
  *
  * <p>
  * Nullable {@link Double}s keep the type Jackson-friendly without requiring the
@@ -26,29 +26,30 @@ public record ComparisonResult(ComparisonStatus overallStatus, double baselineTo
 		methodComparisons = methodComparisons == null ? Collections.emptyList()
 				: Collections.unmodifiableList(methodComparisons);
 		if (metricUsed == null) {
-			metricUsed = RegressionMetric.TOTAL_ENERGY;
+			metricUsed = RegressionMetric.ENERGY_PER_REQUEST;
 		}
 	}
 
 	/**
-	 * Backwards-compatible 7-arg constructor (pre-statistics, pre-metric).
+	 * Convenience constructor for threshold-only (single-iteration) comparisons.
 	 */
 	public ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
 			double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
 			double threshold) {
 		this(overallStatus, baselineTotalJoules, currentTotalJoules, totalDeltaPercent, methodComparisons,
-				thresholdBreached, threshold, null, null, false, RegressionMetric.TOTAL_ENERGY, null, null);
+				thresholdBreached, threshold, null, null, false, RegressionMetric.ENERGY_PER_REQUEST, null, null);
 	}
 
 	/**
-	 * Backwards-compatible 10-arg constructor (statistical, pre-metric).
+	 * Convenience constructor for statistical comparisons that don't track per-request
+	 * metrics.
 	 */
 	public ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
 			double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
 			double threshold, Double pValue, Double cohenD, boolean statisticalDecision) {
 		this(overallStatus, baselineTotalJoules, currentTotalJoules, totalDeltaPercent, methodComparisons,
-				thresholdBreached, threshold, pValue, cohenD, statisticalDecision, RegressionMetric.TOTAL_ENERGY, null,
-				null);
+				thresholdBreached, threshold, pValue, cohenD, statisticalDecision, RegressionMetric.ENERGY_PER_REQUEST,
+				null, null);
 	}
 
 	/** {@code true} when the build should be failed due to an energy regression. */
