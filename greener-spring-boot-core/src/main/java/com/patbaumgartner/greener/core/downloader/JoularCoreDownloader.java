@@ -100,9 +100,14 @@ public class JoularCoreDownloader {
 						HttpResponse.BodyHandlers.ofInputStream());
 
 				if (response.statusCode() != HTTP_OK) {
+					String hint = response.statusCode() == 404 ? " The release tag may exist without a prebuilt "
+							+ assetName
+							+ " asset for your platform — pin a version that does (e.g. <joularCoreVersion>0.0.1-beta-1</joularCoreVersion>) "
+							+ "or build Joular Core from source (`cargo build --release`) and point the plugin at the "
+							+ "binary via <joularCoreBinaryPath>." : "";
 					throw new IOException("Failed to download Joular Core from " + url + " — HTTP "
 							+ response.statusCode() + ". Check that version " + version + " exists at "
-							+ "https://github.com/joular/joularcore/releases");
+							+ "https://github.com/joular/joularcore/releases" + "." + hint);
 				}
 
 				try (InputStream in = response.body()) {

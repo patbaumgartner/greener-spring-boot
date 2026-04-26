@@ -135,7 +135,7 @@ Ok "All preflight checks passed"
 if ($env:RESET_BASELINES -eq "true" -and (Test-Path $BaselineFile)) {
     Info "RESET_BASELINES=true -- removing stored baseline"
     Remove-Item $BaselineFile -Force
-    $TrendFile = Join-Path $WorkDir "greener-energy-trend.json"
+    $TrendFile = Join-Path $WorkDir "energy-baseline-trend.json"
     if (Test-Path $TrendFile) { Remove-Item $TrendFile -Force }
 }
 
