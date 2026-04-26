@@ -60,7 +60,7 @@ jobs:
         with:
           path: |
             /tmp/energy-baseline.json
-            /tmp/greener-energy-trend.json
+            /tmp/energy-baseline-trend.json
           key: energy-baseline-main-latest
           restore-keys: |
             energy-baseline-main-
