@@ -58,6 +58,22 @@ greener {
 ./gradlew bootJar measureEnergy
 ```
 
+### No external tool? Zero-dependency fallback
+
+If you don't have `oha`, `wrk`, `k6`, or any other workload generator installed,
+the snippet below uses only `curl` (preinstalled almost everywhere) so you can
+get a first measurement in under two minutes:
+
+```xml
+<configuration>
+  <externalTrainingCommand>sh -c 'for i in $(seq 1 500); do curl -s ${APP_URL}/actuator/health > /dev/null; done'</externalTrainingCommand>
+</configuration>
+```
+
+Once you have a baseline, graduate to a proper load tool (oha is recommended for
+its accurate latency histograms) for higher-fidelity numbers. See
+[`examples/workloads/`](examples/workloads/) for ready-to-use scripts.
+
 You'll get an HTML energy report in `target/greener-reports/` (Maven) or `build/greener-reports/` (Gradle).
 
 > **Note**: An external workload tool is required. The example above uses [oha](https://github.com/hatoo/oha).

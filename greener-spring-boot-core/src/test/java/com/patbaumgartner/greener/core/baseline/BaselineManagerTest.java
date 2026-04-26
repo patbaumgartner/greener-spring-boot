@@ -41,8 +41,71 @@ class BaselineManagerTest {
 	}
 
 	@Test
+	void loadBaseline_v10WithoutStatistics_remainsCompatible(@TempDir Path tmp) throws IOException {
+		// Simulate a baseline written by an older 0.1.x release: v1.0 schema,
+		// no totalEnergyStats field on the embedded report.
+		String v10Json = """
+				{
+				  "version" : "1.0",
+				  "createdAt" : "2024-01-15T10:30:00Z",
+				  "commitSha" : "abc",
+				  "branch" : "main",
+				  "report" : {
+				    "runId" : "old-run",
+				    "timestamp" : "2024-01-15T10:30:00Z",
+				    "durationSeconds" : 60,
+				    "measurements" : [
+				      { "methodName" : "petclinic [app]", "energyJoules" : 100.0 }
+				    ],
+				    "totalEnergyJoules" : 100.0
+				  }
+				}
+				""";
+		Path baselineFile = tmp.resolve("v10-baseline.json");
+		Files.writeString(baselineFile, v10Json);
+
+		Optional<EnergyBaseline> loaded = manager.loadBaseline(baselineFile);
+
+		assertThat(loaded).isPresent();
+		EnergyBaseline b = loaded.get();
+		assertThat(b.version()).isEqualTo("1.0");
+		assertThat(b.report().totalEnergyJoules()).isEqualTo(100.0);
+		// Missing stats field is normalised to Statistics.empty().
+		assertThat(b.report().totalEnergyStats().n()).isZero();
+		assertThat(b.report().totalEnergyStats().hasVariance()).isFalse();
+	}
+
+	@Test
+	void loadBaseline_unknownFutureField_doesNotFail(@TempDir Path tmp) throws IOException {
+		// Forward compatibility: a future schema field must not crash today's reader.
+		String futureJson = """
+				{
+				  "version" : "1.2",
+				  "createdAt" : "2024-01-15T10:30:00Z",
+				  "futureField" : "should be ignored",
+				  "report" : {
+				    "runId" : "future",
+				    "timestamp" : "2024-01-15T10:30:00Z",
+				    "durationSeconds" : 60,
+				    "measurements" : [],
+				    "totalEnergyJoules" : 0.0,
+				    "extraField" : 42
+				  }
+				}
+				""";
+		Path baselineFile = tmp.resolve("future.json");
+		Files.writeString(baselineFile, futureJson);
+
+		Optional<EnergyBaseline> loaded = manager.loadBaseline(baselineFile);
+
+		assertThat(loaded).isPresent();
+		assertThat(loaded.get().version()).isEqualTo("1.2");
+	}
+
+	@Test
 	void loadBaseline_missingFile_returnsEmpty(@TempDir Path tmp) throws IOException {
 		Optional<EnergyBaseline> result = manager.loadBaseline(tmp.resolve("missing.json"));
+
 		assertThat(result).isEmpty();
 	}
 

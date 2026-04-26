@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Statistical regression detection.** New `Statistics` value record captures
+  per-iteration descriptive statistics (mean, stddev, min, max, median, 95% CI half-width),
+  computes Welch's two-sample t-test and Cohen's d effect size. `EnergyComparator`
+  now uses these to make a regression decision: a change is flagged only when
+  `|Cohen's d| ≥ 0.5` (medium effect) **and** `p < 0.05` **and** percentage delta
+  exceeds the threshold. This eliminates false positives from large-N statistical
+  significance on tiny effects and false negatives from a noise floor that swallows
+  real regressions. Single-iteration runs and v1.0 baselines automatically fall back
+  to the legacy percentage rule, so no existing workflow breaks.
+- **JoularJX over-attribution renormalisation.** New `JoularJxRenormalizer` rescales
+  method-level energies so they sum to the authoritative Joular Core process total
+  (`factor = processEnergyJ / Σ methodEnergyJ`). Method shares are preserved; absolute
+  numbers become comparable to baselines, energy budgets, and other process-level
+  reports. Renormalisation is automatic, only triggers on over-attribution
+  (under-attribution is left alone to avoid inventing energy), and is logged as a
+  one-line diagnostic when applied.
+- **`EnergyBaseline` schema v1.1.** Embedded `EnergyReport` may now carry a
+  `totalEnergyStats` field. `BaselineManager` reads v1.0 baselines unchanged
+  (missing stats default to `Statistics.empty()`) and writes v1.1 going forward.
+  Forward-compatible: unknown future JSON fields are silently ignored.
+- **Zero-dependency Quickstart.** README now shows a `curl`-only fallback workload
+  command so the very first install needs no external tool.
 - JoularJX method-level energy monitoring as an optional add-on to process-level
   Joular Core measurements; new `joularJxAgentPath` and `joularJxConfigPath`
   parameters (Maven + Gradle) to enable per-method energy granularity
@@ -28,6 +50,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MeasurementOrchestrator` to coordinate the full measurement lifecycle (warmup,
   measurement, result processing, baseline comparison, report generation) shared by
   both Maven and Gradle plugins
+
+### Changed
+
+- **`ComparisonResult` extended** with three new fields &mdash; `pValue`, `cohenD`
+  (both nullable `Double`) and `statisticalDecision` (boolean). The pre-existing
+  7-arg constructor remains as a delegating overload, so source-compatibility is
+  preserved for direct callers.
+- **`EnergyReport` extended** with a `totalEnergyStats` field. The pre-existing
+  5-arg constructor remains as a delegating overload; the new compact constructor
+  coerces a `null` `totalEnergyStats` to `Statistics.empty()`, so deserialised v1.0
+  baselines remain valid.
+- **Joular Core reader error messages** are now multi-line, list likely root causes
+  (RAPL kernel-module access, unsupported CPU, VM/container without `--vm`), and
+  point users at the next concrete step. Existing test contracts (substring match
+  on "no valid power samples") are preserved.
+
+
 - `AppArgsBuilder` to assemble Spring Boot application arguments with automatic
   health-probe injection, Actuator shutdown endpoint, and port extraction
 - `JoularCoreProbe` to auto-detect which power component (CPU/GPU) delivers non-zero

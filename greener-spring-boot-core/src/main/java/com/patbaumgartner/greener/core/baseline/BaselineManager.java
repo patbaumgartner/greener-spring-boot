@@ -30,6 +30,7 @@ public class BaselineManager {
 	public BaselineManager() {
 		this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
 			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+			.disable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 			.enable(SerializationFeature.INDENT_OUTPUT);
 	}
 
