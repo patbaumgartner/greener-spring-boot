@@ -72,9 +72,12 @@ public class JoularCoreResultReader {
 	public EnergyReport readResults(Path csvFile, String runId, long durationSeconds, String appIdentifier)
 			throws IOException {
 		if (!Files.exists(csvFile)) {
-			throw new IOException(
-					"Joular Core CSV file not found: " + csvFile + " \u2014 Joular Core may not have produced output. "
-							+ "Check that the binary started correctly.");
+			throw new IOException(String.join("\n", "Joular Core CSV file not found: " + csvFile, "  Likely causes:",
+					"    \u2022 Joular Core failed to start (missing binary or unsupported OS).",
+					"    \u2022 The Spring Boot application exited before any sample was written.",
+					"    \u2022 The configured measureDurationSeconds is too short (< 1 s).", "  Hints:",
+					"    \u2022 Run the 'greener:doctor' goal to verify your environment.",
+					"    \u2022 Check the application log for early shutdown stack traces."));
 		}
 
 		List<String> lines = Files.readAllLines(csvFile);
@@ -100,8 +103,14 @@ public class JoularCoreResultReader {
 		}
 
 		if (samples.isEmpty()) {
-			throw new IOException("Joular Core CSV contains no valid power samples: " + csvFile
-					+ " \u2014 this may indicate a Joular Core configuration issue.");
+			throw new IOException(String.join("\n", "Joular Core CSV contains no valid power samples: " + csvFile,
+					"  Likely causes:", "    \u2022 RAPL is not readable (missing 'msr' kernel module on Linux,",
+					"      or non-root access to /sys/class/powercap/intel-rapl:0/energy_uj).",
+					"    \u2022 The CPU is not supported by Joular Core (e.g. Apple Silicon).",
+					"    \u2022 Running inside a VM/container without --vm mode enabled.", "  Hints:",
+					"    \u2022 Run the 'greener:doctor' goal to diagnose RAPL access.",
+					"    \u2022 On Linux: 'sudo modprobe msr' and grant CAP_SYS_RAWIO to the JVM,",
+					"      or enable vmMode=true to use the CPU-time \u00d7 TDP estimator."));
 		}
 
 		LOG.info(() -> "Read " + samples.size() + " power samples from Joular Core CSV: " + csvFile);

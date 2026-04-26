@@ -5,14 +5,36 @@ import java.util.List;
 
 /**
  * Holds the result of comparing current energy measurements against a stored baseline.
+ *
+ * <p>
+ * <b>Statistical fields.</b> When both the current report and the baseline carry
+ * multi-iteration {@link Statistics}, the comparator computes Welch's t-test
+ * ({@link #pValue()}) and Cohen's d effect size ({@link #cohenD()}) and sets
+ * {@link #statisticalDecision()} to {@code true}. Otherwise these are {@code null} and
+ * the comparator falls back to a percentage threshold (the legacy v0.1.x behaviour).
+ *
+ * <p>
+ * Nullable {@link Double}s keep the type Jackson-friendly without requiring the
+ * {@code jackson-datatype-jdk8} module.
  */
 public record ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
-		double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
-		double threshold) {
+		double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached, double threshold,
+		Double pValue, Double cohenD, boolean statisticalDecision) {
 
 	public ComparisonResult {
 		methodComparisons = methodComparisons == null ? Collections.emptyList()
 				: Collections.unmodifiableList(methodComparisons);
+	}
+
+	/**
+	 * Backwards-compatible 7-arg constructor (pre-statistics). Constructs a result with
+	 * empty p-value / Cohen's d and {@code statisticalDecision = false}.
+	 */
+	public ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
+			double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
+			double threshold) {
+		this(overallStatus, baselineTotalJoules, currentTotalJoules, totalDeltaPercent, methodComparisons,
+				thresholdBreached, threshold, null, null, false);
 	}
 
 	/** {@code true} when the build should be failed due to an energy regression. */

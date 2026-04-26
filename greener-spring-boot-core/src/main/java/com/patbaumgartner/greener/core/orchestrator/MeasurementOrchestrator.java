@@ -15,6 +15,7 @@ import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
+import com.patbaumgartner.greener.core.reader.JoularJxRenormalizer;
 import com.patbaumgartner.greener.core.reader.JoularJxResultReader;
 import com.patbaumgartner.greener.core.reporter.ConsoleReporter;
 import com.patbaumgartner.greener.core.reporter.HtmlReporter;
@@ -275,6 +276,21 @@ public class MeasurementOrchestrator {
 				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch());
 		MethodLevelReports methodLevelReports = config.hasJoularJx()
 				? readJoularJxMethodLevelReports(config.joularJxWorkingDir(), config.measureDurationSeconds()) : null;
+		// Reconcile JoularJX over-attribution against the authoritative Joular Core
+		// process total.
+		// See JoularJxRenormalizer for rationale; logged as a one-line diagnostic when
+		// scaling is applied.
+		if (methodLevelReports != null) {
+			double processEnergy = report.totalEnergyJoules();
+			double appFactor = JoularJxRenormalizer.factor(methodLevelReports.appReport(), processEnergy);
+			double allFactor = JoularJxRenormalizer.factor(methodLevelReports.allReport(), processEnergy);
+			if (appFactor < 1.0 || allFactor < 1.0) {
+				logger.accept(String.format(
+						"[greener] JoularJX renormalisation applied (process=%.3f J): app x%.3f, all x%.3f",
+						processEnergy, appFactor, allFactor));
+				methodLevelReports = JoularJxRenormalizer.renormalize(methodLevelReports, processEnergy);
+			}
+		}
 		Path htmlReport = generateFinalReports(report, comparison, workloadStats, config.toolName(), config.reportDir(),
 				config.runDir(), config.vmMode(), methodLevelReports);
 		return new MeasurementResult(report, comparison, workloadStats, methodLevelReports, htmlReport);
