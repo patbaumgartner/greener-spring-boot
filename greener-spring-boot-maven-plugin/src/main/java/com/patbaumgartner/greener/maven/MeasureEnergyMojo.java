@@ -262,6 +262,32 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	private int topN;
 
 	/**
+	 * Number of independent measurement iterations to run. With {@code iterations >= 2}
+	 * the comparator gains run-to-run statistics and applies Welch's t-test + Cohen's d
+	 * effect-size gating instead of a raw percentage threshold. Recommended value:
+	 * {@code 5} for stable CI gates, {@code 10} for paper-grade results.
+	 */
+	@Parameter(property = "greener.iterations", defaultValue = "1")
+	private int iterations;
+
+	/**
+	 * Regression metric. {@code TOTAL_ENERGY} compares raw Joules (legacy default).
+	 * {@code ENERGY_PER_REQUEST} normalises by successful requests &mdash; recommended
+	 * when throughput may vary between runs. Falls back to {@code TOTAL_ENERGY} when
+	 * request counts are missing on either side.
+	 */
+	@Parameter(property = "greener.regressionMetric", defaultValue = "TOTAL_ENERGY")
+	private com.patbaumgartner.greener.core.model.RegressionMetric regressionMetric;
+
+	/**
+	 * Optional idle-baseline window (seconds) measured before the workload. The mean idle
+	 * power is subtracted from the workload energy to approximate the <em>marginal</em>
+	 * energy attributable to the workload. Set to {@code 0} (default) to disable.
+	 */
+	@Parameter(property = "greener.idleProbeSeconds", defaultValue = "0")
+	private int idleProbeSeconds;
+
+	/**
 	 * When {@code true}, the build is failed if energy consumption regressed beyond
 	 * {@link #threshold}.
 	 */
@@ -363,8 +389,11 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		Process appProcess = startApplication(appRunner, joularCoreBinary, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
+
 		WorkloadStats workloadStats = null; // NOPMD - required for definite assignment;
 											// used after the try-finally
+		com.patbaumgartner.greener.core.model.IteratedMeasurement iteratedMeasurement = null;
+		double idleBaselineW = 0.0;
 
 		try {
 			// 4. Wait for startup
@@ -375,9 +404,24 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
 				startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
 
-				// 6. Execute workloads
-				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
-						this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds);
+				// 5a. Optional idle baseline (no workload)
+				if (idleProbeSeconds > 0) {
+					idleBaselineW = orchestrator.measureIdleBaselinePower(joularCoreRunner, joularCoreConfig, outputCsv,
+							idleProbeSeconds, springBootJar.getName().replace(".jar", ""));
+				}
+
+				// 6. Execute workloads (iterated when iterations >= 2)
+				final int multiIterationThreshold = 2;
+				if (iterations >= multiIterationThreshold) {
+					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
+							outputCsv, this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds,
+							iterations, springBootJar.getName().replace(".jar", ""), workingDir.resolve("iterations"));
+					workloadStats = iteratedMeasurement.mergedWorkload();
+				}
+				else {
+					workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
+							this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds);
+				}
 			}
 
 		}
@@ -392,8 +436,27 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		String appIdentifier = springBootJar.getName().replace(".jar", "");
 		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measureDurationSeconds, appIdentifier,
 				baselineFile.toPath(), effectiveReportDir, runDir, toolName, vmMode, threshold, autoUpdateBaseline,
-				commitSha, branch, workingDir, joularJxAgentPath != null);
-		MeasurementResult result = orchestrator.processAndReport(measurementConfig, workloadStats);
+				commitSha, branch, workingDir, joularJxAgentPath != null, iterations, regressionMetric,
+				idleProbeSeconds);
+
+		MeasurementResult result;
+		final double zero = 0.0;
+		if (iteratedMeasurement != null) {
+			com.patbaumgartner.greener.core.model.EnergyReport report = iteratedMeasurement.representativeReport();
+			if (idleBaselineW > zero) {
+				report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
+			}
+			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
+		}
+		else if (idleBaselineW > zero) {
+			com.patbaumgartner.greener.core.model.EnergyReport report = orchestrator.processResults(outputCsv,
+					measureDurationSeconds, appIdentifier);
+			report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
+			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
+		}
+		else {
+			result = orchestrator.processAndReport(measurementConfig, workloadStats);
+		}
 
 		// 8. Create latest symlink for timestamped reports
 		if (timestampReports) {

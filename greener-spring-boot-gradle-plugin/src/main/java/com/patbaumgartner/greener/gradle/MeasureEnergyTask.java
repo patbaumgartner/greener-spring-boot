@@ -308,6 +308,30 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract Property<Integer> getTopN();
 
 	/**
+	 * Number of independent measurement iterations. With {@code iterations >= 2} the
+	 * comparator gains run-to-run statistics and applies Welch's t-test + Cohen's d.
+	 * @return the iterations property
+	 */
+	@Input
+	public abstract Property<Integer> getIterations();
+
+	/**
+	 * Regression metric. Either {@code TOTAL_ENERGY} (legacy) or
+	 * {@code ENERGY_PER_REQUEST} (recommended when throughput may vary).
+	 * @return the regression metric property
+	 */
+	@Input
+	public abstract Property<com.patbaumgartner.greener.core.model.RegressionMetric> getRegressionMetric();
+
+	/**
+	 * Idle-baseline window (seconds) measured before workload. Subtracted from workload
+	 * energy. Set to 0 to disable.
+	 * @return the idle-probe seconds property
+	 */
+	@Input
+	public abstract Property<Integer> getIdleProbeSeconds();
+
+	/**
 	 * Runs the energy measurement workflow.
 	 * @throws IOException if an I/O error occurs during measurement
 	 * @throws InterruptedException if the measurement is interrupted
@@ -348,6 +372,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats;
+		com.patbaumgartner.greener.core.model.IteratedMeasurement iteratedMeasurement = null;
+		double idleBaselineW = 0.0;
 		try {
 			// 4. Wait for startup
 			waitForApplicationReady(appRunner, appProcess, baseUrl);
@@ -357,9 +383,25 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
 				startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
 
+				int idleProbe = getIdleProbeSeconds().getOrElse(0);
+				if (idleProbe > 0) {
+					idleBaselineW = orchestrator.measureIdleBaselinePower(joularCoreRunner, joularCoreConfig, outputCsv,
+							idleProbe, springBootJarFile.getName().replace(".jar", ""));
+				}
+
+				int iters = getIterations().getOrElse(1);
+				final int multiIterationThreshold = 2;
 				// 6. Execute workloads
-				workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
-						() -> buildTrainingConfig(baseUrl), warmup, measure);
+				if (iters >= multiIterationThreshold) {
+					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
+							outputCsv, () -> buildTrainingConfig(baseUrl), warmup, measure, iters,
+							springBootJarFile.getName().replace(".jar", ""), workingDir.resolve("iterations"));
+					workloadStats = iteratedMeasurement.mergedWorkload();
+				}
+				else {
+					workloadStats = orchestrator.executeWorkloads(joularCoreRunner, joularCoreConfig, outputCsv,
+							() -> buildTrainingConfig(baseUrl), warmup, measure);
+				}
 			}
 
 		}
@@ -374,8 +416,29 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		String appId = springBootJarFile.getName().replace(".jar", "");
 		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measure, appId, resolveBaselinePath(),
 				reportDir, runDir, toolName, getVmMode().get(), getThreshold().get(), getAutoUpdateBaseline().get(),
-				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir, getJoularJxAgentPath().isPresent());
-		MeasurementResult result = orchestrator.processAndReport(measurementConfig, workloadStats);
+				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir, getJoularJxAgentPath().isPresent(),
+				getIterations().getOrElse(1),
+				getRegressionMetric().getOrElse(com.patbaumgartner.greener.core.model.RegressionMetric.TOTAL_ENERGY),
+				getIdleProbeSeconds().getOrElse(0));
+
+		MeasurementResult result;
+		final double zero = 0.0;
+		if (iteratedMeasurement != null) {
+			com.patbaumgartner.greener.core.model.EnergyReport report = iteratedMeasurement.representativeReport();
+			if (idleBaselineW > zero) {
+				report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
+			}
+			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
+		}
+		else if (idleBaselineW > zero) {
+			com.patbaumgartner.greener.core.model.EnergyReport report = orchestrator.processResults(outputCsv, measure,
+					appId);
+			report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
+			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
+		}
+		else {
+			result = orchestrator.processAndReport(measurementConfig, workloadStats);
+		}
 
 		// 8. Create latest symlink for timestamped reports
 		if (getTimestampReports().get()) {

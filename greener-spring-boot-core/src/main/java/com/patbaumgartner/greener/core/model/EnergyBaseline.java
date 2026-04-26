@@ -19,13 +19,23 @@ import java.time.Instant;
  * comparator falls back to the legacy percentage rule. v1.1 baselines additionally
  * persist {@link Statistics} so future runs can perform statistical comparisons.
  */
-public record EnergyBaseline(String version, Instant createdAt, String commitSha, String branch, EnergyReport report) {
+public record EnergyBaseline(String version, Instant createdAt, String commitSha, String branch, EnergyReport report,
+		WorkloadStats workloadStats) {
 
-	/** Current on-disk schema version. v1.0 baselines remain readable. */
-	public static final String CURRENT_VERSION = "1.1";
+	/** Current on-disk schema version. v1.0 and v1.1 baselines remain readable. */
+	public static final String CURRENT_VERSION = "1.2";
+
+	/** Backwards-compatible 5-arg constructor (pre-workload-stats baselines). */
+	public EnergyBaseline(String version, Instant createdAt, String commitSha, String branch, EnergyReport report) {
+		this(version, createdAt, commitSha, branch, report, null);
+	}
 
 	public static EnergyBaseline of(EnergyReport report, String commitSha, String branch) {
-		return new EnergyBaseline(CURRENT_VERSION, Instant.now(), commitSha, branch, report);
+		return new EnergyBaseline(CURRENT_VERSION, Instant.now(), commitSha, branch, report, null);
+	}
+
+	public static EnergyBaseline of(EnergyReport report, String commitSha, String branch, WorkloadStats workloadStats) {
+		return new EnergyBaseline(CURRENT_VERSION, Instant.now(), commitSha, branch, report, workloadStats);
 	}
 
 	public static EnergyBaseline of(EnergyReport report) {
