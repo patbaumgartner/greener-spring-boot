@@ -47,6 +47,8 @@ public class GreenerPlugin implements Plugin<Project> {
 
 	private static final String UPDATE_BASELINE_TASK_NAME = "updateEnergyBaseline";
 
+	private static final String DOCTOR_TASK_NAME = "energyDoctor";
+
 	@Override
 	public void apply(Project project) {
 		GreenerExtension extension = project.getExtensions().create(EXTENSION_NAME, GreenerExtension.class);
@@ -84,6 +86,19 @@ public class GreenerPlugin implements Plugin<Project> {
 
 		configureMeasureEnergyTask(project, extension);
 		configureUpdateBaselineTask(project, extension);
+		configureDoctorTask(project, extension);
+	}
+
+	private void configureDoctorTask(Project project, GreenerExtension extension) {
+		project.getTasks().register(DOCTOR_TASK_NAME, EnergyDoctorTask.class, task -> {
+			task.setGroup(TASK_GROUP);
+			task.setDescription("Runs preflight environment checks (RAPL, msr, Joular Core, JoularJX, "
+					+ "workload tool, jar auto-detect) and reports actionable diagnostics.");
+			task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
+			task.getJoularJxAgentPath().convention(extension.getJoularJxAgentPath());
+			task.getFailOnError().convention(true);
+			task.getProjectDir().convention(project.getProjectDir());
+		});
 	}
 
 	private void configureMeasureEnergyTask(Project project, GreenerExtension extension) {
