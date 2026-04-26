@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`greener:doctor` / `energyDoctor` preflight command.** New goal/task runs a series
+  of environment checks (OS+arch, RAPL `/sys/class/powercap` access, msr kernel module,
+  Joular Core binary presence, JoularJX agent path, workload tool on `PATH`, Spring Boot
+  fat-jar auto-detection) and prints a PASS / WARN / FAIL report with actionable hints
+  for each failing check. Fails the build by default when any check is FAIL; set
+  `-Dgreener.doctor.failOnError=false` (Maven) or `--continue` to advisory-only mode.
+  Saves minutes that would otherwise be wasted on a misconfigured measurement run.
 - **Multi-iteration measurement.** New `iterations` parameter (Maven + Gradle, default
   `1`) runs the measurement window N times back-to-back, archives each iteration's
   Joular Core CSV under `work/iterations/joularcore-output-iter-N.csv`, computes
