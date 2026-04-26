@@ -20,7 +20,7 @@ env:
   # Keep GREENER_VERSION in sync with the root pom.xml <version> field.
   GREENER_VERSION: "0.2.0-SNAPSHOT"
   PETCLINIC_VERSION: "main"
-  JOULAR_CORE_VERSION: "0.0.1-beta-1"
+  JOULAR_CORE_VERSION: "0.0.1-beta-2"
   MEASURE_SECONDS: "60"
   WARMUP_SECONDS: "30"
   THRESHOLD: "10"

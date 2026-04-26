@@ -39,7 +39,7 @@ class JoularCoreResultReaderTest {
 
 	@Test
 	void readResults_joularCoreV0Header_parsedCorrectly(@TempDir Path tmp) throws IOException {
-		// Joular Core v0.0.1-beta-1 uses a different column order
+		// Joular Core v0.0.1-beta-2 uses a different column order
 		Path csv = tmp.resolve("joularcore.csv");
 		Files.writeString(csv, """
 				Timestamp,Total Power (W), CPU Power (W),GPU Power (W),CPU Usage (%),Process Power (W)
