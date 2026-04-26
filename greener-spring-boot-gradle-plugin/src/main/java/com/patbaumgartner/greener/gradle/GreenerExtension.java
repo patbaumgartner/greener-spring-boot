@@ -19,7 +19,7 @@ import org.gradle.api.provider.Property;
  *
  *     // Joular Core
  *     joularCoreBinaryPath.set(file("/usr/local/bin/joularcore"))  // optional, auto-downloaded if absent
- *     joularCoreVersion.set("0.0.1-beta-1")
+ *     joularCoreVersion.set("0.0.1-beta-2")
  *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
  *     // JoularJX (optional method-level monitoring)

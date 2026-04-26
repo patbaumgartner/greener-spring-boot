@@ -30,7 +30,7 @@
 #
 # Environment variables (all optional -- sensible defaults are used):
 #   PETCLINIC_VERSION      Branch/tag to clone             (default: main)
-#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-1)
+#   JOULAR_CORE_VERSION    Joular Core release tag         (default: 0.0.1-beta-2)
 #   JOULARJX_VERSION       JoularJX release tag            (default: 3.1.0)
 #   MEASURE_SECONDS        Measurement duration            (default: 60)
 #   WARMUP_SECONDS         Warmup duration                 (default: 30)
@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 
 # -- Configuration -------------------------------------------------------------
 $PetclinicVersion   = if ($env:PETCLINIC_VERSION)   { $env:PETCLINIC_VERSION }   else { "main" }
-$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-beta-1" }
+$JoularCoreVersion  = if ($env:JOULAR_CORE_VERSION) { $env:JOULAR_CORE_VERSION } else { "0.0.1-beta-2" }
 $JoularJxVersion    = if ($env:JOULARJX_VERSION)    { $env:JOULARJX_VERSION }    else { "3.1.0" }
 $MeasureSeconds     = if ($env:MEASURE_SECONDS)     { $env:MEASURE_SECONDS }     else { "60" }
 $WarmupSeconds      = if ($env:WARMUP_SECONDS)      { $env:WARMUP_SECONDS }      else { "30" }

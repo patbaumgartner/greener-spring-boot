@@ -270,7 +270,7 @@ mvn greener:update-baseline
 | `jvmArgs` | *(none)* | Extra JVM args passed when starting the Spring Boot app (e.g. `-Xmx512m`) |
 | `appArgs` | *(none)* | Extra application args passed to Spring Boot (health-probe flag is always appended) |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
-| `joularCoreVersion` | `0.0.1-beta-1` | Version to download |
+| `joularCoreVersion` | `0.0.1-beta-2` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
 | `joularJxAgentPath` | *(none)* | Path to the JoularJX Java agent jar for per-method energy monitoring |
 | `joularJxConfigPath` | *(none)* | Path to the JoularJX `config.properties` file (used only with `joularJxAgentPath`) |
@@ -537,6 +537,45 @@ published in the GitHub Release API.  If the download fails:
 - Check internet connectivity and proxy/firewall settings.
 - Download manually and set `joularCoreBinaryPath` to the local path.
 - Verify the binary is executable: `chmod +x joularcore`.
+
+---
+
+## Windows notes
+
+A few Windows-specific quirks are worth knowing before you start:
+
+### Run from a local drive, not a UNC path
+
+`mvn.cmd` invokes `cmd.exe`, which **does not support UNC paths**.  Running the
+plugin (or any of the simulation scripts) from `\\wsl.localhost\…` or another
+network share causes `cmd.exe` to silently fall back to `C:\Windows`, leading to
+`BUILD FAILURE: there is no POM in this directory`.  Always work from a local
+path such as `C:\Users\you\projects\greener-spring-boot`.
+
+### JoularJX method-level totals on Windows
+
+When using JoularJX (`joularJxAgentJar`), the Spring Boot JVM is terminated by
+the plugin between iterations.  On Windows, `Process.destroy()` maps to
+`TerminateProcess`, which does **not** invoke JVM shutdown hooks - so JoularJX
+cannot write its final aggregated CSVs to `app/total/methods/` and
+`all/total/methods/`.  The per-second snapshots in `runtime/methods/` are still
+produced and are sufficient to identify hot methods, but the convenient
+end-of-run totals files will be empty.  On Linux/macOS the shutdown hook fires
+and totals are written normally.
+
+### Workload tools must be pre-installed
+
+The `examples/workloads/<tool>/run.sh` scripts attempt to auto-install missing
+tools using `apt-get` or `brew`, neither of which is available on Windows.
+Pre-install the tools you intend to use, for example:
+
+```powershell
+choco install oha k6 bombardier
+# Gatling and JMeter ship as Java apps; install via SDKMAN or from their sites.
+```
+
+`all-tools-simulation.ps1` will report `FAILED` for any tool that is not
+installed - that is expected; the summary table is still generated.
 
 ---
 
