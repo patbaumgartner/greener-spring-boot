@@ -19,22 +19,36 @@ import java.util.List;
  */
 public record ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
 		double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached, double threshold,
-		Double pValue, Double cohenD, boolean statisticalDecision) {
+		Double pValue, Double cohenD, boolean statisticalDecision, RegressionMetric metricUsed,
+		Double baselineEnergyPerRequestMillijoules, Double currentEnergyPerRequestMillijoules) {
 
 	public ComparisonResult {
 		methodComparisons = methodComparisons == null ? Collections.emptyList()
 				: Collections.unmodifiableList(methodComparisons);
+		if (metricUsed == null) {
+			metricUsed = RegressionMetric.TOTAL_ENERGY;
+		}
 	}
 
 	/**
-	 * Backwards-compatible 7-arg constructor (pre-statistics). Constructs a result with
-	 * empty p-value / Cohen's d and {@code statisticalDecision = false}.
+	 * Backwards-compatible 7-arg constructor (pre-statistics, pre-metric).
 	 */
 	public ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
 			double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
 			double threshold) {
 		this(overallStatus, baselineTotalJoules, currentTotalJoules, totalDeltaPercent, methodComparisons,
-				thresholdBreached, threshold, null, null, false);
+				thresholdBreached, threshold, null, null, false, RegressionMetric.TOTAL_ENERGY, null, null);
+	}
+
+	/**
+	 * Backwards-compatible 10-arg constructor (statistical, pre-metric).
+	 */
+	public ComparisonResult(ComparisonStatus overallStatus, double baselineTotalJoules, double currentTotalJoules,
+			double totalDeltaPercent, List<MethodComparison> methodComparisons, boolean thresholdBreached,
+			double threshold, Double pValue, Double cohenD, boolean statisticalDecision) {
+		this(overallStatus, baselineTotalJoules, currentTotalJoules, totalDeltaPercent, methodComparisons,
+				thresholdBreached, threshold, pValue, cohenD, statisticalDecision, RegressionMetric.TOTAL_ENERGY, null,
+				null);
 	}
 
 	/** {@code true} when the build should be failed due to an energy regression. */
