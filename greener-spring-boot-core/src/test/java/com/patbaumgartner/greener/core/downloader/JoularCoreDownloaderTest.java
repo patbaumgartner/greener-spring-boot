@@ -1,6 +1,8 @@
 package com.patbaumgartner.greener.core.downloader;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -8,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,7 +73,7 @@ class JoularCoreDownloaderTest {
 		Files.writeString(cachedBinary, "fake-binary-content");
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		Path result = downloader.download("0.0.1-beta-2", tempDir);
+		Path result = downloader.download("0.0.1-beta-4", tempDir);
 
 		assertThat(result).isEqualTo(cachedBinary);
 		assertThat(Files.readString(result)).isEqualTo("fake-binary-content");
@@ -84,12 +88,13 @@ class JoularCoreDownloaderTest {
 		Files.writeString(nestedCache.resolve(assetName), "fake");
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		Path result = downloader.download("0.0.1-beta-2", nestedCache);
+		Path result = downloader.download("0.0.1-beta-4", nestedCache);
 
 		assertThat(result).exists();
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void download_cachedBinary_hasExecutePermission(@TempDir Path tempDir) throws Exception {
 		String assetName = JoularCoreDownloader.resolveAssetName();
 		Path cachedBinary = tempDir.resolve(assetName);
@@ -99,7 +104,7 @@ class JoularCoreDownloaderTest {
 				Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
 
 		JoularCoreDownloader downloader = new JoularCoreDownloader();
-		downloader.download("0.0.1-beta-2", tempDir);
+		downloader.download("0.0.1-beta-4", tempDir);
 
 		Set<PosixFilePermission> perms = Files.getPosixFilePermissions(cachedBinary);
 		assertThat(perms).contains(PosixFilePermission.OWNER_EXECUTE);
@@ -180,6 +185,77 @@ class JoularCoreDownloaderTest {
 
 		assertThatThrownBy(() -> downloader.download("99.99.99-nonexistent", tempDir)).isInstanceOf(IOException.class)
 			.hasMessageContaining("Failed to download");
+	}
+
+	// ---- resolveZipAssetName ----
+
+	@Test
+	void resolveZipAssetName_endsWithZip() {
+		String asset = JoularCoreDownloader.resolveZipAssetName();
+
+		assertThat(asset).endsWith(".zip");
+	}
+
+	@Test
+	void resolveZipAssetName_startsWithBinaries() {
+		String asset = JoularCoreDownloader.resolveZipAssetName();
+
+		assertThat(asset).startsWith("binaries-");
+	}
+
+	@Test
+	void resolveZipAssetName_containsPlatformAndArch() {
+		String asset = JoularCoreDownloader.resolveZipAssetName();
+
+		assertThat(asset).containsAnyOf("linux", "macos", "windows");
+		assertThat(asset).containsAnyOf("x86_64", "aarch64");
+	}
+
+	// ---- extractBinaryFromZip ----
+
+	@Test
+	void extractBinaryFromZip_extractsMatchingEntry(@TempDir Path tempDir) throws Exception {
+		Path zipFile = tempDir.resolve("test.zip");
+		try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipFile))) {
+			zos.putNextEntry(new ZipEntry("target/release/joularcore"));
+			zos.write("fake-binary".getBytes());
+			zos.closeEntry();
+		}
+
+		Path targetFile = tempDir.resolve("joularcore");
+		new JoularCoreDownloader().extractBinaryFromZip(zipFile, "joularcore", targetFile);
+
+		assertThat(Files.readString(targetFile)).isEqualTo("fake-binary");
+	}
+
+	@Test
+	void extractBinaryFromZip_matchesByFilenameIgnoringPath(@TempDir Path tempDir) throws Exception {
+		Path zipFile = tempDir.resolve("test.zip");
+		try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipFile))) {
+			zos.putNextEntry(new ZipEntry("deep/nested/path/joularcore"));
+			zos.write("content".getBytes());
+			zos.closeEntry();
+		}
+
+		Path targetFile = tempDir.resolve("joularcore");
+		new JoularCoreDownloader().extractBinaryFromZip(zipFile, "joularcore", targetFile);
+
+		assertThat(targetFile).exists();
+	}
+
+	@Test
+	void extractBinaryFromZip_binaryNotFound_throwsIOException(@TempDir Path tempDir) throws Exception {
+		Path zipFile = tempDir.resolve("test.zip");
+		try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipFile))) {
+			zos.putNextEntry(new ZipEntry("joularcoregui"));
+			zos.write("gui".getBytes());
+			zos.closeEntry();
+		}
+
+		Path targetFile = tempDir.resolve("joularcore");
+		assertThatThrownBy(() -> new JoularCoreDownloader().extractBinaryFromZip(zipFile, "joularcore", targetFile))
+			.isInstanceOf(IOException.class)
+			.hasMessageContaining("not found in zip");
 	}
 
 }

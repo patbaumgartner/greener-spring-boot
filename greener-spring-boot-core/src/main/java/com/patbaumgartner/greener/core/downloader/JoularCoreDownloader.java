@@ -16,27 +16,32 @@ import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
-import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Downloads a specific version of <a href="https://github.com/joular/joularcore">Joular
  * Core</a> from GitHub Releases and caches it locally.
  *
- * <h2>Release URL pattern</h2>
- *
- * <pre>
- * https://github.com/joular/joularcore/releases/download/{VERSION}/joularcore{-PLATFORM}
- * </pre>
+ * <h2>Asset naming evolution</h2>
+ * <ul>
+ * <li>Up to {@code 0.0.1-beta-3}: bare binary
+ * {@code joularcore-{platform}-{arch}[.exe]}</li>
+ * <li>From {@code 0.0.1-beta-4}: zip archive {@code binaries-{platform}-{arch}.zip}
+ * containing {@code joularcore[.exe]} and {@code joularcoregui[.exe]}</li>
+ * </ul>
+ * The downloader tries the zip format first and falls back to the bare binary format for
+ * older releases.
  *
  * <h2>Platform detection</h2> The downloader inspects {@code os.name} and {@code os.arch}
  * to choose the correct binary asset. Supported targets:
  * <ul>
- * <li>Linux x86_64 — {@code joularcore-linux-x86_64}</li>
- * <li>Linux aarch64 — {@code joularcore-linux-aarch64}</li>
- * <li>macOS x86_64 — {@code joularcore-macos-x86_64}</li>
- * <li>macOS aarch64 (Apple Silicon) — {@code joularcore-macos-aarch64}</li>
- * <li>Windows x86_64 — {@code joularcore-windows-x86_64.exe}</li>
+ * <li>Linux x86_64</li>
+ * <li>Linux aarch64</li>
+ * <li>macOS x86_64</li>
+ * <li>macOS aarch64 (Apple Silicon)</li>
+ * <li>Windows x86_64</li>
  * </ul>
  */
 public class JoularCoreDownloader {
@@ -46,6 +51,8 @@ public class JoularCoreDownloader {
 	private static final String RELEASE_URL_TEMPLATE = "https://github.com/joular/joularcore/releases/download/%s/%s";
 
 	private static final int HTTP_OK = 200;
+
+	private static final int HTTP_NOT_FOUND = 404;
 
 	private static final int MAX_RETRIES = 3;
 
@@ -63,8 +70,11 @@ public class JoularCoreDownloader {
 	 * and returns the path to it.
 	 *
 	 * <p>
-	 * If the binary already exists in the cache it is returned immediately.
-	 * @param version the Joular Core release version, e.g. {@code "0.0.1-beta-2"}
+	 * If the binary already exists in the cache it is returned immediately. The
+	 * downloader tries the zip asset format ({@code binaries-{platform}-{arch}.zip})
+	 * introduced in {@code 0.0.1-beta-4} first, then falls back to the bare binary format
+	 * used by older releases.
+	 * @param version the Joular Core release version, e.g. {@code "0.0.1-beta-4"}
 	 * @param cacheDir directory where the binary is cached
 	 * @return path to the executable Joular Core binary
 	 */
@@ -72,8 +82,8 @@ public class JoularCoreDownloader {
 
 		Files.createDirectories(cacheDir);
 
-		String assetName = resolveAssetName();
-		Path binaryFile = cacheDir.resolve(assetName);
+		String binaryName = resolveAssetName();
+		Path binaryFile = cacheDir.resolve(binaryName);
 
 		if (Files.exists(binaryFile)) {
 			LOG.fine(() -> "Using cached Joular Core from: " + binaryFile);
@@ -81,12 +91,68 @@ public class JoularCoreDownloader {
 			return binaryFile;
 		}
 
-		String url = String.format(RELEASE_URL_TEMPLATE, version, assetName);
-		LOG.fine(() -> "Downloading Joular Core " + version + " from: " + url);
+		// Try zip format first (0.0.1-beta-4+), fall back to bare binary (older
+		// releases)
+		String zipAssetName = resolveZipAssetName();
+		try {
+			return downloadZipAndExtract(version, zipAssetName, binaryName, binaryFile, cacheDir);
+		}
+		catch (AssetNotFoundException ex) {
+			LOG.fine(() -> "Zip asset " + zipAssetName + " not found for version " + version + ", trying bare binary");
+		}
 
+		try {
+			return downloadBinary(version, binaryName, binaryFile, cacheDir);
+		}
+		catch (AssetNotFoundException ex) {
+			throw new IOException("Failed to download Joular Core " + version
+					+ ": no matching asset found. Tried zip format (" + zipAssetName + ") and bare binary format ("
+					+ binaryName + ")." + " Check https://github.com/joular/joularcore/releases", ex);
+		}
+	}
+
+	private Path downloadZipAndExtract(String version, String zipAssetName, String binaryName, Path binaryFile,
+			Path cacheDir) throws IOException, InterruptedException {
+		Path tmpZip = cacheDir.resolve(zipAssetName + ".tmp");
+		try {
+			downloadAsset(version, zipAssetName, tmpZip);
+			verifyChecksum(tmpZip, version, zipAssetName);
+			String binaryBaseName = binaryName.endsWith(".exe") ? "joularcore.exe" : "joularcore";
+			extractBinaryFromZip(tmpZip, binaryBaseName, binaryFile);
+			ensureExecutable(binaryFile);
+			LOG.info(() -> "Joular Core " + version + " downloaded and extracted to: " + binaryFile);
+			return binaryFile;
+		}
+		catch (IOException | InterruptedException ex) {
+			Files.deleteIfExists(binaryFile);
+			throw ex;
+		}
+		finally {
+			Files.deleteIfExists(tmpZip);
+		}
+	}
+
+	private Path downloadBinary(String version, String assetName, Path binaryFile, Path cacheDir)
+			throws IOException, InterruptedException {
 		Path tmpFile = cacheDir.resolve(assetName + ".tmp");
-		IOException lastException = null;
+		try {
+			downloadAsset(version, assetName, tmpFile);
+			Files.move(tmpFile, binaryFile, StandardCopyOption.REPLACE_EXISTING);
+			ensureExecutable(binaryFile);
+			verifyChecksum(binaryFile, version, assetName);
+			LOG.fine(() -> "Joular Core " + version + " downloaded to: " + binaryFile);
+			return binaryFile;
+		}
+		finally {
+			Files.deleteIfExists(tmpFile);
+		}
+	}
 
+	private void downloadAsset(String version, String assetName, Path target) throws IOException, InterruptedException {
+		String url = String.format(RELEASE_URL_TEMPLATE, version, assetName);
+		LOG.fine(() -> "Downloading " + assetName + " from: " + url);
+
+		IOException lastException = null;
 		for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 			try {
 				HttpRequest request = HttpRequest.newBuilder()
@@ -98,30 +164,24 @@ public class JoularCoreDownloader {
 				HttpResponse<InputStream> response = httpClient.send(request,
 						HttpResponse.BodyHandlers.ofInputStream());
 
+				if (response.statusCode() == HTTP_NOT_FOUND) {
+					throw new AssetNotFoundException("Asset not found: " + url + " — HTTP 404");
+				}
 				if (response.statusCode() != HTTP_OK) {
-					String hint = response.statusCode() == 404 ? " The release tag may exist without a prebuilt "
-							+ assetName
-							+ " asset for your platform — pin a version that does (e.g. <joularCoreVersion>0.0.1-beta-1</joularCoreVersion>) "
-							+ "or build Joular Core from source (`cargo build --release`) and point the plugin at the "
-							+ "binary via <joularCoreBinaryPath>." : "";
-					throw new IOException("Failed to download Joular Core from " + url + " — HTTP "
-							+ response.statusCode() + ". Check that version " + version + " exists at "
-							+ "https://github.com/joular/joularcore/releases" + "." + hint);
+					throw new IOException("Failed to download " + url + " — HTTP " + response.statusCode());
 				}
 
 				try (InputStream in = response.body()) {
-					Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+					Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
 				}
-				Files.move(tmpFile, binaryFile, StandardCopyOption.REPLACE_EXISTING);
-				ensureExecutable(binaryFile);
-				verifyChecksum(binaryFile, version, assetName);
-
-				LOG.fine(() -> "Joular Core " + version + " downloaded to: " + binaryFile);
-				return binaryFile;
+				return;
+			}
+			catch (AssetNotFoundException ex) {
+				throw ex; // Never retry 404s
 			}
 			catch (IOException ex) {
 				lastException = ex;
-				Files.deleteIfExists(tmpFile);
+				Files.deleteIfExists(target);
 				if (attempt < MAX_RETRIES) {
 					long delay = (long) Math.pow(2, attempt);
 					final int att = attempt;
@@ -135,46 +195,94 @@ public class JoularCoreDownloader {
 	}
 
 	/**
-	 * Resolves the asset filename for the current OS / architecture.
+	 * Extracts the {@code joularcore[.exe]} binary from a zip archive downloaded from a
+	 * GitHub Release. The binary entry is matched by filename regardless of path prefix.
+	 */
+	void extractBinaryFromZip(Path zipFile, String binaryBaseName, Path targetFile) throws IOException {
+		try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+			ZipEntry entry = zis.getNextEntry();
+			while (entry != null) {
+				String entryFilename = Path.of(entry.getName()).getFileName().toString();
+				if (entryFilename.equalsIgnoreCase(binaryBaseName)) {
+					Path tmpFile = targetFile.getParent().resolve(binaryBaseName + ".tmp");
+					try {
+						Files.copy(zis, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+						Files.move(tmpFile, targetFile, StandardCopyOption.REPLACE_EXISTING);
+						return;
+					}
+					finally {
+						Files.deleteIfExists(tmpFile);
+					}
+				}
+				zis.closeEntry();
+				entry = zis.getNextEntry();
+			}
+		}
+		throw new IOException("Binary '" + binaryBaseName + "' not found in zip: " + zipFile.getFileName());
+	}
+
+	/**
+	 * Marker exception for HTTP 404 — never retried, used to trigger format fallback.
+	 */
+	private static final class AssetNotFoundException extends IOException {
+
+		@java.io.Serial
+		private static final long serialVersionUID = 1L;
+
+		AssetNotFoundException(String message) {
+			super(message);
+		}
+
+	}
+
+	/**
+	 * Resolves the bare-binary asset filename for the current OS / architecture. This
+	 * name is used as the cache key (e.g. {@code joularcore-linux-x86_64}).
 	 * @throws UnsupportedOperationException if the platform is not recognised
 	 */
 	public static String resolveAssetName() {
-		String os = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH);
-		String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ENGLISH);
-
-		String platform;
-		String ext = "";
-
-		if (os.contains("linux")) {
-			platform = "linux";
-		}
-		else if (os.contains("mac") || os.contains("darwin")) {
-			platform = "macos";
-		}
-		else if (os.contains("win")) {
-			platform = "windows";
-			ext = ".exe";
-		}
-		else {
-			throw new UnsupportedOperationException(
-					"Unsupported OS for auto-download: " + os + ". Please download Joular Core manually from "
-							+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
-		}
-
-		String archSuffix;
-		if (arch.contains("aarch64") || arch.contains("arm64")) {
-			archSuffix = "aarch64";
-		}
-		else if (arch.contains("amd64") || arch.contains("x86_64") || arch.contains("x86-64")) {
-			archSuffix = "x86_64";
-		}
-		else {
-			throw new UnsupportedOperationException("Unsupported CPU architecture for auto-download: " + arch
-					+ ". Please download Joular Core manually from "
-					+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
-		}
-
+		String platform = resolvePlatform();
+		String archSuffix = resolveArchSuffix();
+		String ext = "windows".equals(platform) ? ".exe" : "";
 		return "joularcore-" + platform + "-" + archSuffix + ext;
+	}
+
+	/**
+	 * Resolves the zip asset name for the new release format ({@code 0.0.1-beta-4+}).
+	 * Returns e.g. {@code binaries-linux-x86_64.zip}.
+	 * @throws UnsupportedOperationException if the platform is not recognised
+	 */
+	public static String resolveZipAssetName() {
+		return "binaries-" + resolvePlatform() + "-" + resolveArchSuffix() + ".zip";
+	}
+
+	private static String resolvePlatform() {
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH);
+		if (os.contains("linux")) {
+			return "linux";
+		}
+		if (os.contains("mac") || os.contains("darwin")) {
+			return "macos";
+		}
+		if (os.contains("win")) {
+			return "windows";
+		}
+		throw new UnsupportedOperationException(
+				"Unsupported OS for auto-download: " + os + ". Please download Joular Core manually from "
+						+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
+	}
+
+	private static String resolveArchSuffix() {
+		String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ENGLISH);
+		if (arch.contains("aarch64") || arch.contains("arm64")) {
+			return "aarch64";
+		}
+		if (arch.contains("amd64") || arch.contains("x86_64") || arch.contains("x86-64")) {
+			return "x86_64";
+		}
+		throw new UnsupportedOperationException("Unsupported CPU architecture for auto-download: " + arch
+				+ ". Please download Joular Core manually from "
+				+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
 	}
 
 	/**
