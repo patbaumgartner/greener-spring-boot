@@ -71,7 +71,7 @@
       matchStrings: [
         "JOULAR_CORE_VERSION:\\s*\"(?<currentValue>[^\"]+)\"",
       ],
-      depNameTemplate: "joular/joularcode-java",
+      depNameTemplate: "joular/joularcore",
       datasourceTemplate: "github-releases",
     },
     {

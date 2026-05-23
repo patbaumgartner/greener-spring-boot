@@ -90,7 +90,7 @@ public abstract class GreenerExtension {
 
 	/**
 	 * Joular Core release version to download when {@link #getJoularCoreBinaryPath()} is
-	 * unset. See <a href="https://github.com/joular/joularcode-java/releases">Joular Core
+	 * unset. See <a href="https://github.com/joular/joularcore/releases">Joular Core
 	 * releases</a> for available versions.
 	 * @return the Joular Core version property
 	 */

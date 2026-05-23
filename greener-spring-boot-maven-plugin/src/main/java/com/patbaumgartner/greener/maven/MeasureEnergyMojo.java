@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
- * <a href="https://github.com/joular/joularcode-java">Joular Core</a>,
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>,
  * compares the result against a stored baseline, and generates a report.
  *
  * <h2>Lifecycle</h2>
@@ -132,7 +132,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 	/**
 	 * Joular Core version to download when {@link #joularCoreBinaryPath} is not set. See
-	 * https://github.com/joular/joularcode-java/releases for available versions.
+	 * https://github.com/joular/joularcore/releases for available versions.
 	 */
 	@Parameter(property = "greener.joularCoreVersion", defaultValue = JoularCoreConfig.DEFAULT_VERSION)
 	private String joularCoreVersion;
