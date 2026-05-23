@@ -3,7 +3,7 @@
 ## Project Overview
 
 greener-spring-boot provides Maven and Gradle plugins that measure the energy
-consumption of Spring Boot applications using [Joular Core](https://github.com/joular/joularcore).
+consumption of Spring Boot applications using [Joular Core](https://github.com/joular/joularcode-java).
 The plugins start the application, run a configurable training workload, record
 power samples, compare against a stored baseline, and generate console + HTML reports.
 

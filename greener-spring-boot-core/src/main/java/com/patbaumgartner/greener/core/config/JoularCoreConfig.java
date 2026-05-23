@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Configuration for the <a href="https://www.noureddine.org/research/joular/joularcore">
+ * Configuration for the <a href="https://github.com/joular/joularcode-java">
  * Joular Core</a> binary that measures CPU/GPU power of the monitored process.
  *
  * <h2>How Joular Core is used</h2> Joular Core is a native Rust binary that reads
@@ -22,7 +22,7 @@ import java.util.Map;
  * joularcore -p &lt;PID&gt; -c cpu -f output.csv -s
  * </pre>
  *
- * @see <a href="https://github.com/joular/joularcore">joular/joularcore on GitHub</a>
+ * @see <a href="https://github.com/joular/joularcode-java">joular/joularcode-java on GitHub</a>
  */
 @SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName") // fluent builder setters
 public class JoularCoreConfig {
