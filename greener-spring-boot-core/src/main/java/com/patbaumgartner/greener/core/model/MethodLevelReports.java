@@ -1,11 +1,11 @@
 package com.patbaumgartner.greener.core.model;
 
 /**
- * Holds both the filtered (app-only) and unfiltered (all methods) JoularJX energy reports
- * for method-level energy data.
+ * Holds both the filtered (app-only) and unfiltered (all methods) Joular Code Java energy
+ * reports for method-level energy data.
  *
  * <p>
- * JoularJX produces two result sets:
+ * Joular Code Java produces two result sets:
  * <ul>
  * <li>{@code app/} — methods matching the configured filter (typically the application's
  * own classes)</li>

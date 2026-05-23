@@ -15,9 +15,9 @@ import java.nio.file.Path;
 
 /**
  * Runs preflight environment checks for the greener-spring-boot Gradle plugin. Verifies
- * OS, RAPL access, msr module, Joular Core binary, JoularJX agent, workload tool on PATH,
- * and Spring Boot jar auto-detection. Fails fast and tells you exactly what to fix before
- * running an actual measurement.
+ * OS, RAPL access, msr module, Joular Core binary, Joular Code Java agent, workload tool
+ * on PATH, and Spring Boot jar auto-detection. Fails fast and tells you exactly what to
+ * fix before running an actual measurement.
  *
  * <pre>
  * ./gradlew energyDoctor

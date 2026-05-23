@@ -5,8 +5,8 @@ package com.patbaumgartner.greener.core.model;
  * Energy is measured in joules.
  *
  * <p>
- * When using Joular Core in process-mode (no JoularJX agent), the {@code methodName} will
- * hold the monitored process / application name.
+ * When using Joular Core in process-mode (no Joular Code Java agent), the
+ * {@code methodName} will hold the monitored process / application name.
  */
 public record EnergyMeasurement(String methodName, double energyJoules) {
 
