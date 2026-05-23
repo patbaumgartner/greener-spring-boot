@@ -14,10 +14,10 @@ mvn --batch-mode --no-transfer-progress versions:update-parent versions:update-p
 
 # ── Gradle ─────────────────────────────────────────────────────────────
 echo "🔧 Running Gradle spring-javaformat..."
-(cd greener-spring-boot-gradle-plugin && ./gradlew formatMain formatTest --no-daemon -q)
+(cd greener-spring-boot-gradle-plugin && ./gradlew formatMain formatTest --no-daemon -q --no-parallel)
 
 echo "🔄 Updating Gradle dependency versions..."
-(cd greener-spring-boot-gradle-plugin && ./gradlew useLatestVersions --no-daemon -q)
+(cd greener-spring-boot-gradle-plugin && ./gradlew useLatestVersions --no-daemon -q --no-parallel --no-configuration-cache)
 
 # ── Re-stage ───────────────────────────────────────────────────────────
 # Re-stage any files that were reformatted or updated

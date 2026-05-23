@@ -415,10 +415,10 @@ public class MeasurementOrchestrator {
 			List<TrendEntry> trendHistory) throws IOException {
 		PowerSource powerSource = PluginDefaults.resolvePowerSource(vmMode);
 		// Console reporter uses app-only methods (or all methods when app filter empty)
-		EnergyReport consoleJoularJxReport = methodLevelReports != null && methodLevelReports.hasAppData()
+		EnergyReport consoleJoularCodeReport = methodLevelReports != null && methodLevelReports.hasAppData()
 				? methodLevelReports.appReport() : (methodLevelReports != null && methodLevelReports.hasAllData()
 						? methodLevelReports.allReport() : null);
-		new ConsoleReporter().report(report, comparison, workloadStats, powerSource, consoleJoularJxReport);
+		new ConsoleReporter().report(report, comparison, workloadStats, powerSource, consoleJoularCodeReport);
 
 		HtmlReporter htmlReporter = new HtmlReporter(topN);
 		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
