@@ -319,7 +319,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Energy measurement of Spring Boot applications via [Joular Core](https://github.com/joular/joularcore)
+- Energy measurement of Spring Boot applications via [Joular Core](https://github.com/joular/joularcode-java)
 - Maven plugin with `greener:measure` and `greener:update-baseline` goals
 - Gradle plugin with `measureEnergy` and `updateEnergyBaseline` tasks
 - External workload script support for custom load profiles

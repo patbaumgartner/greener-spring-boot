@@ -1,7 +1,7 @@
 # greener-spring-boot ⚡
 
 > Maven and Gradle plugins to measure the energy consumption of Spring Boot applications
-> using [Joular Core](https://www.noureddine.org/research/joular/joularcore),
+> using [Joular Core](https://github.com/joular/joularcode-java),
 > compare results against a stored baseline, and fail the build on regressions.
 
 [![CI](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml/badge.svg)](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml)
@@ -151,7 +151,7 @@ flowchart TB
     power -.-> D
 ```
 
-**[Joular Core](https://www.noureddine.org/research/joular/joularcore)** is a
+**[Joular Core](https://github.com/joular/joularcode-java)** is a
 cross-platform Rust binary that reads hardware power counters:
 
 | Platform | Power source | Notes |
@@ -580,7 +580,7 @@ throttling.  For more stable results:
 
 ### Joular Core download fails
 
-The plugin auto-downloads Joular Core from [GitHub Releases](https://github.com/joular/joularcore/releases)
+The plugin auto-downloads Joular Core from [GitHub Releases](https://github.com/joular/joularcode-java/releases)
 into `~/.greener/cache/joularcore/` and verifies each download against the SHA-256 digest
 published in the GitHub Release API.  If the download fails:
 

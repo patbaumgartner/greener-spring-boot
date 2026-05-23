@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 
 /**
  * Reads the CSV file produced by
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> and
+ * <a href="https://github.com/joular/joularcode-java">Joular Core</a> and
  * converts the power samples into an {@link EnergyReport}.
  *
  * <h2>Joular Core CSV format</h2> Joular Core writes one row per sample interval
