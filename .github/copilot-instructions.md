@@ -9,12 +9,12 @@ power samples, compare against a stored baseline, and generate console + HTML re
 
 ## Module Structure
 
-| Module | Purpose |
-|---|---|
-| `greener-spring-boot-core` | Shared library: models, config, readers, comparator, reporters, runners, downloader |
-| `greener-spring-boot-maven-plugin` | Maven plugin (`greener:measure`, `greener:update-baseline`) |
-| `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`) |
-| `examples/` | Workload scripts (wrk, oha, k6, Gatling, …), local simulation, VM setup guides |
+| Module                              | Purpose                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `greener-spring-boot-core`          | Shared library: models, config, readers, comparator, reporters, runners, downloader |
+| `greener-spring-boot-maven-plugin`  | Maven plugin (`greener:measure`, `greener:update-baseline`)                         |
+| `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`)                             |
+| `examples/`                         | Workload scripts (wrk, oha, k6, Gatling, …), local simulation, VM setup guides      |
 
 ### Core Package Layout
 
@@ -30,7 +30,7 @@ com.patbaumgartner.greener.core
 ├── model/           EnergyReport, EnergyBaseline, EnergyMeasurement,
 │                    ComparisonResult, WorkloadStats, AggregatedRunEntry,
 │                    MethodLevelReports, MeasurementResult, PowerSource (enum)
-├── reader/          JoularCoreResultReader, JoularJxResultReader
+├── reader/          JoularCoreResultReader, JoularCodeJavaResultReader
 ├── orchestrator/    MeasurementOrchestrator - coordinates warmup, measurement,
 │                    result processing, baseline comparison, and report generation
 ├── reporter/        ConsoleReporter, HtmlReporter
@@ -51,8 +51,7 @@ com.patbaumgartner.greener.core
   handles health probe injection, Actuator shutdown endpoint, and port extraction
   from the base URL. Extracted from `PluginDefaults`.
 - **`JoularCoreProbe`** - probes the Joular Core binary to discover which power
-  component delivers non-zero readings; optionally augments a JoularJX config
-  file with the detected parameters. Extracted from `PluginDefaults`.
+  component delivers non-zero readings. Extracted from `PluginDefaults`.
 - **`BaselineManager`** - saves/loads `EnergyBaseline` JSON files and discovers
   the most recent report via `discoverLatestReport(Path)`.
 - **`RunEntryStore`** - persists and loads `AggregatedRunEntry` JSON files so that
@@ -61,6 +60,8 @@ com.patbaumgartner.greener.core
   and Gradle plugins; coordinates warmup, measurement, result processing, baseline
   comparison, and report generation. Returns a `MeasurementResult` from
   `processAndReport()`. Accepts a configurable `topN` for the HTML reporter.
+  When `joularCodeJavaAgentPath` is configured, reads joularcode-java method-level
+  results via `JoularCodeJavaResultReader`.
 - **`PowerSource`** - enum (`RAPL`, `VM_FILE`, `ESTIMATED`, `UNKNOWN`)
   with `detect(boolean vmMode)` and `fromString(String)`.
 - **`ExternalToolOutputParser`** - extracts request counts from stdout of
@@ -70,9 +71,9 @@ com.patbaumgartner.greener.core
 - **`HtmlReporter`** - generates self-contained HTML reports; supports
   single-tool and multi-tool aggregated reports via `generateAggregatedReport()`.
   Method-level card merges app methods from the filtered report into the all-methods
-  table and shows an explanatory note when JoularJX totals exceed process-level energy.
+  table and shows an explanatory note when Joular Code Java totals exceed process-level energy.
 - **`MethodLevelReports`** - record combining filtered (app-only) and unfiltered
-  (all methods) JoularJX energy reports for method-level analysis.
+  (all methods) joularcode-java energy reports for method-level analysis.
 - **`AggregatedRunEntry`** - record combining tool name, report, workload
   stats, and comparison for multi-tool aggregated reports.
 - **`MeasurementResult`** - record aggregating energy report, baseline comparison,
@@ -143,7 +144,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 ## Key Design Decisions
 
 1. **Process-level monitoring first** - Joular Core monitors the Spring Boot JVM by PID;
-   JoularJX (method-level) is an optional add-on.
+   JoularCode Java (method-level) is an optional add-on.
 2. **External workload tools only** - measurements use oha, wrk, k6, Gatling, etc.
    via `externalTrainingScriptFile` or `externalTrainingCommand`.
 3. **VM mode** - for CI/CD and VMs without RAPL, a CPU-time × TDP estimator writes

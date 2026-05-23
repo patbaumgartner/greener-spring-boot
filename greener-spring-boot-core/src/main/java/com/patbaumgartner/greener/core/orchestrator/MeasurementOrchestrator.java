@@ -18,9 +18,8 @@ import com.patbaumgartner.greener.core.model.PowerSource;
 import com.patbaumgartner.greener.core.model.Statistics;
 import com.patbaumgartner.greener.core.model.TrendEntry;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
+import com.patbaumgartner.greener.core.reader.JoularCodeJavaResultReader;
 import com.patbaumgartner.greener.core.reader.JoularCoreResultReader;
-import com.patbaumgartner.greener.core.reader.JoularJxRenormalizer;
-import com.patbaumgartner.greener.core.reader.JoularJxResultReader;
 import com.patbaumgartner.greener.core.reporter.ConsoleReporter;
 import com.patbaumgartner.greener.core.reporter.HtmlReporter;
 import com.patbaumgartner.greener.core.runner.JoularCoreRunner;
@@ -302,41 +301,34 @@ public class MeasurementOrchestrator {
 	}
 
 	/**
-	 * Reads both filtered (app-only) and unfiltered (all methods) JoularJX results from
-	 * the working directory, returning them as a {@link MethodLevelReports}.
-	 * @param workingDir the working directory where JoularJX writes its results
+	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
+	 * results from the working directory, returning them as a {@link MethodLevelReports}.
+	 * @param workingDir the working directory where Joular Code Java writes its results
 	 * @param duration measurement duration in seconds
 	 * @return a {@link MethodLevelReports}, or {@code null} if no results directory
 	 * exists
 	 */
-	public MethodLevelReports readJoularJxMethodLevelReports(Path workingDir, int duration) {
-		Path joularJxResultsDir = workingDir.resolve("joularjx-result");
-		if (!Files.isDirectory(joularJxResultsDir)) {
-			logger.accept("[greener] JoularJX results directory not found: " + joularJxResultsDir);
+	public MethodLevelReports readJoularCodeJavaMethodLevelReports(Path workingDir, int duration) {
+		Path resultsDir = workingDir.resolve("joular-code-java-results");
+		if (!Files.isDirectory(resultsDir)) {
+			logger.accept("[greener] Joular Code Java results directory not found: " + resultsDir);
 			return null;
 		}
-		try {
-			JoularJxResultReader reader = new JoularJxResultReader();
-			MethodLevelReports reports = reader.readAllResults(joularJxResultsDir, PluginDefaults.buildRunId(),
-					duration);
-			if (!reports.hasData()) {
-				logger.accept("[greener] JoularJX produced no method-level data");
-				return null;
-			}
-			if (reports.hasAppData()) {
-				logger.accept("[greener] JoularJX app methods: " + reports.appReport().measurements().size()
-						+ " methods, " + String.format("%.2f J total", reports.appReport().totalEnergyJoules()));
-			}
-			if (reports.hasAllData()) {
-				logger.accept("[greener] JoularJX all methods: " + reports.allReport().measurements().size()
-						+ " methods, " + String.format("%.2f J total", reports.allReport().totalEnergyJoules()));
-			}
-			return reports;
-		}
-		catch (IOException e) {
-			logger.accept("[greener] Failed to read JoularJX results: " + e.getMessage());
+		JoularCodeJavaResultReader reader = new JoularCodeJavaResultReader();
+		MethodLevelReports reports = reader.readAllResults(resultsDir, PluginDefaults.buildRunId(), duration);
+		if (!reports.hasData()) {
+			logger.accept("[greener] Joular Code Java produced no method-level data");
 			return null;
 		}
+		if (reports.hasAppData()) {
+			logger.accept("[greener] Joular Code Java app methods: " + reports.appReport().measurements().size()
+					+ " methods, " + String.format("%.2f J total", reports.appReport().totalEnergyJoules()));
+		}
+		if (reports.hasAllData()) {
+			logger.accept("[greener] Joular Code Java all methods: " + reports.allReport().measurements().size()
+					+ " methods, " + String.format("%.2f J total", reports.allReport().totalEnergyJoules()));
+		}
+		return reports;
 	}
 
 	/**
@@ -471,23 +463,8 @@ public class MeasurementOrchestrator {
 		ComparisonResult comparison = processBaselineComparison(report, config.baselinePath(), config.runDir(),
 				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch(), config.regressionMetric(),
 				workloadStats);
-		MethodLevelReports methodLevelReports = config.hasJoularJx()
-				? readJoularJxMethodLevelReports(config.joularJxWorkingDir(), config.measureDurationSeconds()) : null;
-		// Reconcile JoularJX over-attribution against the authoritative Joular Core
-		// process total.
-		// See JoularJxRenormalizer for rationale; logged as a one-line diagnostic when
-		// scaling is applied.
-		if (methodLevelReports != null) {
-			double processEnergy = report.totalEnergyJoules();
-			double appFactor = JoularJxRenormalizer.factor(methodLevelReports.appReport(), processEnergy);
-			double allFactor = JoularJxRenormalizer.factor(methodLevelReports.allReport(), processEnergy);
-			if (appFactor < 1.0 || allFactor < 1.0) {
-				logger.accept(String.format(
-						"[greener] JoularJX renormalisation applied (process=%.3f J): app x%.3f, all x%.3f",
-						processEnergy, appFactor, allFactor));
-				methodLevelReports = JoularJxRenormalizer.renormalize(methodLevelReports, processEnergy);
-			}
-		}
+		MethodLevelReports methodLevelReports = config.hasJoularCodeJava() ? readJoularCodeJavaMethodLevelReports(
+				config.joularCodeJavaWorkingDir(), config.measureDurationSeconds()) : null;
 		Path htmlReport = generateFinalReports(report, comparison, workloadStats, config.toolName(), config.reportDir(),
 				config.runDir(), config.vmMode(), methodLevelReports,
 				updateTrendHistory(config, report, workloadStats));

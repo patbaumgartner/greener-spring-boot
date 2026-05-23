@@ -13,9 +13,9 @@ import java.nio.file.Paths;
 
 /**
  * Runs preflight environment checks for the greener-spring-boot plugins. Verifies OS,
- * RAPL access, msr module, Joular Core binary, JoularJX agent, workload tool on PATH, and
- * Spring Boot jar auto-detection. Fails fast and tells you exactly what to fix before
- * running an actual measurement.
+ * RAPL access, msr module, Joular Core binary, Joular Code Java agent, workload tool on
+ * PATH, and Spring Boot jar auto-detection. Fails fast and tells you exactly what to fix
+ * before running an actual measurement.
  *
  * <pre>
  * mvn greener:doctor
@@ -31,9 +31,9 @@ public class DoctorMojo extends AbstractMojo {
 	@Parameter(property = "greener.joularCoreBinaryPath")
 	private File joularCoreBinaryPath;
 
-	/** Optional path to a JoularJX agent jar. */
-	@Parameter(property = "greener.joularJxAgentPath")
-	private File joularJxAgentPath;
+	/** Optional path to a Joular Code Java agent jar. */
+	@Parameter(property = "greener.joularCodeJavaAgentPath")
+	private File joularCodeJavaAgentPath;
 
 	/**
 	 * Optional first token of the workload command (e.g. {@code oha}). When set, the
@@ -50,7 +50,7 @@ public class DoctorMojo extends AbstractMojo {
 	public void execute() throws MojoFailureException {
 		Path projectDir = (projectBasedir != null) ? projectBasedir.toPath() : Paths.get("").toAbsolutePath();
 		Path binary = (joularCoreBinaryPath != null) ? joularCoreBinaryPath.toPath() : null;
-		Path agent = (joularJxAgentPath != null) ? joularJxAgentPath.toPath() : null;
+		Path agent = (joularCodeJavaAgentPath != null) ? joularCodeJavaAgentPath.toPath() : null;
 
 		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, workloadCommand, projectDir);
 		String text = EnvironmentDoctor.format(report);

@@ -2,7 +2,6 @@ package com.patbaumgartner.greener.maven;
 
 import com.patbaumgartner.greener.core.config.AppArgsBuilder;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
-import com.patbaumgartner.greener.core.config.JoularCoreProbe;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
@@ -29,8 +28,8 @@ import java.util.function.Supplier;
 
 /**
  * Measures the energy consumption of a Spring Boot application using
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>,
- * compares the result against a stored baseline, and generates a report.
+ * <a href="https://github.com/joular/joularcore">Joular Core</a>, compares the result
+ * against a stored baseline, and generates a report.
  *
  * <h2>Lifecycle</h2>
  * <ol>
@@ -144,21 +143,21 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	@Parameter(property = "greener.joularCoreComponent", defaultValue = "cpu")
 	private String joularCoreComponent;
 
-	// ---- JoularJX (optional method-level monitoring) ----
+	// ---- Joular Code Java (optional method-level monitoring) ----
 
 	/**
-	 * Path to the JoularJX Java agent jar. When set, the agent is attached to the Spring
-	 * Boot JVM via {@code -javaagent:} for per-method energy monitoring.
+	 * Path to the Joular Code Java agent jar. When set, the agent is attached to the
+	 * Spring Boot JVM via {@code -javaagent:} for per-method energy monitoring.
 	 */
-	@Parameter(property = "greener.joularJxAgentPath")
-	private File joularJxAgentPath;
+	@Parameter(property = "greener.joularCodeJavaAgentPath")
+	private File joularCodeJavaAgentPath;
 
 	/**
-	 * Path to the JoularJX {@code config.properties} file. Used only when
-	 * {@link #joularJxAgentPath} is also set.
+	 * Path to the Joular Code Java {@code joularcodejava.properties} file. Used only when
+	 * {@link #joularCodeJavaAgentPath} is also set.
 	 */
-	@Parameter(property = "greener.joularJxConfigPath")
-	private File joularJxConfigPath;
+	@Parameter(property = "greener.joularCodeJavaConfigPath")
+	private File joularCodeJavaConfigPath;
 
 	// ---- Training workload ----
 
@@ -388,7 +387,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 		// 3. Start application
 		ApplicationRunner appRunner = new ApplicationRunner();
-		Process appProcess = startApplication(appRunner, joularCoreBinary, workingDir);
+		Process appProcess = startApplication(appRunner, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 
@@ -428,7 +427,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 		}
 		finally {
-			if (joularJxAgentPath != null) {
+			if (joularCodeJavaAgentPath != null) {
 				appRunner.requestGracefulShutdown(baseUrl);
 			}
 			appRunner.stop(appProcess);
@@ -438,7 +437,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		String appIdentifier = springBootJar.getName().replace(".jar", "");
 		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measureDurationSeconds, appIdentifier,
 				baselineFile.toPath(), effectiveReportDir, runDir, toolName, vmMode, threshold, autoUpdateBaseline,
-				commitSha, branch, workingDir, joularJxAgentPath != null, iterations, regressionMetric,
+				commitSha, branch, workingDir, joularCodeJavaAgentPath != null, iterations, regressionMetric,
 				idleProbeSeconds);
 
 		MeasurementResult result;
@@ -477,16 +476,14 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		return effectiveReportDir;
 	}
 
-	private Process startApplication(ApplicationRunner appRunner, Path joularCoreBinary, Path workingDir)
-			throws IOException {
+	private Process startApplication(ApplicationRunner appRunner, Path workingDir) throws IOException {
 		logInfo(() -> "[greener] Starting application: " + springBootJar.getName());
-		List<String> effectiveAppArgs = AppArgsBuilder.buildEffectiveAppArgs(appArgs, joularJxAgentPath != null,
+		List<String> effectiveAppArgs = AppArgsBuilder.buildEffectiveAppArgs(appArgs, joularCodeJavaAgentPath != null,
 				baseUrl);
-		Path joularJxJar = joularJxAgentPath != null ? joularJxAgentPath.toPath() : null;
-		Path joularJxConfig = joularJxConfigPath != null ? joularJxConfigPath.toPath() : null;
-		joularJxConfig = JoularCoreProbe.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
-		Process appProcess = appRunner.start(springBootJar.toPath(), joularJxJar, joularJxConfig, workingDir, jvmArgs,
-				effectiveAppArgs);
+		Path joularCodeJavaJar = joularCodeJavaAgentPath != null ? joularCodeJavaAgentPath.toPath() : null;
+		Path joularCodeJavaConfig = joularCodeJavaConfigPath != null ? joularCodeJavaConfigPath.toPath() : null;
+		Process appProcess = appRunner.start(springBootJar.toPath(), joularCodeJavaJar, joularCodeJavaConfig,
+				workingDir, jvmArgs, effectiveAppArgs);
 		logInfo(() -> "[greener] Application PID: " + appProcess.pid());
 		return appProcess;
 	}
@@ -504,6 +501,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			.component(joularCoreComponent)
 			.outputCsvPath(outputCsv)
 			.silent(true)
+			.ringBuffer(joularCodeJavaAgentPath != null)
 			.vmMode(vmMode)
 			.vmPowerFilePath(vmPowerFilePath != null ? vmPowerFilePath.toPath() : null);
 	}

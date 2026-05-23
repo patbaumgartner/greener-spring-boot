@@ -15,7 +15,8 @@ class EnvironmentDoctorTest {
 	void runProducesAtLeastTheCoreChecks() {
 		EnvironmentDoctor.Report report = EnvironmentDoctor.run(null, null, null, null);
 		assertThat(report.checks()).extracting(EnvironmentDoctor.Check::name)
-			.contains("OS / arch", "RAPL energy file", "msr kernel module", "Joular Core binary", "JoularJX agent");
+			.contains("OS / arch", "RAPL energy file", "msr kernel module", "Joular Core binary",
+					"Joular Code Java agent");
 	}
 
 	@Test
@@ -25,11 +26,11 @@ class EnvironmentDoctorTest {
 	}
 
 	@Test
-	void joularJxAgentCheckPassesWhenFileReadable(@TempDir Path tmp) throws IOException {
-		Path agent = tmp.resolve("joularjx.jar");
+	void joularCodeJavaAgentCheckPassesWhenFileReadable(@TempDir Path tmp) throws IOException {
+		Path agent = tmp.resolve("joularcodejava.jar");
 		Files.writeString(agent, "stub");
 		EnvironmentDoctor.Report report = EnvironmentDoctor.run(null, agent, null, null);
-		assertThat(report.checks()).anySatisfy(c -> assertThat(c.name()).isEqualTo("JoularJX agent"));
+		assertThat(report.checks()).anySatisfy(c -> assertThat(c.name()).isEqualTo("Joular Code Java agent"));
 	}
 
 	@Test

@@ -10,7 +10,7 @@ import java.util.Locale;
 
 /**
  * Preflight environment check for greener-spring-boot. Runs a set of read-only probes
- * (OS, RAPL, msr module, Joular Core binary, JoularJX agent, workload tool, jar
+ * (OS, RAPL, msr module, Joular Core binary, Joular Code Java agent, workload tool, jar
  * detection) and returns a {@link Report}. Designed to fail fast and tell the user
  * exactly what to fix &mdash; before they wait minutes for a real measurement to break.
  */
@@ -62,18 +62,19 @@ public final class EnvironmentDoctor {
 	 * Runs all preflight checks.
 	 * @param joularCoreBinary optional path to the Joular Core binary (may be
 	 * {@code null})
-	 * @param joularJxAgent optional path to the JoularJX agent jar (may be {@code null})
+	 * @param joularCodeJavaAgent optional path to the Joular Code Java agent jar (may be
+	 * {@code null})
 	 * @param workloadCommand optional first token of the configured workload command
 	 * @param projectDir optional project root for jar auto-detection
 	 * @return a {@link Report} aggregating all checks
 	 */
-	public static Report run(Path joularCoreBinary, Path joularJxAgent, String workloadCommand, Path projectDir) {
+	public static Report run(Path joularCoreBinary, Path joularCodeJavaAgent, String workloadCommand, Path projectDir) {
 		List<Check> checks = new ArrayList<>();
 		checks.add(checkOsArch());
 		checks.add(checkRapl());
 		checks.add(checkMsrModule());
 		checks.add(checkJoularCoreBinary(joularCoreBinary));
-		checks.add(checkJoularJxAgent(joularJxAgent));
+		checks.add(checkJoularCodeJavaAgent(joularCodeJavaAgent));
 		if (workloadCommand != null && !workloadCommand.isBlank()) {
 			checks.add(checkOnPath(workloadCommand));
 		}
@@ -150,15 +151,15 @@ public final class EnvironmentDoctor {
 				"Delete ~/.greener/cache/joularcore to force re-download, or set joularCoreBinaryPath");
 	}
 
-	private static Check checkJoularJxAgent(Path agent) {
+	private static Check checkJoularCodeJavaAgent(Path agent) {
 		if (agent == null) {
-			return new Check("JoularJX agent", Level.PASS, "not configured (method-level disabled)", null);
+			return new Check("Joular Code Java agent", Level.PASS, "not configured (method-level disabled)", null);
 		}
 		if (Files.isReadable(agent)) {
-			return new Check("JoularJX agent", Level.PASS, agent.toString(), null);
+			return new Check("Joular Code Java agent", Level.PASS, agent.toString(), null);
 		}
-		return new Check("JoularJX agent", Level.FAIL, "not found at " + agent,
-				"Download joularjx-*.jar from https://github.com/joular/joularjx/releases");
+		return new Check("Joular Code Java agent", Level.FAIL, "not found at " + agent,
+				"Download joularcodejava-*.jar from https://github.com/joular/joularcode-java/releases");
 	}
 
 	private static Check checkOnPath(String command) {
