@@ -218,7 +218,7 @@ if [ -x "${JOULAR_CORE_BINARY}" ]; then
 else
     mkdir -p "${JOULAR_CACHE_DIR}"
     ASSET_NAME="joularcore-linux-${JOULAR_ARCH}"
-    DOWNLOAD_URL="https://github.com/joular/joularcore/releases/download/${JOULAR_CORE_VERSION}/${ASSET_NAME}"
+    DOWNLOAD_URL="https://github.com/joular/joularcode-java/releases/download/${JOULAR_CORE_VERSION}/${ASSET_NAME}"
     info "Downloading Joular Core from ${DOWNLOAD_URL} ..."
     if curl -fsSL -o "${JOULAR_CORE_BINARY}" "${DOWNLOAD_URL}"; then
         chmod +x "${JOULAR_CORE_BINARY}"
@@ -238,7 +238,7 @@ else
         JOULAR_SRC="${WORK_DIR}/joularcore-src"
         rm -rf "${JOULAR_SRC}"
         git clone --depth 1 --branch "${JOULAR_CORE_VERSION}" \
-            https://github.com/joular/joularcore.git "${JOULAR_SRC}"
+            https://github.com/joular/joularcode-java.git "${JOULAR_SRC}"
 
         cd "${JOULAR_SRC}"
         cargo build --release

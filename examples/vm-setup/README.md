@@ -1,7 +1,7 @@
 # Real Power Measurement in Virtualised Environments
 
 greener-spring-boot uses
-[Joular Core](https://www.noureddine.org/research/joular/joularcore) to measure
+[Joular Core](https://github.com/joular/joularcode-java) to measure
 CPU energy consumption.  Joular Core reads hardware power counters (Intel/AMD RAPL
 via the Linux `powercap` subsystem or the
 [Hubblo RAPL driver](https://github.com/hubblo-org/windows-rapl-driver) on

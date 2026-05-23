@@ -40,7 +40,7 @@ Please include as much detail as possible - steps to reproduce, affected version
 
 ### Out of Scope
 
-- The [Joular Core](https://github.com/joular/joularcore) binary itself (report upstream)
+- The [Joular Core](https://github.com/joular/joularcode-java) binary itself (report upstream)
 - Spring Boot framework (report to [Spring Security](https://spring.io/security))
 - Third-party load-testing tools (oha, wrk, wrk2, k6, ab, bombardier, Locust, Gatling)
 
