@@ -15,13 +15,15 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Reads the CSV result files produced by Joular Code Java and aggregates them into an
+ * Reads the CSV result files produced by Joular Code Java and aggregates them
+ * into an
  * {@link EnergyReport} with per-branch energy data.
  *
  * <p>
- * Joular Code Java is an optional Java agent (the successor of JoularJX) that provides
- * method-level energy granularity on top of Joular Core. When only Joular Core is used
- * (process-level monitoring), this reader is not invoked.
+ * Joular Code Java is an optional Java agent that provides method-level energy
+ * granularity on top of Joular Core. When only Joular Core is used
+ * (process-level
+ * monitoring), this reader is not invoked.
  *
  * <h2>Expected directory structure</h2>
  *
@@ -57,8 +59,9 @@ public class JoularCodeJavaResultReader {
 	/**
 	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
 	 * results from the given results directory.
-	 * @param resultsDir the {@code joular-code-java-results} directory
-	 * @param runId a logical identifier for this run
+	 * 
+	 * @param resultsDir      the {@code joular-code-java-results} directory
+	 * @param runId           a logical identifier for this run
 	 * @param durationSeconds how long the measurement ran
 	 * @return a {@link MethodLevelReports} containing both app and all reports
 	 */
@@ -90,8 +93,7 @@ public class JoularCodeJavaResultReader {
 
 			List<EnergyMeasurement> aggregated = aggregateByBranch(measurements);
 			return EnergyReport.of(runId, Instant.now(), durationSeconds, aggregated);
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			LOG.warning(() -> "Failed to read Joular Code Java CSV " + csvFile + ": " + e.getMessage());
 			return null;
 		}
@@ -102,7 +104,8 @@ public class JoularCodeJavaResultReader {
 	 *
 	 * <p>
 	 * Skips the header row and any lines with fewer than {@value #CSV_MIN_COLUMNS}
-	 * columns. The {@code branch} column (semicolon-separated call chain) is used as the
+	 * columns. The {@code branch} column (semicolon-separated call chain) is used
+	 * as the
 	 * method name and {@code energy_joules} as the energy value.
 	 */
 	List<EnergyMeasurement> parseCsvLines(List<String> lines, Path sourceFile) {
@@ -122,8 +125,7 @@ public class JoularCodeJavaResultReader {
 				if (!branch.isBlank() && energy >= 0) {
 					measurements.add(new EnergyMeasurement(branch, energy));
 				}
-			}
-			catch (NumberFormatException e) {
+			} catch (NumberFormatException e) {
 				LOG.fine(() -> "Skipping non-numeric line in " + sourceFile + ": " + trimmed);
 			}
 		}
