@@ -111,7 +111,7 @@ public class ConsoleReporter {
 	}
 
 	private void printMethodLevelData(EnergyReport joularJxReport) {
-		out.println(" Method-Level Energy (JoularJX):");
+		out.println(" Method-Level Energy (Joular Code Java):");
 		out.printf("   Methods      : %d%n", joularJxReport.measurements().size());
 		out.printf("   Total Energy : %.2f J%n", joularJxReport.totalEnergyJoules());
 		out.println();

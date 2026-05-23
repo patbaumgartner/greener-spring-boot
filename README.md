@@ -1,7 +1,7 @@
 # greener-spring-boot ⚡
 
 > Maven and Gradle plugins to measure the energy consumption of Spring Boot applications
-> using [Joular Core](https://www.noureddine.org/research/joular/joularcore),
+> using [Joular Core](https://github.com/joular/joularcore),
 > compare results against a stored baseline, and fail the build on regressions.
 
 [![CI](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml/badge.svg)](https://github.com/patbaumgartner/greener-spring-boot/actions/workflows/ci.yml)
@@ -151,7 +151,7 @@ flowchart TB
     power -.-> D
 ```
 
-**[Joular Core](https://www.noureddine.org/research/joular/joularcore)** is a
+**[Joular Core](https://github.com/joular/joularcore)** is a
 cross-platform Rust binary that reads hardware power counters:
 
 | Platform | Power source | Notes |
@@ -274,8 +274,8 @@ mvn greener:update-baseline
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
 | `joularCoreVersion` | `0.0.1-beta-2` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
-| `joularJxAgentPath` | *(none)* | Path to the JoularJX Java agent jar for per-method energy monitoring |
-| `joularJxConfigPath` | *(none)* | Path to the JoularJX `config.properties` file (used only with `joularJxAgentPath`) |
+| `joularCodeJavaAgentPath` | *(none)* | Path to the Joular Code Java agent jar for per-method energy monitoring |
+| `joularCodeJavaConfigPath` | *(none)* | Path to the Joular Code Java `joularcodejava.properties` file (used only with `joularCodeJavaAgentPath`) |
 | `baseUrl` | `http://localhost:8080` | Base URL passed to external scripts as `APP_URL` env var |
 | `requestsPerSecond` | `5` | Requests per second passed to external scripts as `RPS` env var |
 | `externalTrainingCommand` | *(none)* | **Required\*** - External load test command (e.g. `oha -n 500 -c 10 ${APP_URL}/actuator/health`) |
@@ -320,7 +320,7 @@ mvn greener:update-baseline
 Run `mvn greener:doctor` (Maven) or `./gradlew energyDoctor` (Gradle) **before** your
 first measurement to verify the environment. It performs PASS / WARN / FAIL checks for
 OS + architecture, RAPL access (`/sys/class/powercap/intel-rapl:0/energy_uj`),
-the `msr` kernel module, the Joular Core binary, the JoularJX agent (when configured),
+the `msr` kernel module, the Joular Core binary, the Joular Code Java agent (when configured),
 your workload tool on `PATH`, and Spring Boot fat-jar auto-detection &mdash; each
 failure includes an actionable hint. The build fails if any check is FAIL by default;
 pass `-Dgreener.doctor.failOnError=false` for advisory-only mode.
@@ -510,7 +510,7 @@ The `examples/` directory provides ready-to-use simulation scripts:
 
 - **`local-simulation.sh` / `local-simulation.ps1`** - runs a single-tool energy measurement locally (uses `oha` by default).
 - **`all-tools-simulation.sh` / `all-tools-simulation.ps1`** - runs measurements with all supported workload tools (oha, wrk, wrk2, bombardier, ab, k6, Gatling, Locust) and generates an aggregated comparison report.
-- **`joularjx-simulation.sh` / `joularjx-simulation.ps1`** - demonstrates [JoularJX](https://github.com/joular/joularjx) method-level energy monitoring alongside the greener plugin's process-level reports. Downloads JoularJX, generates a `config.properties`, attaches the agent via `-javaagent`, and displays per-method energy results.
+- **`joularcode-simulation.sh` / `joularcode-simulation.ps1`** - demonstrates [Joular Code Java](https://github.com/joular/joularcode-java) method-level energy monitoring alongside the greener plugin's process-level reports. Downloads Joular Code Java, generates a `joularcodejava.properties`, attaches the agent via `-javaagent`, and displays per-method energy results.
 
 These scripts handle the full lifecycle: building the project, starting the estimator, running the measurement, and generating reports.
 
@@ -601,7 +601,7 @@ download a Linux Joular Core binary, write to `/tmp`, and read RAPL via
 `/sys/class/powercap`.  Running them from Git Bash, MSYS or Cygwin on
 **native Windows** is now refused with a clear error message pointing at
 the matching PowerShell companion.  Use `examples/local-simulation.ps1`,
-`examples/all-tools-simulation.ps1`, and `examples/joularjx-simulation.ps1`
+`examples/all-tools-simulation.ps1`, and `examples/joularcode-simulation.ps1`
 on Windows, or run the `.sh` flow from inside WSL2.
 
 ### Run from a local drive, not a UNC path
@@ -612,16 +612,14 @@ network share causes `cmd.exe` to silently fall back to `C:\Windows`, leading to
 `BUILD FAILURE: there is no POM in this directory`.  Always work from a local
 path such as `C:\Users\you\projects\greener-spring-boot`.
 
-### JoularJX method-level totals on Windows
+### Joular Code Java method-level totals on Windows
 
-When using JoularJX (`joularJxAgentJar`), the Spring Boot JVM is terminated by
+When using Joular Code Java (`joularCodeJavaAgentPath`), the Spring Boot JVM is terminated by
 the plugin between iterations.  On Windows, `Process.destroy()` maps to
-`TerminateProcess`, which does **not** invoke JVM shutdown hooks - so JoularJX
-cannot write its final aggregated CSVs to `app/total/methods/` and
-`all/total/methods/`.  The per-second snapshots in `runtime/methods/` are still
-produced and are sufficient to identify hot methods, but the convenient
-end-of-run totals files will be empty.  On Linux/macOS the shutdown hook fires
-and totals are written normally.
+`TerminateProcess`, which does **not** invoke JVM shutdown hooks - so Joular Code Java
+cannot write its final aggregated CSVs.  The per-second snapshots are still
+produced and are sufficient to identify hot methods.  On Linux/macOS the shutdown hook fires
+and results are written normally.
 
 ### Workload tools must be pre-installed
 
@@ -645,7 +643,7 @@ greener-spring-boot focuses on **build-integrated, automated energy regression t
 
 | Tool | Scope | Approach |
 |---|---|---|
-| [JoularJX](https://github.com/joular/joularjx) | Java (method-level) | Java agent using Joular Core; per-method energy attribution |
+| [Joular Code Java](https://github.com/joular/joularcode-java) | Java (method-level) | Java agent using Joular Core ring buffer; per-method energy attribution (successor of JoularJX) |
 | [Kepler](https://github.com/sustainable-computing-io/kepler) | Kubernetes pods | eBPF + ML models to estimate energy per pod |
 | [Scaphandre](https://github.com/hubblo-org/scaphandre) | Host / VM | System-level power monitoring; exports to Prometheus |
 | [PowerAPI](https://github.com/powerapi-ng/powerapi) | Processes | Middleware for real-time per-process power monitoring |
