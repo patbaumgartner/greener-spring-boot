@@ -15,9 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Reads the CSV file produced by
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> and
- * converts the power samples into an {@link EnergyReport}.
+ * Reads the CSV file produced by <a href="https://github.com/joular/joularcore">Joular
+ * Core</a> and converts the power samples into an {@link EnergyReport}.
  *
  * <h2>Joular Core CSV format</h2> Joular Core writes one row per sample interval
  * (default: 1 second). A header row is required; column order may vary by version:

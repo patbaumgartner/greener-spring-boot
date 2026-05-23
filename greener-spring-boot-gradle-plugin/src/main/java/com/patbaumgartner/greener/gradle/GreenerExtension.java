@@ -22,9 +22,9 @@ import org.gradle.api.provider.Property;
  *     joularCoreVersion.set("0.0.1-beta-2")
  *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
- *     // JoularJX (optional method-level monitoring)
- *     joularJxAgentPath.set(file("joularjx-3.1.0.jar"))       // optional
- *     joularJxConfigPath.set(file("joularjx-config.properties"))  // optional
+ *     // Joular Code Java (optional method-level monitoring)
+ *     joularCodeJavaAgentPath.set(file("joularcodejava-0.0.1-alpha-4.jar"))       // optional
+ *     joularCodeJavaConfigPath.set(file("joularcodejava.properties"))  // optional
  *
  *     // VM mode (virtualised environments - no direct RAPL access)
  *     vmMode.set(true)
@@ -102,21 +102,21 @@ public abstract class GreenerExtension {
 	 */
 	public abstract Property<String> getJoularCoreComponent();
 
-	// ---- JoularJX (optional method-level monitoring) ----
+	// ---- Joular Code Java (optional method-level monitoring) ----
 
 	/**
-	 * Path to the JoularJX Java agent jar. When set, the agent is attached to the Spring
-	 * Boot JVM via {@code -javaagent:} for per-method energy monitoring.
-	 * @return the JoularJX agent path property
+	 * Path to the Joular Code Java agent jar. When set, the agent is attached to the
+	 * Spring Boot JVM via {@code -javaagent:} for per-method energy monitoring.
+	 * @return the Joular Code Java agent path property
 	 */
-	public abstract RegularFileProperty getJoularJxAgentPath();
+	public abstract RegularFileProperty getJoularCodeJavaAgentPath();
 
 	/**
-	 * Path to the JoularJX {@code config.properties} file. Used only when
-	 * {@link #getJoularJxAgentPath()} is also set.
-	 * @return the JoularJX config path property
+	 * Path to the Joular Code Java {@code joularcodejava.properties} file. Used only when
+	 * {@link #getJoularCodeJavaAgentPath()} is also set.
+	 * @return the Joular Code Java config path property
 	 */
-	public abstract RegularFileProperty getJoularJxConfigPath();
+	public abstract RegularFileProperty getJoularCodeJavaConfigPath();
 
 	/**
 	 * Base URL of the Spring Boot application.

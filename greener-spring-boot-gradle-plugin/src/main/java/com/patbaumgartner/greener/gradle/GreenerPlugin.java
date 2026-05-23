@@ -12,8 +12,8 @@ import org.gradle.api.provider.ProviderFactory;
  * Registers the {@link GreenerExtension} DSL block and the two tasks:
  * <ul>
  * <li>{@code measureEnergy} — runs the Spring Boot application under
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> and
- * compares the measured energy against a baseline.</li>
+ * <a href="https://github.com/joular/joularcore">Joular Core</a> and compares the
+ * measured energy against a baseline.</li>
  * <li>{@code updateEnergyBaseline} — promotes the most recent measurement result as the
  * new baseline.</li>
  * </ul>
@@ -93,10 +93,10 @@ public class GreenerPlugin implements Plugin<Project> {
 	private void configureDoctorTask(Project project, GreenerExtension extension) {
 		project.getTasks().register(DOCTOR_TASK_NAME, EnergyDoctorTask.class, task -> {
 			task.setGroup(TASK_GROUP);
-			task.setDescription("Runs preflight environment checks (RAPL, msr, Joular Core, JoularJX, "
+			task.setDescription("Runs preflight environment checks (RAPL, msr, Joular Core, Joular Code Java, "
 					+ "workload tool, jar auto-detect) and reports actionable diagnostics.");
 			task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
-			task.getJoularJxAgentPath().convention(extension.getJoularJxAgentPath());
+			task.getJoularCodeJavaAgentPath().convention(extension.getJoularCodeJavaAgentPath());
 			task.getFailOnError().convention(true);
 			task.getProjectDir().convention(project.getProjectDir());
 		});
@@ -113,8 +113,8 @@ public class GreenerPlugin implements Plugin<Project> {
 			task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
 			task.getJoularCoreVersion().convention(extension.getJoularCoreVersion());
 			task.getJoularCoreComponent().convention(extension.getJoularCoreComponent());
-			task.getJoularJxAgentPath().convention(extension.getJoularJxAgentPath());
-			task.getJoularJxConfigPath().convention(extension.getJoularJxConfigPath());
+			task.getJoularCodeJavaAgentPath().convention(extension.getJoularCodeJavaAgentPath());
+			task.getJoularCodeJavaConfigPath().convention(extension.getJoularCodeJavaConfigPath());
 			task.getBaseUrl().convention(extension.getBaseUrl());
 			task.getRequestsPerSecond().convention(extension.getRequestsPerSecond());
 			task.getExternalTrainingCommand().convention(extension.getExternalTrainingCommand());

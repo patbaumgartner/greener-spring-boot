@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Configuration for the <a href="https://www.noureddine.org/research/joular/joularcore">
- * Joular Core</a> binary that measures CPU/GPU power of the monitored process.
+ * Configuration for the <a href="https://github.com/joular/joularcore">Joular Core</a>
+ * binary that measures CPU/GPU power of the monitored process.
  *
  * <h2>How Joular Core is used</h2> Joular Core is a native Rust binary that reads
  * hardware power counters (RAPL on Linux/Windows, {@code powermetrics} on macOS) and can
@@ -97,6 +97,18 @@ public class JoularCoreConfig {
 	private Path vmPowerFilePath;
 
 	/**
+	 * Enable ring buffer mode ({@code -r} flag).
+	 *
+	 * <p>
+	 * When enabled, Joular Core writes power samples to a shared-memory ring buffer in
+	 * addition to (or instead of) the CSV file. This is required when
+	 * <a href="https://github.com/joular/joularcode-java">Joular Code Java</a> is used as
+	 * the method-level monitoring agent, since it reads total CPU power from the ring
+	 * buffer to distribute energy to call branches.
+	 */
+	private boolean ringBuffer = false;
+
+	/**
 	 * Extra CLI arguments appended verbatim to the joularcore invocation. Useful for
 	 * flags not yet covered by explicit properties.
 	 */
@@ -180,6 +192,17 @@ public class JoularCoreConfig {
 	}
 
 	/**
+	 * Enables or disables ring buffer output ({@code -r} flag). Set to {@code true} when
+	 * Joular Code Java is used for method-level monitoring.
+	 * @param ringBuffer true to enable ring buffer output
+	 * @return this
+	 */
+	public JoularCoreConfig ringBuffer(boolean ringBuffer) {
+		this.ringBuffer = ringBuffer;
+		return this;
+	}
+
+	/**
 	 * Sets extra CLI arguments appended to the joularcore invocation. @param extraArgs
 	 * extra arguments @return this
 	 */
@@ -226,6 +249,10 @@ public class JoularCoreConfig {
 			cmd.add("-s");
 		}
 
+		if (ringBuffer) {
+			cmd.add("-r");
+		}
+
 		if (!extraArgs.isEmpty()) {
 			cmd.addAll(extraArgs);
 		}
@@ -249,6 +276,10 @@ public class JoularCoreConfig {
 
 	public boolean isSilent() {
 		return silent;
+	}
+
+	public boolean isRingBuffer() {
+		return ringBuffer;
 	}
 
 	public boolean isVmMode() {

@@ -2,7 +2,6 @@ package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.config.AppArgsBuilder;
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
-import com.patbaumgartner.greener.core.config.JoularCoreProbe;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
@@ -37,7 +36,7 @@ import java.util.Optional;
 
 /**
  * Gradle task that measures the energy consumption of a Spring Boot application using
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>.
+ * <a href="https://github.com/joular/joularcore">Joular Core</a>.
  *
  * <p>
  * This task mirrors the Maven {@code greener:measure} goal.
@@ -112,24 +111,24 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract Property<String> getJoularCoreComponent();
 
 	/**
-	 * Path to the JoularJX Java agent jar. When set, the agent is attached to the Spring
-	 * Boot JVM via {@code -javaagent:} for per-method energy monitoring.
-	 * @return the JoularJX agent path property
+	 * Path to the Joular Code Java agent jar. When set, the agent is attached to the
+	 * Spring Boot JVM via {@code -javaagent:} for per-method energy monitoring.
+	 * @return the Joular Code Java agent path property
 	 */
 	@InputFile
 	@PathSensitive(PathSensitivity.ABSOLUTE)
 	@org.gradle.api.tasks.Optional
-	public abstract RegularFileProperty getJoularJxAgentPath();
+	public abstract RegularFileProperty getJoularCodeJavaAgentPath();
 
 	/**
-	 * Path to the JoularJX {@code config.properties} file. Used only when
-	 * {@link #getJoularJxAgentPath()} is also set.
-	 * @return the JoularJX config path property
+	 * Path to the Joular Code Java {@code joularcodejava.properties} file. Used only when
+	 * {@link #getJoularCodeJavaAgentPath()} is also set.
+	 * @return the Joular Code Java config path property
 	 */
 	@InputFile
 	@PathSensitive(PathSensitivity.ABSOLUTE)
 	@org.gradle.api.tasks.Optional
-	public abstract RegularFileProperty getJoularJxConfigPath();
+	public abstract RegularFileProperty getJoularCodeJavaConfigPath();
 
 	/**
 	 * Base URL of the Spring Boot application.
@@ -369,7 +368,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		// 3. Start application
 		ApplicationRunner appRunner = new ApplicationRunner();
-		Process appProcess = startApplication(appRunner, springBootJarFile, joularCoreBinary, workingDir);
+		Process appProcess = startApplication(appRunner, springBootJarFile, workingDir);
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats;
@@ -407,7 +406,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		}
 		finally {
-			if (getJoularJxAgentPath().isPresent()) {
+			if (getJoularCodeJavaAgentPath().isPresent()) {
 				appRunner.requestGracefulShutdown(baseUrl);
 			}
 			appRunner.stop(appProcess);
@@ -417,8 +416,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		String appId = springBootJarFile.getName().replace(".jar", "");
 		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measure, appId, resolveBaselinePath(),
 				reportDir, runDir, toolName, getVmMode().get(), getThreshold().get(), getAutoUpdateBaseline().get(),
-				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir, getJoularJxAgentPath().isPresent(),
-				getIterations().getOrElse(1),
+				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir,
+				getJoularCodeJavaAgentPath().isPresent(), getIterations().getOrElse(1),
 				getRegressionMetric()
 					.getOrElse(com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST),
 				getIdleProbeSeconds().getOrElse(0));
@@ -478,19 +477,18 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		return reportDir;
 	}
 
-	private Process startApplication(ApplicationRunner appRunner, File springBootJarFile, Path joularCoreBinary,
-			Path workingDir) throws IOException {
+	private Process startApplication(ApplicationRunner appRunner, File springBootJarFile, Path workingDir)
+			throws IOException {
 		getLogger().lifecycle("[greener] Starting application: " + springBootJarFile.getName());
 		List<String> effectiveAppArgs = AppArgsBuilder.buildEffectiveAppArgs(getAppArgs().getOrNull(),
-				getJoularJxAgentPath().isPresent(), getBaseUrl().get());
+				getJoularCodeJavaAgentPath().isPresent(), getBaseUrl().get());
 		List<String> effectiveJvmArgs = getJvmArgs().getOrNull();
-		Path joularJxJar = getJoularJxAgentPath().isPresent() ? getJoularJxAgentPath().get().getAsFile().toPath()
-				: null;
-		Path joularJxConfig = getJoularJxConfigPath().isPresent() ? getJoularJxConfigPath().get().getAsFile().toPath()
-				: null;
-		joularJxConfig = JoularCoreProbe.ensureJoularCoreParameters(joularJxConfig, joularCoreBinary, workingDir);
-		Process appProcess = appRunner.start(springBootJarFile.toPath(), joularJxJar, joularJxConfig, workingDir,
-				effectiveJvmArgs, effectiveAppArgs);
+		Path joularCodeJavaJar = getJoularCodeJavaAgentPath().isPresent()
+				? getJoularCodeJavaAgentPath().get().getAsFile().toPath() : null;
+		Path joularCodeJavaConfig = getJoularCodeJavaConfigPath().isPresent()
+				? getJoularCodeJavaConfigPath().get().getAsFile().toPath() : null;
+		Process appProcess = appRunner.start(springBootJarFile.toPath(), joularCodeJavaJar, joularCodeJavaConfig,
+				workingDir, effectiveJvmArgs, effectiveAppArgs);
 		getLogger().lifecycle("[greener] Application PID: " + appProcess.pid());
 		return appProcess;
 	}
@@ -509,6 +507,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 			.component(getJoularCoreComponent().get())
 			.outputCsvPath(outputCsv)
 			.silent(true)
+			.ringBuffer(getJoularCodeJavaAgentPath().isPresent())
 			.vmMode(getVmMode().get())
 			.vmPowerFilePath(vmPowerFile != null ? vmPowerFile.toPath() : null);
 	}

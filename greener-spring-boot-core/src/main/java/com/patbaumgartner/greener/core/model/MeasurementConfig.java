@@ -12,7 +12,7 @@ import java.nio.file.Path;
  */
 public record MeasurementConfig(Path outputCsv, int measureDurationSeconds, String appIdentifier, Path baselinePath,
 		Path reportDir, Path runDir, String toolName, boolean vmMode, double threshold, boolean autoUpdate,
-		String commitSha, String branch, Path joularJxWorkingDir, boolean hasJoularJx, int iterations,
+		String commitSha, String branch, Path joularCodeJavaWorkingDir, boolean hasJoularCodeJava, int iterations,
 		RegressionMetric regressionMetric, int idleProbeSeconds) {
 
 	public MeasurementConfig {

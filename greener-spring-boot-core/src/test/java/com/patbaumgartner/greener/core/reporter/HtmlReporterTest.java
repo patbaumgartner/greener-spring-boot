@@ -209,7 +209,7 @@ class HtmlReporterTest {
 		Path htmlFile = reporter.generateReport(report, comparison, null, PowerSource.RAPL, methodReports, tmp);
 
 		String content = Files.readString(htmlFile);
-		assertThat(content).contains("Method-Level Energy (JoularJX)");
+		assertThat(content).contains("Method-Level Energy (Joular Code Java)");
 		assertThat(content).contains("com.example.MyService.doWork");
 		assertThat(content).contains("org.springframework.web.DispatcherServlet.doDispatch");
 		assertThat(content).contains("Show App Only");
