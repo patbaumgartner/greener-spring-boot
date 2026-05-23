@@ -1,5 +1,7 @@
 package com.patbaumgartner.greener.core.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.time.Instant;
 
 /**
@@ -13,6 +15,7 @@ import java.time.Instant;
  * baseline was produced from a multi-iteration run; the comparator uses those statistics
  * to apply Welch's t-test rather than a raw percentage threshold.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record EnergyBaseline(String version, Instant createdAt, String commitSha, String branch, EnergyReport report,
 		WorkloadStats workloadStats) {
 

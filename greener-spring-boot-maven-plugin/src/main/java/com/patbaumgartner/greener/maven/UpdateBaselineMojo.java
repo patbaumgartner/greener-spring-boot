@@ -2,7 +2,7 @@ package com.patbaumgartner.greener.maven;
 
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
-import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -12,7 +12,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Optional;
 
 /**
  * Promotes the energy report produced by the last {@code greener:measure} execution to
@@ -94,17 +93,18 @@ public class UpdateBaselineMojo extends AbstractMojo {
 		try {
 			Path latestPath = latestReportFile != null ? latestReportFile.toPath() : null;
 			Path reportDirPath = reportOutputDir != null ? reportOutputDir.toPath() : null;
-			Optional<EnergyReport> report = manager.resolveLatestReport(latestPath, reportDirPath,
+			java.util.Optional<EnergyBaseline> latest = manager.resolveLatestBaseline(latestPath, reportDirPath,
 					baselineFile.toPath());
 
-			if (report.isEmpty()) {
+			if (latest.isEmpty()) {
 				getLog().warn("No energy report to promote to baseline. "
 						+ "Run 'mvn greener:measure' first, or set -Dgreener.latestReportFile.");
 				return;
 			}
 
-			PluginDefaults.saveAndLogBaseline(manager, report.get(), commitSha, branch, baselineFile.toPath(),
-					msg -> getLog().info(msg));
+			EnergyBaseline lb = latest.get();
+			PluginDefaults.saveAndLogBaseline(manager, lb.report(), commitSha, branch, lb.workloadStats(),
+					baselineFile.toPath(), msg -> getLog().info(msg));
 		}
 		catch (IOException e) {
 			throw new MojoExecutionException("Failed to update energy baseline: " + e.getMessage(), e);

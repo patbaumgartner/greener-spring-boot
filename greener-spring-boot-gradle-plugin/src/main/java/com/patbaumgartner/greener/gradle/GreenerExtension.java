@@ -19,11 +19,11 @@ import org.gradle.api.provider.Property;
  *
  *     // Joular Core
  *     joularCoreBinaryPath.set(file("/usr/local/bin/joularcore"))  // optional, auto-downloaded if absent
- *     joularCoreVersion.set("0.0.1-beta-2")
+ *     joularCoreVersion.set("0.0.1-beta-4")
  *     joularCoreComponent.set("cpu")   // "cpu" | "gpu" | "all"
  *
  *     // Joular Code Java (optional method-level monitoring)
- *     joularCodeJavaAgentPath.set(file("joularcodejava-0.0.1-alpha-4.jar"))       // optional
+ *     joularCodeJavaAgentPath.set(file("joularcodejava-0.0.1.jar"))       // optional
  *     joularCodeJavaConfigPath.set(file("joularcodejava.properties"))  // optional
  *
  *     // VM mode (virtualised environments - no direct RAPL access)
