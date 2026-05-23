@@ -161,7 +161,7 @@ public class HtmlReporter {
 						  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
 						  <h1><span>&#9889;</span> Greener Spring Boot</h1>
 						  <p class="tagline">Energy Report — powered by
-						    <a href="https://github.com/joular/joularcode-java">Joular Core</a>
+						    <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
 						  </p>
 						</div>
 						<div class="container">
@@ -260,7 +260,7 @@ public class HtmlReporter {
 						  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">&#9681; Theme</button>
 						  <h1><span>&#9889;</span> Greener Spring Boot</h1>
 						  <p class="tagline">Aggregated Energy Report — powered by
-						    <a href="https://github.com/joular/joularcode-java">Joular Core</a>
+						    <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>
 						  </p>
 						</div>
 						<div class="container">

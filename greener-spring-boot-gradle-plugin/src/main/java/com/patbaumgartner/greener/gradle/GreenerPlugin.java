@@ -12,7 +12,7 @@ import org.gradle.api.provider.ProviderFactory;
  * Registers the {@link GreenerExtension} DSL block and the two tasks:
  * <ul>
  * <li>{@code measureEnergy} — runs the Spring Boot application under
- * <a href="https://github.com/joular/joularcode-java">Joular Core</a> and
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> and
  * compares the measured energy against a baseline.</li>
  * <li>{@code updateEnergyBaseline} — promotes the most recent measurement result as the
  * new baseline.</li>

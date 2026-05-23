@@ -37,7 +37,7 @@ import java.util.Optional;
 
 /**
  * Gradle task that measures the energy consumption of a Spring Boot application using
- * <a href="https://github.com/joular/joularcode-java">Joular Core</a>.
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a>.
  *
  * <p>
  * This task mirrors the Maven {@code greener:measure} goal.
@@ -97,7 +97,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 	/**
 	 * Joular Core release version to download when {@link #getJoularCoreBinaryPath()} is
-	 * not set. See <a href="https://github.com/joular/joularcode-java/releases">Joular Core
+	 * not set. See <a href="https://github.com/joular/joularcore/releases">Joular Core
 	 * releases</a> for available versions.
 	 * @return the Joular Core version property
 	 */

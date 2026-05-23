@@ -21,13 +21,13 @@ import java.util.logging.Logger;
 
 /**
  * Downloads a specific version of
- * <a href="https://github.com/joular/joularcode-java">Joular Core</a> from
+ * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> from
  * GitHub Releases and caches it locally.
  *
  * <h2>Release URL pattern</h2>
  *
  * <pre>
- * https://github.com/joular/joularcode-java/releases/download/{VERSION}/joularcore{-PLATFORM}
+ * https://github.com/joular/joularcore/releases/download/{VERSION}/joularcore{-PLATFORM}
  * </pre>
  *
  * <h2>Platform detection</h2> The downloader inspects {@code os.name} and {@code os.arch}
@@ -44,7 +44,7 @@ public class JoularCoreDownloader {
 
 	private static final Logger LOG = Logger.getLogger(JoularCoreDownloader.class.getName());
 
-	private static final String RELEASE_URL_TEMPLATE = "https://github.com/joular/joularcode-java/releases/download/%s/%s";
+	private static final String RELEASE_URL_TEMPLATE = "https://github.com/joular/joularcore/releases/download/%s/%s";
 
 	private static final int HTTP_OK = 200;
 
@@ -107,7 +107,7 @@ public class JoularCoreDownloader {
 							+ "binary via <joularCoreBinaryPath>." : "";
 					throw new IOException("Failed to download Joular Core from " + url + " — HTTP "
 							+ response.statusCode() + ". Check that version " + version + " exists at "
-							+ "https://github.com/joular/joularcode-java/releases" + "." + hint);
+							+ "https://github.com/joular/joularcore/releases" + "." + hint);
 				}
 
 				try (InputStream in = response.body()) {
@@ -159,7 +159,7 @@ public class JoularCoreDownloader {
 		else {
 			throw new UnsupportedOperationException(
 					"Unsupported OS for auto-download: " + os + ". Please download Joular Core manually from "
-							+ "https://github.com/joular/joularcode-java/releases and set joularCoreBinaryPath.");
+							+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
 		}
 
 		String archSuffix;
@@ -172,7 +172,7 @@ public class JoularCoreDownloader {
 		else {
 			throw new UnsupportedOperationException("Unsupported CPU architecture for auto-download: " + arch
 					+ ". Please download Joular Core manually from "
-					+ "https://github.com/joular/joularcode-java/releases and set joularCoreBinaryPath.");
+					+ "https://github.com/joular/joularcore/releases and set joularCoreBinaryPath.");
 		}
 
 		return "joularcore-" + platform + "-" + archSuffix + ext;
@@ -203,7 +203,7 @@ public class JoularCoreDownloader {
 	 * warning is logged but the download is not rejected.
 	 */
 	private void verifyChecksum(Path file, String version, String assetName) throws IOException {
-		String apiUrl = String.format("https://api.github.com/repos/joular/joularcode-java/releases/tags/%s", version);
+		String apiUrl = String.format("https://api.github.com/repos/joular/joularcore/releases/tags/%s", version);
 		try {
 			HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(apiUrl))
