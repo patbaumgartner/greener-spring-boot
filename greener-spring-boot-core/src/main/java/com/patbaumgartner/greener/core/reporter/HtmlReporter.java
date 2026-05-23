@@ -100,15 +100,17 @@ public class HtmlReporter {
 		return generateReport(current, comparison, workloadStats, powerSource, (MethodLevelReports) null, outputDir);
 	}
 
-	/** Generates a report including optional JoularJX method-level data. */
+	/** Generates a report including optional Joular Code Java method-level data. */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
-			PowerSource powerSource, EnergyReport joularJxReport, Path outputDir) throws IOException {
-		MethodLevelReports methodReports = joularJxReport != null ? new MethodLevelReports(joularJxReport, null) : null;
+			PowerSource powerSource, EnergyReport methodLevelReport, Path outputDir) throws IOException {
+		MethodLevelReports methodReports = methodLevelReport != null ? new MethodLevelReports(methodLevelReport, null)
+				: null;
 		return generateReport(current, comparison, workloadStats, powerSource, methodReports, outputDir);
 	}
 
 	/**
-	 * Generates a report including optional JoularJX method-level data (app + all).
+	 * Generates a report including optional Joular Code Java method-level data (app +
+	 * all).
 	 */
 	public Path generateReport(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
 			PowerSource powerSource, MethodLevelReports methodLevelReports, Path outputDir) throws IOException {
@@ -117,8 +119,9 @@ public class HtmlReporter {
 	}
 
 	/**
-	 * Generates a report including optional JoularJX method-level data and a historical
-	 * trend (sparkline / line chart) of {@code totalEnergyJoules} over prior runs.
+	 * Generates a report including optional Joular Code Java method-level data and a
+	 * historical trend (sparkline / line chart) of {@code totalEnergyJoules} over prior
+	 * runs.
 	 * @param trendEntries chronological list of prior-run trend points (oldest-first);
 	 * pass an empty list to omit the trend card
 	 */
@@ -447,7 +450,7 @@ public class HtmlReporter {
 			sb.append("    <div class=\"note\">")
 				.append(String.format(
 						"Method-level total (%.2f J) is higher than the process-level energy (%.2f J) "
-								+ "because JoularJX distributes the full CPU power across all JVM threads. "
+								+ "because Joular Code Java distributes the full CPU power across all JVM threads. "
 								+ "Joular Core measures only this application's share. "
 								+ "Use the per-method share (%%) to identify expensive methods.",
 						methodTotal, processLevelEnergyJoules))

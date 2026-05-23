@@ -381,9 +381,9 @@ public class MeasurementOrchestrator {
 	}
 
 	/**
-	 * Generates console and HTML reports including optional JoularJX method-level data
-	 * (both app-only and all methods), saves the run entry, and produces an aggregated
-	 * report when multiple runs exist.
+	 * Generates console and HTML reports including optional Joular Code Java method-level
+	 * data (both app-only and all methods), saves the run entry, and produces an
+	 * aggregated report when multiple runs exist.
 	 * @param report the energy report
 	 * @param comparison the baseline comparison result
 	 * @param workloadStats workload statistics
@@ -391,8 +391,8 @@ public class MeasurementOrchestrator {
 	 * @param reportDir top-level report directory
 	 * @param runDir tool-specific run directory
 	 * @param vmMode whether VM mode was used
-	 * @param methodLevelReports optional JoularJX method-level reports ({@code null} if
-	 * not used)
+	 * @param methodLevelReports optional Joular Code Java method-level reports
+	 * ({@code null} if not used)
 	 * @return path to the generated HTML report
 	 */
 	public Path generateFinalReports(EnergyReport report, ComparisonResult comparison, WorkloadStats workloadStats,

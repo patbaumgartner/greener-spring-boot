@@ -34,7 +34,7 @@ public final class AppArgsBuilder {
 	 * Actuator shutdown endpoint for graceful JVM shutdown on Windows.
 	 * @param userArgs optional user-supplied arguments (may be {@code null})
 	 * @param enableShutdownEndpoint whether to enable the Actuator shutdown endpoint
-	 * (typically when JoularJX is attached for method-level monitoring)
+	 * (typically when Joular Code Java is attached for method-level monitoring)
 	 * @return a mutable list of effective arguments
 	 */
 	public static List<String> buildEffectiveAppArgs(List<String> userArgs, boolean enableShutdownEndpoint) {
