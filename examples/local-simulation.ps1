@@ -231,7 +231,7 @@ if (Test-Path $JoularCoreBinary) {
 
     # Try downloading a prebuilt binary from GitHub Releases first
     $AssetName = "joularcore-windows-x86_64.exe"
-    $DownloadUrl = "https://github.com/joular/joularcode-java/releases/download/$JoularCoreVersion/$AssetName"
+    $DownloadUrl = "https://github.com/joular/joularcore/releases/download/$JoularCoreVersion/$AssetName"
     Info "Downloading Joular Core from $DownloadUrl ..."
     $Downloaded = $false
     try {
@@ -286,7 +286,7 @@ if (Test-Path $JoularCoreBinary) {
         $JoularSrc = Join-Path $WorkDir "joularcore-src"
         if (Test-Path $JoularSrc) { Remove-Item -Recurse -Force $JoularSrc }
         Invoke-Cmd "Clone Joular Core" git @("clone", "--depth", "1", "--branch", $JoularCoreVersion,
-            "https://github.com/joular/joularcode-java.git", $JoularSrc)
+            "https://github.com/joular/joularcore.git", $JoularSrc)
 
         Push-Location $JoularSrc
         try {
