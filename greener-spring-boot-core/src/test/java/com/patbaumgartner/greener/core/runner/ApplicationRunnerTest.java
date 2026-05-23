@@ -50,8 +50,7 @@ class ApplicationRunnerTest {
 		try {
 			// Working directory should have been created
 			assertThat(workDir).exists();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
@@ -68,8 +67,7 @@ class ApplicationRunnerTest {
 		Process process = runner.start(fakeJar, null, null, workDir, jvmArgs, appArgs);
 		try {
 			assertThat(process).isNotNull();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
@@ -83,27 +81,25 @@ class ApplicationRunnerTest {
 		Process process = runner.start(fakeJar, null, null, workDir, Collections.emptyList(), Collections.emptyList());
 		try {
 			assertThat(process).isNotNull();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
 
 	@Test
-	void start_withJoularJxAgent(@TempDir Path tempDir) throws Exception {
+	void start_withJoularCodeJavaAgent(@TempDir Path tempDir) throws Exception {
 		Path fakeJar = tempDir.resolve("fake.jar");
 		Files.writeString(fakeJar, "not-a-jar");
-		Path fakeAgent = tempDir.resolve("joularjx.jar");
+		Path fakeAgent = tempDir.resolve("joularcodejava.jar");
 		Files.writeString(fakeAgent, "not-a-jar");
-		Path fakeConfig = tempDir.resolve("config.properties");
+		Path fakeConfig = tempDir.resolve("joularcodejava.properties");
 		Files.writeString(fakeConfig, "key=value");
 		Path workDir = tempDir.resolve("work");
 
 		Process process = runner.start(fakeJar, fakeAgent, fakeConfig, workDir, null, null);
 		try {
 			assertThat(process).isNotNull();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
@@ -118,8 +114,7 @@ class ApplicationRunnerTest {
 		Process process = runner.start(fakeJar, nonExistent, null, workDir, null, null);
 		try {
 			assertThat(process).isNotNull();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
@@ -134,8 +129,7 @@ class ApplicationRunnerTest {
 		try {
 			assertThat(workDir.resolve("app-stdout.log")).exists();
 			assertThat(workDir.resolve("app-stderr.log")).exists();
-		}
-		finally {
+		} finally {
 			process.destroyForcibly();
 		}
 	}
@@ -147,9 +141,9 @@ class ApplicationRunnerTest {
 		process.waitFor();
 
 		assertThatThrownBy(() -> runner.waitForStartup(process, "http://localhost:19999", "/actuator/health", 5))
-			.isInstanceOf(RuntimeException.class)
-			.hasMessageContaining("exited prematurely")
-			.hasMessageContaining("app-stdout.log");
+				.isInstanceOf(RuntimeException.class)
+				.hasMessageContaining("exited prematurely")
+				.hasMessageContaining("app-stdout.log");
 	}
 
 	@Test
@@ -158,18 +152,16 @@ class ApplicationRunnerTest {
 		Process process;
 		try {
 			process = new ProcessBuilder("/usr/bin/sleep", "30").start();
-		}
-		catch (Exception ex) {
+		} catch (Exception ex) {
 			// skip if sleep not available
 			return;
 		}
 
 		try {
 			assertThatThrownBy(() -> runner.waitForStartup(process, "http://localhost:19999", "/health", 3))
-				.isInstanceOf(RuntimeException.class)
-				.hasMessageContaining("did not become healthy within");
-		}
-		finally {
+					.isInstanceOf(RuntimeException.class)
+					.hasMessageContaining("did not become healthy within");
+		} finally {
 			process.destroyForcibly();
 		}
 	}
