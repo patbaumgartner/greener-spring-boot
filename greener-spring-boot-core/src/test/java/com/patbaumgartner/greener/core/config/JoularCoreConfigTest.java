@@ -14,10 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JoularCoreConfigTest {
 
 	@Test
-	void buildCommand_withPid_includesPidFlag() {
+	void buildCommand_withPid_includesPidFlag(@TempDir Path tmp) {
+		Path csvPath = tmp.resolve("joularcore.csv");
 		JoularCoreConfig config = new JoularCoreConfig().pid(12345L)
 			.component("cpu")
-			.outputCsvPath(Path.of("/tmp/joularcore.csv"))
+			.outputCsvPath(csvPath)
 			.silent(true);
 
 		List<String> cmd = config.buildCommand(Path.of("/usr/local/bin/joularcore"));
@@ -25,7 +26,7 @@ class JoularCoreConfigTest {
 		assertThat(cmd).contains("-p", "12345");
 		// -c is omitted when monitoring a PID (avoids losing per-process power)
 		assertThat(cmd).doesNotContain("-c");
-		assertThat(cmd).contains("-f", "/tmp/joularcore.csv");
+		assertThat(cmd).contains("-f", csvPath.toString());
 		assertThat(cmd).contains("-s");
 		assertThat(cmd.get(0)).endsWith("joularcore");
 	}

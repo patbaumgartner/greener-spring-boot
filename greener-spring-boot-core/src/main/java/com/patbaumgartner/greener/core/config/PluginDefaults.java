@@ -148,10 +148,27 @@ public final class PluginDefaults {
 	 */
 	public static void saveAndLogBaseline(BaselineManager manager, EnergyReport report, String commitSha, String branch,
 			Path baselineFile, Consumer<String> logger) throws IOException {
+		saveAndLogBaseline(manager, report, commitSha, branch, null, baselineFile, logger);
+	}
+
+	/**
+	 * Normalises VCS metadata, saves the baseline with workload statistics, and logs a
+	 * summary.
+	 * @param manager the baseline manager
+	 * @param report the energy report to save
+	 * @param commitSha raw commit SHA (may be {@code null} or unresolved)
+	 * @param branch raw branch name (may be {@code null} or unresolved)
+	 * @param workloadStats optional workload statistics to preserve (may be {@code null})
+	 * @param baselineFile target baseline file path
+	 * @param logger callback for log output
+	 */
+	public static void saveAndLogBaseline(BaselineManager manager, EnergyReport report, String commitSha, String branch,
+			com.patbaumgartner.greener.core.model.WorkloadStats workloadStats, Path baselineFile,
+			Consumer<String> logger) throws IOException {
 		String sha = normalise(commitSha);
 		String br = normalise(branch);
 
-		manager.saveBaseline(report, sha, br, baselineFile);
+		manager.saveBaseline(report, sha, br, workloadStats, baselineFile);
 
 		for (String line : formatBaselineUpdateSummary(baselineFile, sha, br, report.totalEnergyJoules())) {
 			logger.accept(line);

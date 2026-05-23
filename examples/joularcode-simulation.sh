@@ -264,13 +264,15 @@ fi
 # ── Joular Code Java agent ───────────────────────────────────────────────────
 banner "Preparing Joular Code Java ${JOULARCODEJAVA_VERSION}"
 
-JOULARCODEJAVA_JAR="${JOULARCODEJAVA_CACHE_DIR}/joularcodejava-${JOULARCODEJAVA_VERSION}.jar"
+# The release asset uses only the base semver (strips pre-release qualifier, e.g. -alpha-4)
+JOULARCODEJAVA_BASE_VERSION=$(echo "${JOULARCODEJAVA_VERSION}" | sed 's/-\(alpha\|beta\|rc\|m\|ea\).*//')
+JOULARCODEJAVA_JAR="${JOULARCODEJAVA_CACHE_DIR}/joularcodejava-${JOULARCODEJAVA_BASE_VERSION}.jar"
 
 if [ -f "${JOULARCODEJAVA_JAR}" ]; then
     ok "Joular Code Java agent found in cache: ${JOULARCODEJAVA_JAR}"
 else
     mkdir -p "${JOULARCODEJAVA_CACHE_DIR}"
-    JOULARCODEJAVA_URL="https://github.com/joular/joularcode-java/releases/download/${JOULARCODEJAVA_VERSION}/joularcodejava-${JOULARCODEJAVA_VERSION}.jar"
+    JOULARCODEJAVA_URL="https://github.com/joular/joularcode-java/releases/download/${JOULARCODEJAVA_VERSION}/joularcodejava-${JOULARCODEJAVA_BASE_VERSION}.jar"
     info "Downloading Joular Code Java from ${JOULARCODEJAVA_URL} ..."
     if curl -fsSL -o "${JOULARCODEJAVA_JAR}" "${JOULARCODEJAVA_URL}"; then
         ok "Joular Code Java agent downloaded and cached."

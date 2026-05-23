@@ -280,7 +280,9 @@ if (Test-Path $JoularCoreBinary) {
 # -- Joular Code Java agent ----------------------------------------------------
 Banner "Preparing Joular Code Java $JoularCodeJavaVersion"
 
-$JoularCodeJavaJar = Join-Path $JoularCodeJavaCacheDir "joularcodejava-$JoularCodeJavaVersion.jar"
+# The release asset uses only the base semver (strips pre-release qualifier, e.g. -alpha-4)
+$JoularCodeJavaBaseVersion = $JoularCodeJavaVersion -replace '-(?:alpha|beta|rc|m|ea).*$', ''
+$JoularCodeJavaJar = Join-Path $JoularCodeJavaCacheDir "joularcodejava-$JoularCodeJavaBaseVersion.jar"
 
 if (Test-Path $JoularCodeJavaJar) {
     Ok "Joular Code Java agent found in cache: $JoularCodeJavaJar"
@@ -289,7 +291,7 @@ if (Test-Path $JoularCodeJavaJar) {
         New-Item -ItemType Directory -Path $JoularCodeJavaCacheDir -Force | Out-Null
     }
 
-    $JoularCodeJavaUrl = "https://github.com/joular/joularcode-java/releases/download/$JoularCodeJavaVersion/joularcodejava-$JoularCodeJavaVersion.jar"
+    $JoularCodeJavaUrl = "https://github.com/joular/joularcode-java/releases/download/$JoularCodeJavaVersion/joularcodejava-$JoularCodeJavaBaseVersion.jar"
     Info "Downloading Joular Code Java from $JoularCodeJavaUrl ..."
     try {
         Invoke-WebRequest -Uri $JoularCodeJavaUrl -OutFile $JoularCodeJavaJar -UseBasicParsing
