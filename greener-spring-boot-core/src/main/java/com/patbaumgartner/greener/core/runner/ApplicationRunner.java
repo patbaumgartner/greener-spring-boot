@@ -179,7 +179,8 @@ public class ApplicationRunner {
 
 		if (isWindows()) {
 			try {
-				new ProcessBuilder("taskkill", "/PID", String.valueOf(pid)).redirectErrorStream(true)
+				String taskkill = System.getenv().getOrDefault("WINDIR", "C:\\Windows") + "\\System32\\taskkill.exe";
+				new ProcessBuilder(taskkill, "/PID", String.valueOf(pid)).redirectErrorStream(true)
 					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
 					.start()
 					.waitFor(10, TimeUnit.SECONDS);
