@@ -228,8 +228,7 @@ public class JoularCoreResultReader {
 			if (cols.length > Math.max(mapping.cpuPower, mapping.totalPower)) {
 				try {
 					double cpu = Double.parseDouble(cols[mapping.cpuPower].strip());
-					double total = (mapping.totalPower < cols.length)
-							? Double.parseDouble(cols[mapping.totalPower].strip()) : 0;
+					double total = Double.parseDouble(cols[mapping.totalPower].strip());
 					return new PowerSample(cpu, 0, total, 0);
 				}
 				catch (NumberFormatException e) {

@@ -395,6 +395,7 @@ class PluginDefaultsTest {
 		assertThat(baseline).isPresent();
 		assertThat(baseline.get().commitSha()).isNull();
 		assertThat(baseline.get().branch()).isNull();
+		assertThat(logged).isNotEmpty();
 	}
 
 }
