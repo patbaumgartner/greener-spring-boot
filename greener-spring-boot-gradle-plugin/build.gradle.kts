@@ -111,14 +111,14 @@ rewrite {
 }
 
 tasks.withType<com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask> {
-    rejectVersionIf {
-        val dominated = "(?i).*[-_.]?(alpha|beta|b|rc|cr|m|ea)[-_.]?[0-9]*$"
-        candidate.version.matches(Regex(dominated))
-    }
+	rejectVersionIf {
+		val dominated = "(?i).*[-_.]?(alpha|beta|b|rc|cr|m|ea)[-_.]?[0-9]*$"
+		candidate.version.matches(Regex(dominated))
+	}
 }
 
 tasks.named<ProcessResources>("processResources") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 publishing {
