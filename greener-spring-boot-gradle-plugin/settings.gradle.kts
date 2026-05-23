@@ -23,3 +23,8 @@ pluginManagement {
 }
 
 rootProject.name = "greener-spring-boot-gradle-plugin"
+
+// com.github.ben-manes.versions does not support parallel project execution
+if (gradle.startParameter.taskNames.any { it == "dependencyUpdates" || it.endsWith(":dependencyUpdates") }) {
+	gradle.startParameter.isParallelProjectExecutionEnabled = false
+}
