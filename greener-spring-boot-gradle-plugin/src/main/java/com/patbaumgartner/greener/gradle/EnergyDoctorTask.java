@@ -35,12 +35,12 @@ public abstract class EnergyDoctorTask extends DefaultTask {
 	public abstract RegularFileProperty getJoularCoreBinaryPath();
 
 	/**
-	 * Optional JoularJX agent path. Marked {@link Internal} for the same reason as
-	 * {@link #getJoularCoreBinaryPath()}.
+	 * Optional Joular Code Java agent path. Marked {@link Internal} for the same reason
+	 * as {@link #getJoularCoreBinaryPath()}.
 	 * @return the property
 	 */
 	@Internal
-	public abstract RegularFileProperty getJoularJxAgentPath();
+	public abstract RegularFileProperty getJoularCodeJavaAgentPath();
 
 	/**
 	 * Optional first token of the workload command (e.g. {@code oha}).
@@ -71,7 +71,8 @@ public abstract class EnergyDoctorTask extends DefaultTask {
 	public void runDoctor() {
 		Path binary = getJoularCoreBinaryPath().isPresent() ? getJoularCoreBinaryPath().get().getAsFile().toPath()
 				: null;
-		Path agent = getJoularJxAgentPath().isPresent() ? getJoularJxAgentPath().get().getAsFile().toPath() : null;
+		Path agent = getJoularCodeJavaAgentPath().isPresent() ? getJoularCodeJavaAgentPath().get().getAsFile().toPath()
+				: null;
 		String cmd = getWorkloadCommand().getOrNull();
 		Path projectPath = getProjectDir().isPresent() ? getProjectDir().get().toPath() : null;
 

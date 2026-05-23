@@ -11,9 +11,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages the lifecycle of the
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> native
- * binary that measures the power consumption of the monitored Spring Boot application.
+ * Manages the lifecycle of the <a href="https://github.com/joular/joularcore">Joular
+ * Core</a> native binary that measures the power consumption of the monitored Spring Boot
+ * application.
  *
  * <h2>How it works</h2>
  * <ol>

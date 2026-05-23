@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replace JoularJX with joularcode-java (`github.com/joular/joularcode-java`) for
+  method-level energy monitoring. joularcode-java is the successor of JoularJX and
+  requires JoularCore running with ring buffer support (`-r` flag, enabled
+  automatically when `joularCodeJavaAgentPath` is configured).
+- Rename plugin parameters `joularJxAgentPath`/`joularJxConfigPath` to
+  `joularCodeJavaAgentPath`/`joularCodeJavaConfigPath` in both Maven and Gradle plugins.
+- Add ring buffer support to `JoularCoreConfig` (`-r` flag enabled automatically
+  when the joularcode-java agent is configured).
+- Fix project URLs: replace `noureddine.org/research/joular/joularcore` with
+  `github.com/joular/joularcore`.
+
 ### Added
 
 #### Measurement quality

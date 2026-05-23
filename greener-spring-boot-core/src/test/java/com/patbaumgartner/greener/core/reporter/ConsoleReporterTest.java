@@ -213,18 +213,18 @@ class ConsoleReporterTest {
 	}
 
 	@Test
-	void report_joularJxMethodLevel_showsMethodData() {
-		EnergyReport report = EnergyReport.of("run-jx", Instant.now(), 60,
+	void report_joularCodeJavaMethodLevel_showsMethodData() {
+		EnergyReport report = EnergyReport.of("run-jcj", Instant.now(), 60,
 				List.of(new EnergyMeasurement("app [app]", 50.0)));
 		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 50.0, 0, List.of(), false,
 				10.0);
-		EnergyReport joularJxReport = EnergyReport.of("run-jx", Instant.now(), 60,
+		EnergyReport joularCodeJavaReport = EnergyReport.of("run-jcj", Instant.now(), 60,
 				List.of(new EnergyMeasurement("com.example.MyService.doWork", 5.0)));
 
-		reporter.report(report, comparison, null, PowerSource.RAPL, joularJxReport);
+		reporter.report(report, comparison, null, PowerSource.RAPL, joularCodeJavaReport);
 		String output = capture.toString();
 
-		assertThat(output).contains("Method-Level Energy (JoularJX)");
+		assertThat(output).contains("Method-Level Energy (Joular Code Java)");
 		assertThat(output).contains("com.example.MyService.doWork");
 	}
 

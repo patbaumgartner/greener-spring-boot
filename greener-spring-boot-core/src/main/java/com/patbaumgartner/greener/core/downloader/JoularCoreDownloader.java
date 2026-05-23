@@ -20,9 +20,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Downloads a specific version of
- * <a href="https://www.noureddine.org/research/joular/joularcore">Joular Core</a> from
- * GitHub Releases and caches it locally.
+ * Downloads a specific version of <a href="https://github.com/joular/joularcore">Joular
+ * Core</a> from GitHub Releases and caches it locally.
  *
  * <h2>Release URL pattern</h2>
  *
