@@ -272,7 +272,7 @@ mvn greener:update-baseline
 | `jvmArgs` | *(none)* | Extra JVM args passed when starting the Spring Boot app (e.g. `-Xmx512m`) |
 | `appArgs` | *(none)* | Extra application args passed to Spring Boot (health-probe flag is always appended) |
 | `joularCoreBinaryPath` | *(auto-download)* | Path to `joularcore` binary |
-| `joularCoreVersion` | `0.0.1-beta-2` | Version to download |
+| `joularCoreVersion` | `0.0.1-beta-4` | Version to download |
 | `joularCoreComponent` | `cpu` | `cpu`, `gpu`, or `all` |
 | `joularCodeJavaAgentPath` | *(none)* | Path to the Joular Code Java agent jar for per-method energy monitoring |
 | `joularCodeJavaConfigPath` | *(none)* | Path to the Joular Code Java `joularcodejava.properties` file (used only with `joularCodeJavaAgentPath`) |

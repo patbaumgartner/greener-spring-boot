@@ -1,6 +1,8 @@
 package com.patbaumgartner.greener.core.runner;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -22,6 +24,7 @@ class ApplicationRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void stop_alreadyExitedProcess_doesNotThrow() throws Exception {
 		Process process = new ProcessBuilder("/usr/bin/true").start();
 		process.waitFor();
@@ -31,6 +34,7 @@ class ApplicationRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void stop_runningProcess_stopsGracefully() throws Exception {
 		Process process = new ProcessBuilder("/usr/bin/sleep", "60").start();
 		assertThat(process.isAlive()).isTrue();
@@ -52,7 +56,7 @@ class ApplicationRunnerTest {
 			assertThat(workDir).exists();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
@@ -70,7 +74,7 @@ class ApplicationRunnerTest {
 			assertThat(process).isNotNull();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
@@ -85,7 +89,7 @@ class ApplicationRunnerTest {
 			assertThat(process).isNotNull();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
@@ -104,7 +108,7 @@ class ApplicationRunnerTest {
 			assertThat(process).isNotNull();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
@@ -120,7 +124,7 @@ class ApplicationRunnerTest {
 			assertThat(process).isNotNull();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
@@ -136,11 +140,12 @@ class ApplicationRunnerTest {
 			assertThat(workDir.resolve("app-stderr.log")).exists();
 		}
 		finally {
-			process.destroyForcibly();
+			process.destroyForcibly().waitFor();
 		}
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void waitForStartup_processExitedPrematurely_throwsImmediately() throws Exception {
 		// Start a process that exits immediately
 		Process process = new ProcessBuilder("/usr/bin/false").start();

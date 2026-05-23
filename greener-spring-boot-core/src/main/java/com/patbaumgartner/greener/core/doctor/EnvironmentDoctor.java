@@ -95,6 +95,11 @@ public final class EnvironmentDoctor {
 	}
 
 	private static Check checkRapl() {
+		String os = System.getProperty(OS_NAME_PROP, "").toLowerCase(Locale.ROOT);
+		if (!os.contains("linux")) {
+			return new Check(CHECK_RAPL, Level.WARN, "not applicable on " + os,
+					"On macOS/Windows Joular Core uses platform-specific power sources");
+		}
 		Path rapl = Paths.get("/sys/class/powercap/intel-rapl:0/energy_uj");
 		if (Files.isReadable(rapl)) {
 			return new Check(CHECK_RAPL, Level.PASS, rapl.toString(), null);
@@ -103,13 +108,8 @@ public final class EnvironmentDoctor {
 			return new Check(CHECK_RAPL, Level.FAIL, rapl + " exists but is not readable",
 					"Run with --vm mode or grant read access: sudo chmod -R a+r /sys/class/powercap/intel-rapl");
 		}
-		String os = System.getProperty(OS_NAME_PROP, "").toLowerCase(Locale.ROOT);
-		if (os.contains("linux")) {
-			return new Check(CHECK_RAPL, Level.FAIL, "not found",
-					"Enable Intel/AMD RAPL or set vmMode=true and provide vmPowerFilePath");
-		}
-		return new Check(CHECK_RAPL, Level.WARN, "not applicable on " + os,
-				"On macOS/Windows Joular Core uses platform-specific power sources");
+		return new Check(CHECK_RAPL, Level.FAIL, "not found",
+				"Enable Intel/AMD RAPL or set vmMode=true and provide vmPowerFilePath");
 	}
 
 	private static Check checkMsrModule() {
@@ -167,11 +167,15 @@ public final class EnvironmentDoctor {
 		if (pathEnv == null) {
 			return new Check("Workload tool '" + command + "'", Level.WARN, "PATH not set", null);
 		}
+		boolean isWindows = System.getProperty(OS_NAME_PROP, "").toLowerCase(Locale.ROOT).contains("windows");
+		List<String> extensions = isWindows ? List.of("", ".exe", ".cmd", ".bat") : List.of("");
 		String[] dirs = pathEnv.split(java.io.File.pathSeparator);
 		for (String d : dirs) {
-			Path candidate = Paths.get(d, command);
-			if (Files.isExecutable(candidate)) {
-				return new Check("Workload tool '" + command + "'", Level.PASS, candidate.toString(), null);
+			for (String ext : extensions) {
+				Path candidate = Paths.get(d, command + ext);
+				if (Files.isExecutable(candidate)) {
+					return new Check("Workload tool '" + command + "'", Level.PASS, candidate.toString(), null);
+				}
 			}
 		}
 		return new Check("Workload tool '" + command + "'", Level.FAIL, "not found on PATH",

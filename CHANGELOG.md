@@ -225,8 +225,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Defaults
 
-- Default Joular Core version updated from `0.0.1-alpha-11` to `0.0.1-beta-2`.
-  Binaries are not yet published for `0.0.1-beta-2` upstream; users without a
+- Default Joular Core version updated from `0.0.1-alpha-11` to `0.0.1-beta-4`.
+  Binaries are not yet published for `0.0.1-beta-4` upstream; users without a
   cached binary should pin `joularCoreVersion` back to `0.0.1-beta-1` or build
   Joular Core from source - the simulation scripts already do this via cargo.
 
@@ -323,7 +323,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Broken `{@link EnergyReport}` Javadoc reference in `MeasureEnergyMojo`
   replaced with the fully-qualified link, removing the Maven build warning.
 - `JoularCoreDownloader` HTTP 404 errors now include an actionable hint
-  pointing users at pinning the previous version (`0.0.1-beta-1`) or
+  pointing users at pinning the previous version (`0.0.1-beta-4`) or
   building Joular Core from source via `cargo build --release` and
   configuring `joularCoreBinaryPath`, instead of just reporting the bare
   HTTP status.

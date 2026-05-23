@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -144,8 +145,9 @@ public class ApplicationRunner {
 					return;
 				}
 			}
-			catch (ConnectException ignored) {
-				// Expected during startup — keep polling
+			catch (ConnectException | HttpTimeoutException ignored) {
+				// Expected during startup (connection refused or timed out, e.g. IPv6
+				// probe on Windows) — keep polling
 			}
 			Thread.sleep(2_000);
 		}

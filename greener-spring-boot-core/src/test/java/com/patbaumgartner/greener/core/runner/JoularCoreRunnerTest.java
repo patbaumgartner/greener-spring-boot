@@ -4,6 +4,8 @@ import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -64,6 +66,7 @@ class JoularCoreRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void start_withRealExecutable_processIsRunning(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir, "#!/bin/sh\nsleep 60\n");
 		Path outputCsv = tempDir.resolve("output.csv");
@@ -79,6 +82,7 @@ class JoularCoreRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void stop_afterStart_processStops(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir, "#!/bin/sh\nsleep 60\n");
 		Path outputCsv = tempDir.resolve("output.csv");
@@ -96,6 +100,7 @@ class JoularCoreRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void start_createsOutputDirectory(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir, "#!/bin/sh\nsleep 60\n");
 		Path nested = tempDir.resolve("sub").resolve("dir").resolve("output.csv");
@@ -108,6 +113,7 @@ class JoularCoreRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void start_withVmMode_setsEnvironmentVariables(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir,
 				"#!/bin/sh\nenv > " + tempDir.resolve("env.txt") + "\nsleep 60\n");
@@ -136,6 +142,7 @@ class JoularCoreRunnerTest {
 	}
 
 	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void start_withSilentFalse_doesNotDiscard(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir, "#!/bin/sh\nsleep 60\n");
 		Path outputCsv = tempDir.resolve("output.csv");
