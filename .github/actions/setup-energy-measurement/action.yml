@@ -69,7 +69,7 @@ runs:
       shell: bash
       run: |
         git clone --depth 1 --branch ${{ inputs.joular-core-version }} \
-          https://github.com/joular/joularcore.git /tmp/joularcore-src
+          https://github.com/joular/joularcode-java.git /tmp/joularcore-src
         cd /tmp/joularcore-src
         cargo build --release
         mkdir -p ~/.greener/cache/joularcore
