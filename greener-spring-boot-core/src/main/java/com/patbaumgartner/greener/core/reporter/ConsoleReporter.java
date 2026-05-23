@@ -56,10 +56,10 @@ public class ConsoleReporter {
 	}
 
 	/**
-	 * Reports energy measurements including optional JoularJX method-level data.
+	 * Reports energy measurements including optional Joular Code Java method-level data.
 	 */
 	public void report(EnergyReport current, ComparisonResult comparison, WorkloadStats workloadStats,
-			PowerSource powerSource, EnergyReport joularJxReport) {
+			PowerSource powerSource, EnergyReport methodLevelReport) {
 		out.println();
 		out.println(LINE);
 		out.println(" greener-spring-boot - Energy Consumption Report");
@@ -102,23 +102,23 @@ public class ConsoleReporter {
 			printComparison(comparison);
 		}
 
-		if (joularJxReport != null && !joularJxReport.measurements().isEmpty()) {
-			printMethodLevelData(joularJxReport);
+		if (methodLevelReport != null && !methodLevelReport.measurements().isEmpty()) {
+			printMethodLevelData(methodLevelReport);
 		}
 
 		out.println(LINE);
 		out.println();
 	}
 
-	private void printMethodLevelData(EnergyReport joularJxReport) {
+	private void printMethodLevelData(EnergyReport methodLevelReport) {
 		out.println(" Method-Level Energy (Joular Code Java):");
-		out.printf("   Methods      : %d%n", joularJxReport.measurements().size());
-		out.printf("   Total Energy : %.2f J%n", joularJxReport.totalEnergyJoules());
+		out.printf("   Methods      : %d%n", methodLevelReport.measurements().size());
+		out.printf("   Total Energy : %.2f J%n", methodLevelReport.totalEnergyJoules());
 		out.println();
 		out.printf("   Top %d methods by energy consumption:%n", topN);
 		out.printf("   %-55s  %10s%n", "Method", "Joules");
 		out.println("   " + "-".repeat(68));
-		joularJxReport.topMeasurements(topN)
+		methodLevelReport.topMeasurements(topN)
 			.forEach(m -> out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
 		out.println(THIN_LINE);
 	}

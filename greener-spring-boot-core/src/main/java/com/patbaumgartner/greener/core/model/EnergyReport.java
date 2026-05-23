@@ -10,8 +10,8 @@ import java.util.List;
  *
  * <p>
  * In <em>process mode</em> (Joular Core only), {@code measurements} contains one entry
- * per monitored process / app name. In <em>method mode</em> (JoularJX + Joular Core),
- * {@code measurements} contains per-method entries.
+ * per monitored process / app name. In <em>method mode</em> (Joular Code Java + Joular
+ * Core), {@code measurements} contains per-method entries.
  *
  * <p>
  * When the plugin runs more than one measurement iteration, {@link #totalEnergyStats}

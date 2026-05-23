@@ -25,9 +25,9 @@ import java.util.logging.Logger;
  * can monitor it directly.
  *
  * <p>
- * Optionally, the JoularJX Java agent can be attached for method-level granularity
- * (JoularJX itself will use Joular Core as its power reading backend when configured to
- * do so).
+ * Optionally, the Joular Code Java agent can be attached for method-level granularity
+ * (Joular Code Java itself will use Joular Core as its power reading backend when
+ * configured to do so).
  */
 public class ApplicationRunner {
 
@@ -57,16 +57,17 @@ public class ApplicationRunner {
 	/**
 	 * Starts the Spring Boot application.
 	 * @param springBootJar path to the executable Spring Boot fat-jar
-	 * @param joularJxJar optional path to the JoularJX Java agent jar ({@code null} to
-	 * skip method-level monitoring)
-	 * @param joularJxConfig optional path to the generated {@code config.properties} for
-	 * JoularJX (used only when {@code joularJxJar} is set)
+	 * @param joularCodeJavaJar optional path to the Joular Code Java agent jar
+	 * ({@code null} to skip method-level monitoring)
+	 * @param joularCodeJavaConfig optional path to the generated
+	 * {@code joularcodejava.properties} for Joular Code Java (used only when
+	 * {@code joularCodeJavaJar} is set)
 	 * @param workingDir working directory for the process
 	 * @param extraJvmArgs additional JVM arguments (e.g. {@code -Xmx512m})
 	 * @param appArgs application arguments forwarded to Spring Boot
 	 * @return the started {@link Process}
 	 */
-	public Process start(Path springBootJar, Path joularJxJar, Path joularJxConfig, Path workingDir,
+	public Process start(Path springBootJar, Path joularCodeJavaJar, Path joularCodeJavaConfig, Path workingDir,
 			List<String> extraJvmArgs, List<String> appArgs) throws IOException {
 
 		Files.createDirectories(workingDir);
@@ -77,13 +78,13 @@ public class ApplicationRunner {
 		List<String> command = new ArrayList<>();
 		command.add(javaExecutable);
 
-		if (joularJxJar != null && Files.exists(joularJxJar)) {
-			command.add("-javaagent:" + joularJxJar.toAbsolutePath());
-			LOG.info(() -> "JoularJX agent attached: " + joularJxJar);
+		if (joularCodeJavaJar != null && Files.exists(joularCodeJavaJar)) {
+			command.add("-javaagent:" + joularCodeJavaJar.toAbsolutePath());
+			LOG.info(() -> "Joular Code Java agent attached: " + joularCodeJavaJar);
 		}
 
-		if (joularJxConfig != null && Files.exists(joularJxConfig)) {
-			command.add("-Djoularjx.config=" + joularJxConfig.toAbsolutePath());
+		if (joularCodeJavaConfig != null && Files.exists(joularCodeJavaConfig)) {
+			command.add("-Djoularcodejava.properties=" + joularCodeJavaConfig.toAbsolutePath());
 		}
 
 		if (extraJvmArgs != null) {
@@ -161,7 +162,7 @@ public class ApplicationRunner {
 	 * On Linux/macOS, {@link Process#destroy()} sends {@code SIGTERM} which triggers JVM
 	 * shutdown hooks. On Windows, {@code Process.destroy()} calls
 	 * {@code TerminateProcess} which kills immediately without running shutdown hooks. To
-	 * allow agents like JoularJX to flush their results, this method uses
+	 * allow agents like Joular Code Java to flush their results, this method uses
 	 * {@code taskkill /PID} (without {@code /F}) on Windows first.
 	 *
 	 * <p>
@@ -210,8 +211,8 @@ public class ApplicationRunner {
 	 * <p>
 	 * This is particularly useful on Windows where {@link Process#destroy()} and
 	 * {@code taskkill} cannot trigger JVM shutdown hooks for console processes. When Java
-	 * agents like JoularJX are attached, a graceful shutdown ensures their shutdown hooks
-	 * run and result files are written.
+	 * agents like Joular Code Java are attached, a graceful shutdown ensures their
+	 * shutdown hooks run and result files are written.
 	 *
 	 * <p>
 	 * Call this method <em>before</em> {@link #stop(Process)} to give the application
