@@ -168,8 +168,8 @@ cross-platform Rust binary that reads hardware power counters:
 ```
 greener-spring-boot/
 ├── greener-spring-boot-core/           Shared library (model, readers, comparator, reporters, runners)
-├── greener-spring-boot-maven-plugin/   Maven plugin  (greener:measure, greener:update-baseline)
-├── greener-spring-boot-gradle-plugin/  Gradle plugin (measureEnergy, updateEnergyBaseline)
+├── greener-spring-boot-maven-plugin/   Maven plugin  (greener:doctor, greener:measure, greener:update-baseline)
+├── greener-spring-boot-gradle-plugin/  Gradle plugin (energyDoctor, measureEnergy, updateEnergyBaseline)
 ├── examples/                           Workload scripts, VM setup guides, local simulation
 └── .github/workflows/
     ├── ci.yml                          Build & test all modules

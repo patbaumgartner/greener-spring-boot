@@ -9,8 +9,11 @@ import org.gradle.api.provider.ProviderFactory;
  * Gradle plugin entry point for <strong>greener-spring-boot</strong>.
  *
  * <p>
- * Registers the {@link GreenerExtension} DSL block and the two tasks:
+ * Registers the {@link GreenerExtension} DSL block and the three tasks:
  * <ul>
+ * <li>{@code energyDoctor} — runs preflight environment checks (OS support, power source
+ * prerequisites, tool availability, and jar auto-detection) before a measurement
+ * run.</li>
  * <li>{@code measureEnergy} — runs the Spring Boot application under
  * <a href="https://github.com/joular/joularcore">Joular Core</a> and compares the
  * measured energy against a baseline.</li>

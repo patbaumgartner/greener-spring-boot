@@ -12,8 +12,8 @@ power samples, compare against a stored baseline, and generate console + HTML re
 | Module                              | Purpose                                                                             |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | `greener-spring-boot-core`          | Shared library: models, config, readers, comparator, reporters, runners, downloader |
-| `greener-spring-boot-maven-plugin`  | Maven plugin (`greener:measure`, `greener:update-baseline`)                         |
-| `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`)                             |
+| `greener-spring-boot-maven-plugin`  | Maven plugin (`greener:doctor`, `greener:measure`, `greener:update-baseline`)       |
+| `greener-spring-boot-gradle-plugin` | Gradle plugin (`energyDoctor`, `measureEnergy`, `updateEnergyBaseline`)              |
 | `examples/`                         | Workload scripts (wrk, oha, k6, Gatling, …), local simulation, VM setup guides      |
 
 ### Core Package Layout
@@ -34,6 +34,7 @@ com.patbaumgartner.greener.core
 ├── orchestrator/    MeasurementOrchestrator - coordinates warmup, measurement,
 │                    result processing, baseline comparison, and report generation
 ├── reporter/        ConsoleReporter, HtmlReporter
+├── doctor/          EnvironmentDoctor - preflight checks and diagnostics
 └── runner/          ApplicationRunner, JoularCoreRunner, TrainingRunner,
                      ExternalToolOutputParser
 ```
@@ -68,6 +69,8 @@ com.patbaumgartner.greener.core
   oha, wrk, wrk2, bombardier, ab, k6, Gatling, and Locust.
 - **`TrainingRunner`** - supports external scripts and inline commands;
   captures stdout for `ExternalToolOutputParser`.
+- **`EnvironmentDoctor`** - runs preflight checks for OS support, power-source
+  prerequisites, binary/tool availability, and auto-detectable jars.
 - **`HtmlReporter`** - generates self-contained HTML reports; supports
   single-tool and multi-tool aggregated reports via `generateAggregatedReport()`.
   Method-level card merges app methods from the filtered report into the all-methods

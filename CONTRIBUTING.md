@@ -131,7 +131,7 @@ cd greener-spring-boot-gradle-plugin
 ### All tests
 
 ```bash
-mvn verify && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
+mvn install && (cd greener-spring-boot-gradle-plugin && ./gradlew check)
 ```
 
 ---
