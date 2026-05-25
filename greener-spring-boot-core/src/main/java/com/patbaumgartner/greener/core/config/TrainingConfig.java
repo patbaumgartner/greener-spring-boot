@@ -73,8 +73,9 @@ public class TrainingConfig {
 	// ---- Builder-style setters ----
 
 	/**
-	 * Sets the base URL of the application. @param baseUrl e.g.
-	 * {@code http://localhost:8080} @return this
+	 * Sets the base URL of the application.
+	 * @param baseUrl e.g. {@code http://localhost:8080}
+	 * @return this
 	 */
 	public TrainingConfig baseUrl(String baseUrl) {
 		this.baseUrl = baseUrl;
@@ -82,8 +83,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets the target requests per second. @param requestsPerSecond target RPS @return
-	 * this
+	 * Sets the target requests per second.
+	 * @param requestsPerSecond target RPS
+	 * @return this
 	 */
 	public TrainingConfig requestsPerSecond(int requestsPerSecond) {
 		this.requestsPerSecond = requestsPerSecond;
@@ -91,8 +93,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets the warmup duration; use {@code 0} to skip warmup. @param
-	 * warmupDurationSeconds seconds @return this
+	 * Sets the warmup duration; use {@code 0} to skip warmup.
+	 * @param warmupDurationSeconds seconds
+	 * @return this
 	 */
 	public TrainingConfig warmupDurationSeconds(int warmupDurationSeconds) {
 		this.warmupDurationSeconds = warmupDurationSeconds;
@@ -100,8 +103,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets the measurement duration after warmup. @param measureDurationSeconds
-	 * seconds @return this
+	 * Sets the measurement duration after warmup.
+	 * @param measureDurationSeconds seconds
+	 * @return this
 	 */
 	public TrainingConfig measureDurationSeconds(int measureDurationSeconds) {
 		this.measureDurationSeconds = measureDurationSeconds;
@@ -109,8 +113,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets an inline external command for the workload. @param externalCommand shell
-	 * command @return this
+	 * Sets an inline external command for the workload.
+	 * @param externalCommand shell command
+	 * @return this
 	 */
 	public TrainingConfig externalCommand(String externalCommand) {
 		this.externalCommand = externalCommand;
@@ -118,8 +123,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets the path to an external shell script for the workload. @param
-	 * externalScriptFile absolute path @return this
+	 * Sets the path to an external shell script for the workload.
+	 * @param externalScriptFile absolute path
+	 * @return this
 	 */
 	public TrainingConfig externalScriptFile(String externalScriptFile) {
 		this.externalScriptFile = externalScriptFile;
@@ -127,8 +133,9 @@ public class TrainingConfig {
 	}
 
 	/**
-	 * Sets the maximum timeout for external script/command execution. @param
-	 * timeoutSeconds seconds; {@code 0} means no timeout @return this
+	 * Sets the maximum timeout for external script/command execution.
+	 * @param timeoutSeconds seconds; {@code 0} means no timeout
+	 * @return this
 	 */
 	public TrainingConfig timeoutSeconds(int timeoutSeconds) {
 		this.timeoutSeconds = timeoutSeconds;
