@@ -6,8 +6,11 @@ import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
 import com.patbaumgartner.greener.core.model.ComparisonResult;
+import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.IteratedMeasurement;
 import com.patbaumgartner.greener.core.model.MeasurementConfig;
 import com.patbaumgartner.greener.core.model.MeasurementResult;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
@@ -41,8 +44,7 @@ import java.util.function.Supplier;
  * <li>Run the configurable training workload (warmup + measurement).</li>
  * <li>Stop Joular Core.</li>
  * <li>Stop the Spring Boot application.</li>
- * <li>Read Joular Core CSV output and build an
- * {@link com.patbaumgartner.greener.core.model.EnergyReport EnergyReport}.</li>
+ * <li>Read Joular Core CSV output and build an {@link EnergyReport}.</li>
  * <li>Compare against baseline; generate console + HTML reports.</li>
  * <li>Optionally fail the build if energy regressed beyond {@code threshold}.</li>
  * </ol>
@@ -279,7 +281,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	 * unavailable or comparing two runs with identical workloads.
 	 */
 	@Parameter(property = "greener.regressionMetric", defaultValue = "ENERGY_PER_REQUEST")
-	private com.patbaumgartner.greener.core.model.RegressionMetric regressionMetric;
+	private RegressionMetric regressionMetric;
 
 	/**
 	 * Optional idle-baseline window (seconds) measured before the workload. The mean idle
@@ -398,7 +400,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 		WorkloadStats workloadStats = null; // NOPMD - required for definite assignment;
 											// used after the try-finally
-		com.patbaumgartner.greener.core.model.IteratedMeasurement iteratedMeasurement = null;
+		IteratedMeasurement iteratedMeasurement = null;
 		double idleBaselineW = 0.0;
 		Process appProcess = null; // NOPMD - null init required; assigned inside
 									// try-with-resources
@@ -479,15 +481,14 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		MeasurementResult result;
 		final double zero = 0.0;
 		if (iteratedMeasurement != null) {
-			com.patbaumgartner.greener.core.model.EnergyReport report = iteratedMeasurement.representativeReport();
+			EnergyReport report = iteratedMeasurement.representativeReport();
 			if (idleBaselineW > zero) {
 				report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
 			}
 			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
 		}
 		else if (idleBaselineW > zero) {
-			com.patbaumgartner.greener.core.model.EnergyReport report = orchestrator.processResults(outputCsv,
-					measureDurationSeconds, appIdentifier);
+			EnergyReport report = orchestrator.processResults(outputCsv, measureDurationSeconds, appIdentifier);
 			report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
 			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
 		}

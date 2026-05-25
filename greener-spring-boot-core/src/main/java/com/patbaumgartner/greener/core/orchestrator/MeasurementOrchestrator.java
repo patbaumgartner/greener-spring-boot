@@ -15,6 +15,7 @@ import com.patbaumgartner.greener.core.model.MeasurementConfig;
 import com.patbaumgartner.greener.core.model.MeasurementResult;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.Statistics;
 import com.patbaumgartner.greener.core.model.TrendEntry;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
@@ -32,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -266,7 +268,7 @@ public class MeasurementOrchestrator {
 			idlePowerW = idle.durationSeconds() > 0 ? idle.totalEnergyJoules() / idle.durationSeconds() : 0.0;
 			if (idleSavePath != null) {
 				Files.createDirectories(idleSavePath.getParent());
-				Files.copy(outputCsv, idleSavePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				Files.copy(outputCsv, idleSavePath, StandardCopyOption.REPLACE_EXISTING);
 			}
 		}
 		logger.accept(String.format("[greener] Idle baseline: %.3f W average over %d s", idlePowerW, idleSeconds));
@@ -345,9 +347,8 @@ public class MeasurementOrchestrator {
 	 * baseline.
 	 */
 	public ComparisonResult processBaselineComparison(EnergyReport report, Path baselinePath, Path runDir,
-			double threshold, boolean autoUpdate, String commitSha, String branch,
-			com.patbaumgartner.greener.core.model.RegressionMetric metric,
-			com.patbaumgartner.greener.core.model.WorkloadStats currentWorkload) throws IOException {
+			double threshold, boolean autoUpdate, String commitSha, String branch, RegressionMetric metric,
+			WorkloadStats currentWorkload) throws IOException {
 		BaselineManager manager = new BaselineManager();
 		Optional<EnergyBaseline> baseline = loadBaselineSafely(manager, baselinePath);
 		ComparisonResult comparison = new EnergyComparator().compare(report, baseline, threshold, metric,
@@ -407,7 +408,7 @@ public class MeasurementOrchestrator {
 			String toolName, Path reportDir, Path runDir, boolean vmMode, MethodLevelReports methodLevelReports)
 			throws IOException {
 		return generateFinalReports(report, comparison, workloadStats, toolName, reportDir, runDir, vmMode,
-				methodLevelReports, java.util.Collections.emptyList());
+				methodLevelReports, Collections.emptyList());
 	}
 
 	/**
@@ -430,7 +431,7 @@ public class MeasurementOrchestrator {
 
 		HtmlReporter htmlReporter = new HtmlReporter(topN);
 		Path htmlReport = htmlReporter.generateReport(report, comparison, workloadStats, powerSource,
-				methodLevelReports, trendHistory == null ? java.util.Collections.emptyList() : trendHistory, runDir);
+				methodLevelReports, trendHistory == null ? Collections.emptyList() : trendHistory, runDir);
 		logger.accept("[greener] HTML report: " + htmlReport);
 
 		RunEntryStore runEntryStore = new RunEntryStore();
@@ -490,7 +491,7 @@ public class MeasurementOrchestrator {
 			WorkloadStats workloadStats) {
 		Path baselinePath = config.baselinePath();
 		if (baselinePath == null) {
-			return java.util.Collections.emptyList();
+			return Collections.emptyList();
 		}
 		Path trendFile = TrendHistoryStore.trendFileFor(baselinePath);
 		TrendHistoryStore store = new TrendHistoryStore();
@@ -510,7 +511,7 @@ public class MeasurementOrchestrator {
 		}
 		catch (IOException e) {
 			logger.accept("[greener] Could not update trend history: " + e.getMessage());
-			return java.util.Collections.emptyList();
+			return Collections.emptyList();
 		}
 	}
 

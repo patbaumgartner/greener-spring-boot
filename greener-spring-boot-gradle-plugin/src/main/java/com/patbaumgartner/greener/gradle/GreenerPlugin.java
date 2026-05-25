@@ -1,6 +1,7 @@
 package com.patbaumgartner.greener.gradle;
 
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.provider.ProviderFactory;
@@ -72,8 +73,7 @@ public class GreenerPlugin implements Plugin<Project> {
 		extension.getSkip().convention(false);
 		extension.getTopN().convention(20);
 		extension.getIterations().convention(5);
-		extension.getRegressionMetric()
-			.convention(com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST);
+		extension.getRegressionMetric().convention(RegressionMetric.ENERGY_PER_REQUEST);
 		extension.getIdleProbeSeconds().convention(0);
 
 		// Apply useful project-level conventions down to the extension so tasks don't

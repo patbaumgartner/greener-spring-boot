@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.gradle;
 
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -276,7 +277,7 @@ public abstract class GreenerExtension {
 	 * Regression metric: ENERGY_PER_REQUEST (default) or TOTAL_ENERGY.
 	 * @return the regression metric property
 	 */
-	public abstract Property<com.patbaumgartner.greener.core.model.RegressionMetric> getRegressionMetric();
+	public abstract Property<RegressionMetric> getRegressionMetric();
 
 	/**
 	 * Seconds to measure idle baseline power before workload (0 = disabled).
