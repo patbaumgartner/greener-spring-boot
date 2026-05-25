@@ -34,6 +34,10 @@ public class ExternalToolOutputParser {
 
 	private static final int BOMBARDIER_CLIENT_ERROR_CLASS = 4;
 
+	// Matches ANSI/VT100 escape sequences (e.g. colour codes emitted by Gatling on
+	// Windows/Git Bash). Stripped before regex parsing to avoid false non-matches.
+	private static final Pattern ANSI_ESCAPE = Pattern.compile("\\x1b\\[[\\d;]*[a-zA-Z]");
+
 	// oha: "[200] 49820 responses"
 	private static final Pattern OHA_STATUS = Pattern.compile("^\\s*\\[(\\d{3})]\\s+(\\d+)\\s+responses",
 			Pattern.MULTILINE);
@@ -89,15 +93,20 @@ public class ExternalToolOutputParser {
 			return;
 		}
 
+		// Remove ANSI colour/control codes before regex matching so that tools like
+		// Gatling (which emit coloured output on Windows/Git Bash) are parsed
+		// correctly.
+		String cleaned = ANSI_ESCAPE.matcher(output).replaceAll("");
+
 		switch (toolName.toLowerCase(Locale.ENGLISH)) {
-			case "oha" -> parseOha(output);
-			case "wrk", "wrk2" -> parseWrk(output);
-			case "bombardier" -> parseBombardier(output);
-			case "ab" -> parseAb(output);
-			case "k6" -> parseK6(output);
-			case "gatling" -> parseGatling(output);
-			case "locust" -> parseLocust(output);
-			default -> tryAllParsers(output);
+			case "oha" -> parseOha(cleaned);
+			case "wrk", "wrk2" -> parseWrk(cleaned);
+			case "bombardier" -> parseBombardier(cleaned);
+			case "ab" -> parseAb(cleaned);
+			case "k6" -> parseK6(cleaned);
+			case "gatling" -> parseGatling(cleaned);
+			case "locust" -> parseLocust(cleaned);
+			default -> tryAllParsers(cleaned);
 		}
 	}
 
