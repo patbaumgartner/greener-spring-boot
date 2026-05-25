@@ -45,12 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before warmup, then subtracts `idlePowerW * duration` from each workload
   measurement (clamped at zero) - surfacing the energy attributable to your
   code rather than the host.
-- **JoularJX over-attribution renormalisation.** New `JoularJxRenormalizer`
-  rescales method-level energies so they sum to the authoritative Joular Core
-  process total (`factor = processEnergyJ / sigma methodEnergyJ`). Method shares
-  are preserved; absolute numbers become comparable across reports.
-  Renormalisation only triggers on over-attribution and is logged as a one-line
-  diagnostic.
 
 #### Reporting
 
@@ -64,9 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   history. Total energy is drawn in cyan, energy-per-request in dashed
   magenta on a secondary axis, with hoverable tooltips. Persistence failures
   never fail the build.
-- **JoularJX method-level energy monitoring** as an optional add-on to
-  process-level Joular Core measurements via new `joularJxAgentPath` and
-  `joularJxConfigPath` parameters (Maven + Gradle).
+- **Joular Code Java method-level energy monitoring** as an optional add-on to
+  process-level Joular Core measurements via new `joularCodeJavaAgentPath` and
+  `joularCodeJavaConfigPath` parameters (Maven + Gradle).
 - `topN` parameter (Maven + Gradle) to limit the number of top energy-consuming
   methods shown in the HTML report (default: 20).
 
@@ -74,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`greener:doctor` / `energyDoctor` preflight command.** New goal/task runs
   environment checks (OS+arch, RAPL `/sys/class/powercap` access, msr kernel
-  module, Joular Core binary, JoularJX agent path, workload tool on `PATH`,
+  module, Joular Core binary, Joular Code Java agent path, workload tool on `PATH`,
   Spring Boot fat-jar auto-detection) and prints a PASS / WARN / FAIL report
   with actionable hints. Fails the build by default; set
   `-Dgreener.doctor.failOnError=false` (Maven) or `--continue` for advisory
@@ -120,12 +114,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AppArgsBuilder` to assemble Spring Boot application arguments with automatic
   health-probe injection, Actuator shutdown endpoint, and port extraction.
 - `JoularCoreProbe` to auto-detect which power component (CPU/GPU) delivers
-  non-zero readings and augment JoularJX config accordingly.
+  non-zero readings and augment Joular Code Java config accordingly.
 - `MeasurementConfig` record to centralise shared orchestrator configuration.
 - `MeasurementResult` record aggregating energy report, baseline comparison,
   workload stats, optional method-level reports, and HTML report path.
 - `MethodLevelReports` record combining filtered (app-only) and unfiltered
-  (all methods) JoularJX energy reports.
+  (all methods) Joular Code Java energy reports.
 - `BaselineManager.discoverLatestReport(Path)` to scan report subdirectories
   for the most recently modified `latest-energy-report.json`.
 - `PluginDefaults` helpers: `resolveToolName(File, String)`,
@@ -148,7 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Zero-dependency Quickstart**: README now shows a `curl`-only fallback
   workload command so the very first install needs no external tool.
 - **Windows notes** section in README covering three gotchas: (1) `mvn.cmd` /
-  `cmd.exe` does not support UNC paths - build from a local drive; (2) JoularJX
+  `cmd.exe` does not support UNC paths - build from a local drive; (2) Joular Code Java
   final `total/methods/` CSVs are not produced on Windows because
   `Process.destroy()` maps to `TerminateProcess` and bypasses JVM shutdown hooks
   (per-second `runtime/methods/` CSVs are still written); (3) workload
@@ -172,8 +166,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `QUALITY_GATES.md` documenting SpotBugs, PMD, CodeQL, and test coverage
   gates.
 - SpotBugs and PMD quality-gate executions added to the Maven plugin module.
-- JoularJX simulation scripts (`joularjx-simulation.sh`,
-  `joularjx-simulation.ps1`).
+- Joular Code Java simulation scripts (`joularcode-simulation.sh`,
+  `joularcode-simulation.ps1`).
 - Playwright-based HTML report integration tests
   (`HtmlReporterPlaywrightTest`).
 - Tests for `MeasurementOrchestrator`, `AppArgsBuilder`, `MeasurementResult`,
@@ -302,12 +296,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PMD violations in `MeasureEnergyMojo`: stack traces now preserved in catch
   blocks.
 - Method-level energy card now merges application methods from the filtered
-  JoularJX report into the all-methods table so the "Show App Only" filter
+  Joular Code Java report into the all-methods table so the "Show App Only" filter
   works correctly.
 - Method-level "Total Energy" label renamed to "Total Energy (all threads)"
   to avoid confusion with the process-level total in the Measurement Summary
   card.
-- Explanatory note added to the Method-Level Energy card when the JoularJX
+- Explanatory note added to the Method-Level Energy card when the Joular Code Java
   total exceeds the Joular Core process-level energy, clarifying the
   difference in measurement scope.
 - PowerShell `$OhaScript` variable scope fix in `local-simulation.ps1`.
@@ -316,7 +310,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unicode character encoding fixed for Windows PowerShell 5.x compatibility.
 - Em dashes replaced with standard dashes in all documentation files.
 - Shell simulation scripts (`local-simulation.sh`, `all-tools-simulation.sh`,
-  `joularjx-simulation.sh`) now refuse to run on native Windows under Git Bash
+  `joularcode-simulation.sh`) now refuse to run on native Windows under Git Bash
   / MSYS / Cygwin and point users at the matching `.ps1` companion or WSL2,
   preventing confusing late failures from Linux-only paths and `joularcore-linux-*`
   asset downloads.

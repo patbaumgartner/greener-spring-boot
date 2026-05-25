@@ -4,6 +4,11 @@ package com.patbaumgartner.greener.core.model;
  * Self-contained Student's t-distribution helpers used by {@link Statistics}.
  *
  * <p>
+ * Implements the regularized incomplete beta function to compute two-sided p-values
+ * (Numerical Recipes §6.4) and a small inverse for the 95% critical value used by
+ * {@link Statistics#ci95Half}.
+ *
+ * <p>
  * The implementation is based on the Lanczos approximation of {@code log\u0393} and the
  * Numerical Recipes continued-fraction expansion of the regularized incomplete beta
  * function {@code I\u2093(a,b)}, which yields the two-sided t-distribution p-value via
@@ -17,11 +22,6 @@ package com.patbaumgartner.greener.core.model;
  * Tested against tabulated values in {@code StatisticsTest}. Accuracy is typically better
  * than 1e-4 across the 1 &le; df &le; 1000 range relevant to this project (energy
  * benchmarks rarely exceed 30 iterations).
- */
-/**
- * Student's t-distribution helpers. Implements the regularized incomplete beta function
- * to compute two-sided p-values (Numerical Recipes §6.4) and a small inverse for the 95%
- * critical value used by {@link Statistics#ci95Half}.
  *
  * <p>
  * Suppressed PMD rule: literals like {@code 0.0}, {@code 1.0}, {@code 0.5}, and the
@@ -68,7 +68,9 @@ final class StudentT {
 		return inverseStudentT(df);
 	}
 
-	/** Bisection inverse for {@code df > 30}; returns t such that P(|T|>t) = 0.05. */
+	/**
+	 * Bisection inverse for {@code df > 30}; returns t such that P(|T|>t) = 0.05.
+	 */
 	private static double inverseStudentT(int df) {
 		double lo = 1.5;
 		double hi = 4.0;
@@ -166,7 +168,9 @@ final class StudentT {
 		return 0.5 * Math.log(2.0 * Math.PI) + (y + 0.5) * Math.log(t) - t + Math.log(a);
 	}
 
-	/** Standard-normal CDF via the Abramowitz &amp; Stegun 26.2.17 approximation. */
+	/**
+	 * Standard-normal CDF via the Abramowitz &amp; Stegun 26.2.17 approximation.
+	 */
 	static double normalCdf(double z) {
 		double t = 1.0 / (1.0 + 0.2316419 * Math.abs(z));
 		double pdf = Math.exp(-z * z / 2.0) / Math.sqrt(2.0 * Math.PI);
