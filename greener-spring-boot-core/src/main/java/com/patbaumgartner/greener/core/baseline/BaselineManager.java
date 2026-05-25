@@ -1,17 +1,18 @@
 package com.patbaumgartner.greener.core.baseline;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.WorkloadStats;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -30,7 +31,7 @@ public class BaselineManager {
 	public BaselineManager() {
 		this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
 			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-			.disable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 			.enable(SerializationFeature.INDENT_OUTPUT);
 	}
 
@@ -58,17 +59,16 @@ public class BaselineManager {
 
 	/**
 	 * Persists the given {@link EnergyReport} together with the workload statistics that
-	 * produced it. Storing {@link com.patbaumgartner.greener.core.model.WorkloadStats}
-	 * alongside the baseline enables future runs to compare on energy-per-request rather
-	 * than raw Joules.
+	 * produced it. Storing {@link WorkloadStats} alongside the baseline enables future
+	 * runs to compare on energy-per-request rather than raw Joules.
 	 * @param report the energy report to persist
 	 * @param commitSha optional git commit SHA (may be {@code null})
 	 * @param branch optional branch name (may be {@code null})
 	 * @param workloadStats optional workload statistics (may be {@code null})
 	 * @param baselineFile target JSON file (will be created or overwritten)
 	 */
-	public void saveBaseline(EnergyReport report, String commitSha, String branch,
-			com.patbaumgartner.greener.core.model.WorkloadStats workloadStats, Path baselineFile) throws IOException {
+	public void saveBaseline(EnergyReport report, String commitSha, String branch, WorkloadStats workloadStats,
+			Path baselineFile) throws IOException {
 		EnergyBaseline baseline = EnergyBaseline.of(report, commitSha, branch, workloadStats);
 
 		Path parent = baselineFile.getParent();

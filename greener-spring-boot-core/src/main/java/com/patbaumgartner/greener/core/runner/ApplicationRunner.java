@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -249,7 +248,11 @@ public class ApplicationRunner {
 		catch (ConnectException ex) {
 			LOG.fine(() -> "Application already stopped or shutdown endpoint not available");
 		}
-		catch (IOException | InterruptedException ex) {
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			LOG.fine(() -> "Actuator shutdown request interrupted: " + ex.getMessage());
+		}
+		catch (IOException ex) {
 			LOG.fine(() -> "Actuator shutdown request failed: " + ex.getMessage());
 		}
 		return false;
