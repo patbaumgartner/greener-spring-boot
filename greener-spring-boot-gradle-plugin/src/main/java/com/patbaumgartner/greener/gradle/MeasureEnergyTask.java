@@ -365,6 +365,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 		String toolName = resolveToolName();
 		Path runDir = reportDir.resolve(toolName);
 		Path workingDir = runDir.resolve("work");
+		Path rawDir = runDir.resolve("raw");
 
 		// 3. Start application
 		ApplicationRunner appRunner = new ApplicationRunner();
@@ -386,7 +387,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				int idleProbe = getIdleProbeSeconds().getOrElse(0);
 				if (idleProbe > 0) {
 					idleBaselineW = orchestrator.measureIdleBaselinePower(joularCoreRunner, joularCoreConfig, outputCsv,
-							idleProbe, springBootJarFile.getName().replace(".jar", ""));
+							idleProbe, springBootJarFile.getName().replace(".jar", ""),
+							rawDir.resolve("idle-baseline.csv"));
 				}
 
 				int iters = getIterations().getOrElse(1);
@@ -395,7 +397,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				if (iters >= multiIterationThreshold) {
 					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
 							outputCsv, () -> buildTrainingConfig(baseUrl), warmup, measure, iters,
-							springBootJarFile.getName().replace(".jar", ""), workingDir.resolve("iterations"));
+							springBootJarFile.getName().replace(".jar", ""), rawDir.resolve("iterations"));
 					workloadStats = iteratedMeasurement.mergedWorkload();
 				}
 				else {

@@ -243,9 +243,13 @@ public class MeasurementOrchestrator {
 	 * Returns {@code 0.0} when {@code idleSeconds <= 0} or no power samples were
 	 * collected. The Joular Core runner is restarted so the idle CSV does not contaminate
 	 * subsequent measurement windows.
+	 *
+	 * <p>
+	 * When {@code idleSavePath} is non-{@code null} the idle Joular Core CSV is copied
+	 * there before being deleted, preserving the raw sensor data for later analysis.
 	 */
 	public double measureIdleBaselinePower(JoularCoreRunner runner, JoularCoreConfig config, Path outputCsv,
-			int idleSeconds, String appIdentifier) throws IOException, InterruptedException {
+			int idleSeconds, String appIdentifier, Path idleSavePath) throws IOException, InterruptedException {
 		if (idleSeconds <= 0) {
 			return 0.0;
 		}
@@ -260,6 +264,10 @@ public class MeasurementOrchestrator {
 			EnergyReport idle = new JoularCoreResultReader().readResults(outputCsv,
 					PluginDefaults.buildRunId() + "-idle", idleSeconds, appIdentifier);
 			idlePowerW = idle.durationSeconds() > 0 ? idle.totalEnergyJoules() / idle.durationSeconds() : 0.0;
+			if (idleSavePath != null) {
+				Files.createDirectories(idleSavePath.getParent());
+				Files.copy(outputCsv, idleSavePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			}
 		}
 		logger.accept(String.format("[greener] Idle baseline: %.3f W average over %d s", idlePowerW, idleSeconds));
 		// Restart for the upcoming workload phase.
