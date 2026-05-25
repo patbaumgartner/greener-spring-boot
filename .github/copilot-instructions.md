@@ -12,8 +12,8 @@ power samples, compare against a stored baseline, and generate console + HTML re
 | Module                              | Purpose                                                                             |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | `greener-spring-boot-core`          | Shared library: models, config, readers, comparator, reporters, runners, downloader |
-| `greener-spring-boot-maven-plugin`  | Maven plugin (`greener:measure`, `greener:update-baseline`)                         |
-| `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`)                             |
+| `greener-spring-boot-maven-plugin`  | Maven plugin (`greener:measure`, `greener:update-baseline`, `greener:doctor`)       |
+| `greener-spring-boot-gradle-plugin` | Gradle plugin (`measureEnergy`, `updateEnergyBaseline`, `energyDoctor`)             |
 | `examples/`                         | Workload scripts (wrk, oha, k6, Gatling, …), local simulation, VM setup guides      |
 
 ### Core Package Layout
@@ -22,14 +22,19 @@ power samples, compare against a stored baseline, and generate console + HTML re
 com.patbaumgartner.greener.core
 ├── baseline/        BaselineManager - load / save energy-baseline.json
 │                    RunEntryStore - persist / load AggregatedRunEntry JSON files
+│                    TrendHistoryStore - rolling trend history (capped at 100 entries)
 ├── comparator/      EnergyComparator - diff report vs baseline
 ├── config/          JoularCoreConfig, TrainingConfig, PluginDefaults,
 │                    AppArgsBuilder, JoularCoreProbe
+├── doctor/          EnvironmentDoctor - preflight PASS/WARN/FAIL checks
 ├── downloader/      JoularCoreDownloader - auto-download Joular Core binaries
 │                    with SHA-256 verification
+├── exception/       EnergyMeasurementException - typed failure with Hint codes
 ├── model/           EnergyReport, EnergyBaseline, EnergyMeasurement,
 │                    ComparisonResult, WorkloadStats, AggregatedRunEntry,
-│                    MethodLevelReports, MeasurementResult, PowerSource (enum)
+│                    MethodLevelReports, MeasurementResult, MeasurementConfig,
+│                    IteratedMeasurement, Statistics, TrendEntry,
+│                    PowerSource (enum), RegressionMetric (enum), StudentT
 ├── reader/          JoularCoreResultReader, JoularCodeJavaResultReader
 ├── orchestrator/    MeasurementOrchestrator - coordinates warmup, measurement,
 │                    result processing, baseline comparison, and report generation
@@ -56,6 +61,9 @@ com.patbaumgartner.greener.core
   the most recent report via `discoverLatestReport(Path)`.
 - **`RunEntryStore`** - persists and loads `AggregatedRunEntry` JSON files so that
   multi-tool simulation runs can be collected into a single aggregated report.
+- **`TrendHistoryStore`** - persists a rolling history of `TrendEntry` records as a
+  JSON file capped at 100 entries; derives the trend filename from the baseline path
+  via `trendFileFor(Path)` (e.g. `energy-baseline.json` → `energy-baseline-trend.json`).
 - **`MeasurementOrchestrator`** - shared measurement workflow used by both Maven
   and Gradle plugins; coordinates warmup, measurement, result processing, baseline
   comparison, and report generation. Returns a `MeasurementResult` from
@@ -79,6 +87,25 @@ com.patbaumgartner.greener.core
 - **`MeasurementResult`** - record aggregating energy report, baseline comparison,
   workload stats, optional method-level reports, and HTML report path; returned
   by `MeasurementOrchestrator.processAndReport()`.
+- **`MeasurementConfig`** - record aggregating all orchestrator configuration
+  parameters (output CSV path, baseline path, report dir, tool name, iterations,
+  regression metric, idle probe seconds, etc.); constructed by both plugins and
+  passed to `MeasurementOrchestrator`.
+- **`IteratedMeasurement`** - record returned from a multi-iteration run: holds the
+  representative report (median-closest), all per-iteration reports, and merged
+  workload stats.
+- **`Statistics`** - record over a set of per-iteration energy samples; captures
+  mean, stddev, min, max, median, 95 % CI half-width, and exposes Welch's t-test
+  and Cohen's d helpers used by `EnergyComparator`.
+- **`TrendEntry`** - immutable snapshot of one run's headline numbers (timestamp,
+  runId, totalEnergyJoules, energyPerRequestMillijoules, commitSha, branch);
+  appended to the trend file by `TrendHistoryStore`.
+- **`RegressionMetric`** - enum (`TOTAL_ENERGY`, `ENERGY_PER_REQUEST`) selecting
+  which metric `EnergyComparator` uses; defaults to `ENERGY_PER_REQUEST`.
+- **`EnergyMeasurementException`** - typed `IOException` subclass carrying a `Hint`
+  enum (`EMPTY_OR_MISSING_CSV`, `WORKLOAD_TOOL_MISSING`, `WORKLOAD_TIMEOUT`,
+  `WORKLOAD_FAILED`, `JOULAR_CORE_BINARY_MISSING`, `APPLICATION_NOT_READY`,
+  `GENERIC_IO`) so users see an actionable message rather than a raw stack trace.
 
 ## Build & Test
 
@@ -100,7 +127,8 @@ cd greener-spring-boot-gradle-plugin && ./gradlew build --no-daemon
   use fluent `return this` setters, not JavaBean setters.
 - **Records for value objects** - `EnergyBaseline`, `EnergyMeasurement`, `EnergyReport`,
   `ComparisonResult`, `WorkloadStats`, `AggregatedRunEntry`, `MethodLevelReports`,
-  `MeasurementResult` are all records.
+  `MeasurementResult`, `MeasurementConfig`, `IteratedMeasurement`, `Statistics`,
+  `TrendEntry` are all records.
 - **Logging** - use `java.util.logging.Logger` in core; Maven uses `getLog()`, Gradle uses
   `getLogger().lifecycle()`.
 - **No Lombok** - the project does not use Lombok.
