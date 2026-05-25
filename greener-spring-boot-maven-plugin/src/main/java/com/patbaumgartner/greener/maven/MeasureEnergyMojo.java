@@ -385,6 +385,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		Path effectiveReportDir = resolveEffectiveReportDir();
 		Path runDir = effectiveReportDir.resolve(toolName);
 		Path workingDir = runDir.resolve("work");
+		Path rawDir = runDir.resolve("raw");
 
 		// 3. Start application — but when the JoularCode Java agent is used, JoularCore
 		// must be running in ring-buffer mode BEFORE the JVM starts so the agent can
@@ -441,7 +442,8 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				// 5a. Optional idle baseline (no workload)
 				if (idleProbeSeconds > 0) {
 					idleBaselineW = orchestrator.measureIdleBaselinePower(joularCoreRunner, joularCoreConfig, outputCsv,
-							idleProbeSeconds, springBootJar.getName().replace(".jar", ""));
+							idleProbeSeconds, springBootJar.getName().replace(".jar", ""),
+							rawDir.resolve("idle-baseline.csv"));
 				}
 
 				// 6. Execute workloads (iterated when iterations >= 2)
@@ -449,7 +451,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				if (iterations >= multiIterationThreshold) {
 					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
 							outputCsv, this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds,
-							iterations, springBootJar.getName().replace(".jar", ""), workingDir.resolve("iterations"));
+							iterations, springBootJar.getName().replace(".jar", ""), rawDir.resolve("iterations"));
 					workloadStats = iteratedMeasurement.mergedWorkload();
 				}
 				else {
