@@ -600,6 +600,9 @@ public class MeasureEnergyMojo extends AbstractMojo {
 			throw new MojoExecutionException("Spring Boot jar not found: " + springBootJar
 					+ ". Run 'mvn package' first or set <springBootJar> explicitly.");
 		}
+		if (joularCodeJavaAgentPath != null && !joularCodeJavaAgentPath.exists()) {
+			throw new MojoExecutionException("joularCodeJavaAgentPath does not exist: " + joularCodeJavaAgentPath);
+		}
 		try {
 			PluginDefaults.validateMeasureDuration(measureDurationSeconds);
 			PluginDefaults.validateExternalScript(externalTrainingScriptFile);
