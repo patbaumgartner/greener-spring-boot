@@ -117,7 +117,9 @@ public class JoularCoreConfig {
 	// ---- Builder-style setters ----
 
 	/**
-	 * Sets the path to the joularcore binary. @param binaryPath binary path @return this
+	 * Sets the path to the joularcore binary.
+	 * @param binaryPath binary path
+	 * @return this
 	 */
 	public JoularCoreConfig binaryPath(Path binaryPath) {
 		this.binaryPath = binaryPath;
@@ -125,7 +127,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets the version to auto-download. @param version release tag @return this
+	 * Sets the version to auto-download.
+	 * @param version release tag
+	 * @return this
 	 */
 	public JoularCoreConfig version(String version) {
 		this.version = version;
@@ -133,8 +137,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets the hardware component to monitor ({@code cpu}, {@code gpu},
-	 * {@code all}). @param component component name @return this
+	 * Sets the hardware component to monitor ({@code cpu}, {@code gpu}, {@code all}).
+	 * @param component component name
+	 * @return this
 	 */
 	public JoularCoreConfig component(String component) {
 		this.component = component;
@@ -142,7 +147,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets the PID of the process to monitor. @param pid process ID @return this
+	 * Sets the PID of the process to monitor.
+	 * @param pid process ID
+	 * @return this
 	 */
 	public JoularCoreConfig pid(long pid) {
 		this.pid = pid;
@@ -150,23 +157,29 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets the application name to monitor (alternative to PID). @param appName
-	 * application name @return this
+	 * Sets the application name to monitor (alternative to PID).
+	 * @param appName application name
+	 * @return this
 	 */
 	public JoularCoreConfig appName(String appName) {
 		this.appName = appName;
 		return this;
 	}
 
-	/** Sets the CSV output path. @param outputCsvPath file path @return this */
+	/**
+	 * Sets the CSV output path.
+	 * @param outputCsvPath file path
+	 * @return this
+	 */
 	public JoularCoreConfig outputCsvPath(Path outputCsvPath) {
 		this.outputCsvPath = outputCsvPath;
 		return this;
 	}
 
 	/**
-	 * Sets whether to suppress terminal output ({@code -s} flag). @param silent true to
-	 * suppress @return this
+	 * Sets whether to suppress terminal output ({@code -s} flag).
+	 * @param silent true to suppress
+	 * @return this
 	 */
 	public JoularCoreConfig silent(boolean silent) {
 		this.silent = silent;
@@ -174,8 +187,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Enables VM mode for environments without RAPL access. @param vmMode true to
-	 * enable @return this
+	 * Enables VM mode for environments without RAPL access.
+	 * @param vmMode true to enable
+	 * @return this
 	 */
 	public JoularCoreConfig vmMode(boolean vmMode) {
 		this.vmMode = vmMode;
@@ -183,8 +197,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets the path to the VM power file (host-written). @param vmPowerFilePath file
-	 * path @return this
+	 * Sets the path to the VM power file (host-written).
+	 * @param vmPowerFilePath file path
+	 * @return this
 	 */
 	public JoularCoreConfig vmPowerFilePath(Path vmPowerFilePath) {
 		this.vmPowerFilePath = vmPowerFilePath;
@@ -203,8 +218,9 @@ public class JoularCoreConfig {
 	}
 
 	/**
-	 * Sets extra CLI arguments appended to the joularcore invocation. @param extraArgs
-	 * extra arguments @return this
+	 * Sets extra CLI arguments appended to the joularcore invocation.
+	 * @param extraArgs extra arguments
+	 * @return this
 	 */
 	public JoularCoreConfig extraArgs(List<String> extraArgs) {
 		this.extraArgs = new ArrayList<>(extraArgs);
