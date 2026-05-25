@@ -73,8 +73,10 @@ public class ApplicationRunner {
 
 		Files.createDirectories(workingDir);
 
-		String javaHome = System.getProperty("java.home");
-		String javaExecutable = javaHome + "/bin/java";
+		String javaExecutable = ProcessHandle.current()
+			.info()
+			.command()
+			.orElseGet(() -> Path.of(System.getProperty("java.home"), "bin", "java").toString());
 
 		List<String> command = new ArrayList<>();
 		command.add(javaExecutable);
@@ -182,8 +184,7 @@ public class ApplicationRunner {
 
 		if (isWindows()) {
 			try {
-				String taskkill = System.getenv().getOrDefault("WINDIR", "C:\\Windows") + "\\System32\\taskkill.exe";
-				new ProcessBuilder(taskkill, "/PID", String.valueOf(pid)).redirectErrorStream(true)
+				new ProcessBuilder("taskkill", "/PID", String.valueOf(pid)).redirectErrorStream(true)
 					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
 					.start()
 					.waitFor(10, TimeUnit.SECONDS);
