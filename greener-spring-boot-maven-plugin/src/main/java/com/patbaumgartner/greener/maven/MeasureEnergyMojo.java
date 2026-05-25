@@ -451,9 +451,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 				// 6. Execute workloads (iterated when iterations >= 2)
 				final int multiIterationThreshold = 2;
 				if (iterations >= multiIterationThreshold) {
+					Path joularCodeJavaResultsDir = joularCodeJavaAgentPath != null
+							? workingDir.resolve("joular-code-java-results") : null;
 					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
 							outputCsv, this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds,
-							iterations, springBootJar.getName().replace(".jar", ""), rawDir.resolve("iterations"));
+							iterations, springBootJar.getName().replace(".jar", ""), rawDir.resolve("iterations"),
+							joularCodeJavaResultsDir);
 					workloadStats = iteratedMeasurement.mergedWorkload();
 				}
 				else {

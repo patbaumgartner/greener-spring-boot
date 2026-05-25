@@ -492,6 +492,25 @@ class ExternalToolOutputParserTest {
 		assertThat(parser.failedRequests()).isZero();
 	}
 
+	@Test
+	void gatling_ansiColoredOutput_parsedCorrectly() {
+		// Gatling emits ANSI colour codes on terminals (e.g. Git Bash on Windows).
+		// The parser must strip them before applying the regex.
+		String esc = "\u001b[";
+		String reset = "\u001b[0m";
+		String output = "================================================================================\n" + esc
+				+ "34m---- Global Information ----" + reset + "\n" + esc + "32m> request count" + reset
+				+ "                                       3000 (OK=2990   KO=10    )\n" + esc + "32m> min response time"
+				+ reset + "                                      1 (OK=1      KO=5     )\n"
+				+ "================================================================================\n";
+		ExternalToolOutputParser parser = new ExternalToolOutputParser();
+		parser.parse("gatling", output);
+
+		assertThat(parser.hasResults()).isTrue();
+		assertThat(parser.totalRequests()).isEqualTo(3000);
+		assertThat(parser.failedRequests()).isEqualTo(10);
+	}
+
 	// ---- locust ----
 
 	@Test

@@ -137,6 +137,26 @@ public class MeasurementOrchestrator {
 	public IteratedMeasurement executeIteratedWorkloads(JoularCoreRunner runner, JoularCoreConfig config,
 			Path outputCsv, Supplier<TrainingConfig> configFactory, int warmupSeconds, int measureSeconds,
 			int iterations, String appIdentifier, Path iterationCsvDir) throws IOException, InterruptedException {
+		return executeIteratedWorkloads(runner, config, outputCsv, configFactory, warmupSeconds, measureSeconds,
+				iterations, appIdentifier, iterationCsvDir, null);
+	}
+
+	/**
+	 * Variant of
+	 * {@link #executeIteratedWorkloads(JoularCoreRunner, JoularCoreConfig, Path, Supplier, int, int, int, String, Path)}
+	 * that additionally clears the Joular Code Java result CSVs after the warmup phase
+	 * and before the first measurement iteration. This prevents startup-phase energy
+	 * (Spring Boot initialisation, JIT compilation) from accumulating into method-level
+	 * totals and distorting per-method attribution (e.g. inflating
+	 * {@code PetClinicApplication.main}).
+	 * @param joularCodeJavaResultsDir the directory that holds
+	 * {@code methods-power-app.csv} and {@code methods-power-all.csv}, or {@code null}
+	 * when Joular Code Java is not used
+	 */
+	public IteratedMeasurement executeIteratedWorkloads(JoularCoreRunner runner, JoularCoreConfig config,
+			Path outputCsv, Supplier<TrainingConfig> configFactory, int warmupSeconds, int measureSeconds,
+			int iterations, String appIdentifier, Path iterationCsvDir, Path joularCodeJavaResultsDir)
+			throws IOException, InterruptedException {
 
 		int n = Math.max(1, iterations);
 
@@ -146,6 +166,16 @@ public class MeasurementOrchestrator {
 				.warmupDurationSeconds(warmupSeconds)
 				.measureDurationSeconds(0);
 			new TrainingRunner().run(warmupConfig);
+		}
+
+		// Clear Joular Code Java CSVs after warmup so that startup and warmup energy
+		// (e.g. Spring Boot initialisation on the main thread) is excluded from the
+		// method-level attribution collected during the actual measurement iterations.
+		if (joularCodeJavaResultsDir != null && Files.isDirectory(joularCodeJavaResultsDir)) {
+			for (String csv : new String[] { "methods-power-app.csv", "methods-power-all.csv" }) {
+				Files.deleteIfExists(joularCodeJavaResultsDir.resolve(csv));
+			}
+			logger.accept("[greener] Cleared Joular Code Java CSVs before first measurement iteration");
 		}
 
 		Files.createDirectories(iterationCsvDir);
