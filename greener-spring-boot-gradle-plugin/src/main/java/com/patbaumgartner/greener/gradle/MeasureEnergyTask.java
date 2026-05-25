@@ -398,9 +398,12 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				final int multiIterationThreshold = 2;
 				// 6. Execute workloads
 				if (iters >= multiIterationThreshold) {
+					Path joularCodeJavaResultsDir = getJoularCodeJavaAgentPath().isPresent()
+							? workingDir.resolve("joular-code-java-results") : null;
 					iteratedMeasurement = orchestrator.executeIteratedWorkloads(joularCoreRunner, joularCoreConfig,
 							outputCsv, () -> buildTrainingConfig(baseUrl), warmup, measure, iters,
-							springBootJarFile.getName().replace(".jar", ""), rawDir.resolve("iterations"));
+							springBootJarFile.getName().replace(".jar", ""), rawDir.resolve("iterations"),
+							joularCodeJavaResultsDir);
 					workloadStats = iteratedMeasurement.mergedWorkload();
 				}
 				else {
