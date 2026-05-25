@@ -5,8 +5,11 @@ import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.config.TrainingConfig;
 import com.patbaumgartner.greener.core.downloader.JoularCoreDownloader;
+import com.patbaumgartner.greener.core.model.EnergyReport;
+import com.patbaumgartner.greener.core.model.IteratedMeasurement;
 import com.patbaumgartner.greener.core.model.MeasurementConfig;
 import com.patbaumgartner.greener.core.model.MeasurementResult;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.orchestrator.MeasurementOrchestrator;
 import com.patbaumgartner.greener.core.runner.ApplicationRunner;
@@ -321,7 +324,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	 * @return the regression metric property
 	 */
 	@Input
-	public abstract Property<com.patbaumgartner.greener.core.model.RegressionMetric> getRegressionMetric();
+	public abstract Property<RegressionMetric> getRegressionMetric();
 
 	/**
 	 * Idle-baseline window (seconds) measured before workload. Subtracted from workload
@@ -373,7 +376,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 		WorkloadStats workloadStats;
-		com.patbaumgartner.greener.core.model.IteratedMeasurement iteratedMeasurement = null;
+		IteratedMeasurement iteratedMeasurement = null;
 		double idleBaselineW = 0.0;
 		try {
 			// 4. Wait for startup
@@ -420,22 +423,20 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				reportDir, runDir, toolName, getVmMode().get(), getThreshold().get(), getAutoUpdateBaseline().get(),
 				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir,
 				getJoularCodeJavaAgentPath().isPresent(), getIterations().getOrElse(1),
-				getRegressionMetric()
-					.getOrElse(com.patbaumgartner.greener.core.model.RegressionMetric.ENERGY_PER_REQUEST),
+				getRegressionMetric().getOrElse(RegressionMetric.ENERGY_PER_REQUEST),
 				getIdleProbeSeconds().getOrElse(0));
 
 		MeasurementResult result;
 		final double zero = 0.0;
 		if (iteratedMeasurement != null) {
-			com.patbaumgartner.greener.core.model.EnergyReport report = iteratedMeasurement.representativeReport();
+			EnergyReport report = iteratedMeasurement.representativeReport();
 			if (idleBaselineW > zero) {
 				report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
 			}
 			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
 		}
 		else if (idleBaselineW > zero) {
-			com.patbaumgartner.greener.core.model.EnergyReport report = orchestrator.processResults(outputCsv, measure,
-					appId);
+			EnergyReport report = orchestrator.processResults(outputCsv, measure, appId);
 			report = orchestrator.subtractIdleBaseline(report, idleBaselineW);
 			result = orchestrator.processAndReport(measurementConfig, report, workloadStats);
 		}

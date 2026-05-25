@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -83,7 +82,12 @@ public final class JoularCoreProbe {
 			process.waitFor(5, TimeUnit.SECONDS);
 			return hasPower;
 		}
-		catch (IOException | InterruptedException e) {
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			LOG.fine(() -> "Joular Core power probe interrupted for component '" + component + "'");
+			return false;
+		}
+		catch (IOException e) {
 			LOG.fine(() -> "Joular Core power probe failed for component '" + component + "': " + e.getMessage());
 			return false;
 		}

@@ -3,6 +3,7 @@ package com.patbaumgartner.greener.core.config;
 import com.patbaumgartner.greener.core.baseline.BaselineManager;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.WorkloadStats;
 import com.patbaumgartner.greener.core.runner.TrainingRunner;
 
 import java.io.File;
@@ -15,7 +16,6 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -163,8 +163,7 @@ public final class PluginDefaults {
 	 * @param logger callback for log output
 	 */
 	public static void saveAndLogBaseline(BaselineManager manager, EnergyReport report, String commitSha, String branch,
-			com.patbaumgartner.greener.core.model.WorkloadStats workloadStats, Path baselineFile,
-			Consumer<String> logger) throws IOException {
+			WorkloadStats workloadStats, Path baselineFile, Consumer<String> logger) throws IOException {
 		String sha = normalise(commitSha);
 		String br = normalise(branch);
 
