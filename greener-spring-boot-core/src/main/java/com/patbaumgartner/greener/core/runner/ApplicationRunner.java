@@ -76,7 +76,9 @@ public class ApplicationRunner {
 		String javaExecutable = ProcessHandle.current()
 			.info()
 			.command()
-			.orElseGet(() -> Path.of(System.getProperty("java.home"), "bin", "java").toString());
+			.orElseThrow(() -> new IOException(
+					"Cannot determine the current Java executable path. ProcessHandle is not supported or the OS "
+							+ "does not provide process information. Please ensure you are running on a supported JVM."));
 
 		List<String> command = new ArrayList<>();
 		command.add(javaExecutable);
@@ -184,7 +186,8 @@ public class ApplicationRunner {
 
 		if (isWindows()) {
 			try {
-				new ProcessBuilder("taskkill", "/PID", String.valueOf(pid)).redirectErrorStream(true)
+				new ProcessBuilder("C:\\Windows\\System32\\taskkill.exe", "/PID", String.valueOf(pid))
+					.redirectErrorStream(true)
 					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
 					.start()
 					.waitFor(10, TimeUnit.SECONDS);
