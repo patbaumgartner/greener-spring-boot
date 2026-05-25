@@ -309,7 +309,7 @@ public class MeasurementOrchestrator {
 	 * exists
 	 */
 	public MethodLevelReports readJoularCodeJavaMethodLevelReports(Path workingDir, int duration) {
-		Path resultsDir = workingDir.resolve("joular-code-results");
+		Path resultsDir = workingDir.resolve("joular-code-java-results");
 		if (!Files.isDirectory(resultsDir)) {
 			logger.accept("[greener] Joular Code Java results directory not found: " + resultsDir);
 			return null;
