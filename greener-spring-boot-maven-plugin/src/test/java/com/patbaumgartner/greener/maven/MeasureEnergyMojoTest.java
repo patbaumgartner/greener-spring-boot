@@ -169,6 +169,21 @@ class MeasureEnergyMojoTest {
 		assertThatThrownBy(mojo::execute).isInstanceOf(MojoExecutionException.class);
 	}
 
+	@Test
+	void failsWhenJoularCodeJavaAgentPathConfiguredButMissing() throws Exception {
+		File fakeJar = tempDir.resolve("app.jar").toFile();
+		Files.createFile(fakeJar.toPath());
+
+		MeasureEnergyMojo mojo = new MeasureEnergyMojo();
+		setField(mojo, "skip", false);
+		setField(mojo, "springBootJar", fakeJar);
+		setField(mojo, "measureDurationSeconds", 60);
+		setField(mojo, "joularCodeJavaAgentPath", tempDir.resolve("missing-agent.jar").toFile());
+
+		assertThatThrownBy(mojo::execute).isInstanceOf(MojoExecutionException.class)
+			.hasMessageContaining("joularCodeJavaAgentPath does not exist");
+	}
+
 	private static void setField(Object target, String fieldName, Object value) throws Exception {
 		Field field = target.getClass().getDeclaredField(fieldName);
 		field.setAccessible(true);
