@@ -72,8 +72,7 @@ public class ApplicationRunner {
 
 		Files.createDirectories(workingDir);
 
-		String javaHome = System.getProperty("java.home");
-		String javaExecutable = javaHome + "/bin/java";
+		String javaExecutable = findCurrentJavaExecutable();
 
 		List<String> command = new ArrayList<>();
 		command.add(javaExecutable);
@@ -181,7 +180,9 @@ public class ApplicationRunner {
 
 		if (isWindows()) {
 			try {
-				String taskkill = System.getenv().getOrDefault("WINDIR", "C:\\Windows") + "\\System32\\taskkill.exe";
+				// Use the well-known absolute path to avoid reading WINDIR from the
+				// environment into a command argument.
+				String taskkill = "C:\\Windows\\System32\\taskkill.exe";
 				new ProcessBuilder(taskkill, "/PID", String.valueOf(pid)).redirectErrorStream(true)
 					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
 					.start()
@@ -260,6 +261,25 @@ public class ApplicationRunner {
 
 	private static boolean isWindows() {
 		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+	}
+
+	/**
+	 * Returns the path to the Java executable for the JVM currently running this plugin.
+	 *
+	 * <p>
+	 * Uses {@link ProcessHandle#current()} to obtain the executable directly from the
+	 * running process rather than constructing a path from the {@code java.home} system
+	 * property, which avoids propagating a system-property value as an OS command.
+	 * @return the absolute path to the current JVM executable
+	 * @throws IOException if the JVM executable path cannot be determined
+	 */
+	private static String findCurrentJavaExecutable() throws IOException {
+		return ProcessHandle.current()
+			.info()
+			.command()
+			.filter(cmd -> !cmd.isBlank())
+			.orElseThrow(() -> new IOException("Cannot determine the current JVM executable path via ProcessHandle. "
+					+ "Ensure the JVM has permissions to query process information."));
 	}
 
 }

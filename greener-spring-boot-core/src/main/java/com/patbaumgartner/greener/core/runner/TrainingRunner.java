@@ -247,17 +247,6 @@ public class TrainingRunner {
 			}
 		}
 
-		// 3. Check environment-based Git for Windows locations
-		String[] candidates = { System.getenv("ProgramFiles") + "\\Git\\bin\\sh.exe",
-				System.getenv("ProgramFiles(x86)") + "\\Git\\bin\\sh.exe",
-				System.getenv("LOCALAPPDATA") + "\\Programs\\Git\\bin\\sh.exe" };
-		for (String candidate : candidates) {
-			if (candidate != null && Files.isExecutable(Path.of(candidate))) {
-				LOG.fine(() -> "Using Git Bash shell: " + candidate);
-				return candidate;
-			}
-		}
-
 		throw new IOException("Cannot find sh.exe on Windows. Git for Windows must be installed "
 				+ "and on PATH, or installed in the default location.");
 	}
