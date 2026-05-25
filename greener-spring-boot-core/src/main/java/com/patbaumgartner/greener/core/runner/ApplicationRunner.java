@@ -78,6 +78,11 @@ public class ApplicationRunner {
 		command.add(javaExecutable);
 
 		if (joularCodeJavaJar != null && Files.exists(joularCodeJavaJar)) {
+			// JNA (used by the JoularCode Java agent for ring-buffer access) calls
+			// System.load() which is a restricted method on Java 17+. Without this flag
+			// the JVM emits a warning and, on Java 24+, will block the call entirely —
+			// causing the agent to silently produce no power samples.
+			command.add("--enable-native-access=ALL-UNNAMED");
 			command.add("-javaagent:" + joularCodeJavaJar.toAbsolutePath());
 			LOG.info(() -> "Joular Code Java agent attached: " + joularCodeJavaJar);
 		}
