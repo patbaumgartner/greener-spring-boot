@@ -21,6 +21,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -385,25 +386,57 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		Path runDir = effectiveReportDir.resolve(toolName);
 		Path workingDir = runDir.resolve("work");
 
-		// 3. Start application
+		// 3. Start application — but when the JoularCode Java agent is used, JoularCore
+		// must be running in ring-buffer mode BEFORE the JVM starts so the agent can
+		// open the shared-memory mapping during class loading. Start JoularCore first
+		// using app-name mode (PID unknown yet), wait for calibration, then start the
+		// app; afterwards restart JoularCore with the known PID for precise
+		// measurement.
 		ApplicationRunner appRunner = new ApplicationRunner();
-		Process appProcess = startApplication(appRunner, workingDir);
-
 		Path outputCsv = workingDir.resolve("joularcore-output.csv");
 
 		WorkloadStats workloadStats = null; // NOPMD - required for definite assignment;
 											// used after the try-finally
 		com.patbaumgartner.greener.core.model.IteratedMeasurement iteratedMeasurement = null;
 		double idleBaselineW = 0.0;
+		Process appProcess = null; // NOPMD - null init required; assigned inside
+									// try-with-resources
 
-		try {
-			// 4. Wait for startup
-			waitForApplicationReady(appRunner, appProcess);
+		try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
+			if (joularCodeJavaAgentPath != null) {
+				// Pre-start ring buffer so the agent can connect on JVM startup
+				JoularCoreConfig preConfig = new JoularCoreConfig().binaryPath(joularCoreBinary)
+					.appName("java")
+					.outputCsvPath(outputCsv)
+					.silent(true)
+					.ringBuffer(true);
+				logInfo("[greener] Pre-starting Joular Core in ring-buffer mode for JoularCode Java agent...");
+				joularCoreRunner.start(preConfig);
+				Thread.sleep(6_000L);
+				logInfo("[greener] Ring buffer ready — starting application");
+			}
 
-			// 5. Configure and start Joular Core
-			JoularCoreConfig joularCoreConfig = createJoularCoreConfig(joularCoreBinary, appProcess.pid(), outputCsv);
-			try (JoularCoreRunner joularCoreRunner = new JoularCoreRunner()) {
-				startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
+			// 4. Start and wait for application
+			appProcess = startApplication(appRunner, workingDir);
+
+			try {
+				waitForApplicationReady(appRunner, appProcess);
+
+				// 5. Configure and start Joular Core with the known PID for measurement
+				JoularCoreConfig joularCoreConfig = createJoularCoreConfig(joularCoreBinary, appProcess.pid(),
+						outputCsv);
+				if (joularCodeJavaAgentPath != null) {
+					// Restart with PID for precise per-process energy accounting;
+					// clear the CSV so warm-up data from the pre-start phase is discarded
+					joularCoreRunner.stop();
+					Files.deleteIfExists(outputCsv);
+					long appPid = appProcess.pid();
+					logInfo(() -> "[greener] Restarting Joular Core with PID " + appPid);
+					joularCoreRunner.start(joularCoreConfig);
+				}
+				else {
+					startJoularCore(joularCoreRunner, joularCoreConfig, appProcess.pid());
+				}
 
 				// 5a. Optional idle baseline (no workload)
 				if (idleProbeSeconds > 0) {
@@ -424,13 +457,14 @@ public class MeasureEnergyMojo extends AbstractMojo {
 							this::buildTrainingConfig, warmupDurationSeconds, measureDurationSeconds);
 				}
 			}
-
-		}
-		finally {
-			if (joularCodeJavaAgentPath != null) {
-				appRunner.requestGracefulShutdown(baseUrl);
+			finally {
+				if (appProcess != null) {
+					if (joularCodeJavaAgentPath != null) {
+						appRunner.requestGracefulShutdown(baseUrl);
+					}
+					appRunner.stop(appProcess);
+				}
 			}
-			appRunner.stop(appProcess);
 		}
 
 		// 7. Process, compare, and report
