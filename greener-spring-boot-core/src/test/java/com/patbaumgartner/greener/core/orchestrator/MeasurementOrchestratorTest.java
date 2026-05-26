@@ -224,7 +224,7 @@ class MeasurementOrchestratorTest {
 		WorkloadStats stats = WorkloadStats.external("oha", 1000, 5, 60);
 
 		MeasurementConfig cfg = new MeasurementConfig(null, 60, "app", baselinePath, reportDir, runDir, "oha", false,
-				10.0, false, "abcdef0", "main", null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0);
+				10.0, false, "abcdef0", "main", null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0, 0L);
 
 		EnergyReport r1 = EnergyReport.of("run-1", Instant.now(), 60,
 				List.of(new EnergyMeasurement("app [app]", 25.0)));
@@ -248,7 +248,7 @@ class MeasurementOrchestratorTest {
 		Files.createDirectories(runDir);
 
 		MeasurementConfig cfg = new MeasurementConfig(null, 60, "app", null, reportDir, runDir, "oha", false, 10.0,
-				false, null, null, null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0);
+				false, null, null, null, false, 1, RegressionMetric.ENERGY_PER_REQUEST, 0, 0L);
 
 		EnergyReport r = EnergyReport.of("run-1", Instant.now(), 60, List.of(new EnergyMeasurement("app [app]", 25.0)));
 
