@@ -479,7 +479,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		MeasurementConfig measurementConfig = new MeasurementConfig(outputCsv, measureDurationSeconds, appIdentifier,
 				baselineFile.toPath(), effectiveReportDir, runDir, toolName, vmMode, threshold, autoUpdateBaseline,
 				commitSha, branch, workingDir, joularCodeJavaAgentPath != null, iterations, regressionMetric,
-				idleProbeSeconds);
+				idleProbeSeconds, iteratedMeasurement != null ? iteratedMeasurement.methodLevelStartTimestampMs() : 0L);
 
 		MeasurementResult result;
 		final double zero = 0.0;

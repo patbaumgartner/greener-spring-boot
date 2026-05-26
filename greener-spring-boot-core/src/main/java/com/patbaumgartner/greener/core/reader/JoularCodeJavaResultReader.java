@@ -50,19 +50,38 @@ public class JoularCodeJavaResultReader {
 
 	private static final int CSV_MIN_COLUMNS = 4;
 
+	private static final int TIMESTAMP_COLUMN = 0;
+
 	private static final int BRANCH_COLUMN = 1;
 
 	private static final int ENERGY_JOULES_COLUMN = 3;
 
 	/**
 	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
-	 * results from the given results directory.
+	 * results from the given results directory. All rows are included regardless of
+	 * timestamp.
 	 * @param resultsDir the {@code joular-code-java-results} directory
 	 * @param runId a logical identifier for this run
 	 * @param durationSeconds how long the measurement ran
 	 * @return a {@link MethodLevelReports} containing both app and all reports
 	 */
 	public MethodLevelReports readAllResults(Path resultsDir, String runId, long durationSeconds) {
+		return readAllResults(resultsDir, runId, durationSeconds, 0L);
+	}
+
+	/**
+	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
+	 * results, skipping rows written before {@code startTimestampMs}. Pass {@code 0} to
+	 * include all rows.
+	 * @param resultsDir the {@code joular-code-java-results} directory
+	 * @param runId a logical identifier for this run
+	 * @param durationSeconds how long the measurement ran
+	 * @param startTimestampMs epoch-millis cut-off; rows with a timestamp strictly before
+	 * this value are excluded (0 = no filtering)
+	 * @return a {@link MethodLevelReports} containing both app and all reports
+	 */
+	public MethodLevelReports readAllResults(Path resultsDir, String runId, long durationSeconds,
+			long startTimestampMs) {
 		if (!Files.isDirectory(resultsDir)) {
 			LOG.warning(() -> "Joular Code Java results directory does not exist: " + resultsDir);
 			return new MethodLevelReports(null, null);
@@ -70,13 +89,15 @@ public class JoularCodeJavaResultReader {
 
 		LOG.info(() -> "Reading Joular Code Java results from: " + resultsDir);
 
-		EnergyReport appReport = readCsvFile(resultsDir.resolve("methods-power-app.csv"), runId, durationSeconds);
-		EnergyReport allReport = readCsvFile(resultsDir.resolve("methods-power-all.csv"), runId, durationSeconds);
+		EnergyReport appReport = readCsvFile(resultsDir.resolve("methods-power-app.csv"), runId, durationSeconds,
+				startTimestampMs);
+		EnergyReport allReport = readCsvFile(resultsDir.resolve("methods-power-all.csv"), runId, durationSeconds,
+				startTimestampMs);
 
 		return new MethodLevelReports(appReport, allReport);
 	}
 
-	private EnergyReport readCsvFile(Path csvFile, String runId, long durationSeconds) {
+	private EnergyReport readCsvFile(Path csvFile, String runId, long durationSeconds, long startTimestampMs) {
 		if (!Files.exists(csvFile)) {
 			LOG.fine(() -> "Joular Code Java CSV file not found: " + csvFile);
 			return null;
@@ -84,7 +105,7 @@ public class JoularCodeJavaResultReader {
 
 		try {
 			List<String> lines = Files.readAllLines(csvFile);
-			List<EnergyMeasurement> measurements = parseCsvLines(lines, csvFile);
+			List<EnergyMeasurement> measurements = parseCsvLines(lines, csvFile, startTimestampMs);
 
 			LOG.info(() -> "Read " + measurements.size() + " branch measurements from " + csvFile);
 
@@ -98,7 +119,8 @@ public class JoularCodeJavaResultReader {
 	}
 
 	/**
-	 * Parses lines from a Joular Code Java CSV file into energy measurements.
+	 * Parses lines from a Joular Code Java CSV file into energy measurements. All rows
+	 * are included regardless of timestamp.
 	 *
 	 * <p>
 	 * Skips the header row and any lines with fewer than {@value #CSV_MIN_COLUMNS}
@@ -106,6 +128,21 @@ public class JoularCodeJavaResultReader {
 	 * method name and {@code energy_joules} as the energy value.
 	 */
 	List<EnergyMeasurement> parseCsvLines(List<String> lines, Path sourceFile) {
+		return parseCsvLines(lines, sourceFile, 0L);
+	}
+
+	/**
+	 * Parses lines from a Joular Code Java CSV file into energy measurements, excluding
+	 * rows written before {@code startTimestampMs}.
+	 *
+	 * <p>
+	 * Skips the header row and any lines with fewer than {@value #CSV_MIN_COLUMNS}
+	 * columns. The {@code branch} column (semicolon-separated call chain) is used as the
+	 * method name and {@code energy_joules} as the energy value.
+	 * @param startTimestampMs epoch-millis cut-off; rows with a timestamp strictly before
+	 * this value are excluded (0 = no filtering)
+	 */
+	List<EnergyMeasurement> parseCsvLines(List<String> lines, Path sourceFile, long startTimestampMs) {
 		List<EnergyMeasurement> measurements = new ArrayList<>();
 		for (String line : lines) {
 			String trimmed = line.strip();
@@ -117,6 +154,12 @@ public class JoularCodeJavaResultReader {
 				continue;
 			}
 			try {
+				if (startTimestampMs > 0) {
+					long rowTs = Long.parseLong(parts[TIMESTAMP_COLUMN].strip());
+					if (rowTs < startTimestampMs) {
+						continue;
+					}
+				}
 				String branch = parts[BRANCH_COLUMN].strip();
 				double energy = Double.parseDouble(parts[ENERGY_JOULES_COLUMN].strip());
 				if (!branch.isBlank() && energy >= 0) {
