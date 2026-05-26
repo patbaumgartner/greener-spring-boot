@@ -427,7 +427,8 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 				getCommitSha().getOrNull(), getBranch().getOrNull(), workingDir,
 				getJoularCodeJavaAgentPath().isPresent(), getIterations().getOrElse(1),
 				getRegressionMetric().getOrElse(RegressionMetric.ENERGY_PER_REQUEST),
-				getIdleProbeSeconds().getOrElse(0));
+				getIdleProbeSeconds().getOrElse(0),
+				iteratedMeasurement != null ? iteratedMeasurement.methodLevelStartTimestampMs() : 0L);
 
 		MeasurementResult result;
 		final double zero = 0.0;
