@@ -168,15 +168,14 @@ public class MeasurementOrchestrator {
 			new TrainingRunner().run(warmupConfig);
 		}
 
-		// Clear Joular Code Java CSVs after warmup so that startup and warmup energy
-		// (e.g. Spring Boot initialisation on the main thread) is excluded from the
-		// method-level attribution collected during the actual measurement iterations.
-		if (joularCodeJavaResultsDir != null && Files.isDirectory(joularCodeJavaResultsDir)) {
-			for (String csv : new String[] { "methods-power-app.csv", "methods-power-all.csv" }) {
-				Files.deleteIfExists(joularCodeJavaResultsDir.resolve(csv));
-			}
-			logger.accept("[greener] Cleared Joular Code Java CSVs before first measurement iteration");
-		}
+		// Record the epoch-millis timestamp at the end of warmup. This is passed to the
+		// Joular Code Java result reader, which will skip any CSV rows written before
+		// this moment, effectively excluding warmup energy from per-method attribution.
+		// We do NOT delete the CSVs here because JoularCode Java's ResultWriter caches
+		// open BufferedWriter handles; deleting a file while the handle is open leaves
+		// the writer appending to an orphaned inode (no new file is ever created).
+		long methodLevelStartMs = (joularCodeJavaResultsDir != null && warmupSeconds > 0) ? System.currentTimeMillis()
+				: 0L;
 
 		Files.createDirectories(iterationCsvDir);
 
@@ -239,7 +238,7 @@ public class MeasurementOrchestrator {
 			merged = WorkloadStats.external(toolName, totalDuration);
 		}
 
-		return new IteratedMeasurement(representative, perIteration, merged);
+		return new IteratedMeasurement(representative, perIteration, merged, methodLevelStartMs);
 	}
 
 	/**
@@ -343,19 +342,36 @@ public class MeasurementOrchestrator {
 	/**
 	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
 	 * results from the working directory, returning them as a {@link MethodLevelReports}.
+	 * All rows are included regardless of timestamp.
 	 * @param workingDir the working directory where Joular Code Java writes its results
 	 * @param duration measurement duration in seconds
 	 * @return a {@link MethodLevelReports}, or {@code null} if no results directory
 	 * exists
 	 */
 	public MethodLevelReports readJoularCodeJavaMethodLevelReports(Path workingDir, int duration) {
+		return readJoularCodeJavaMethodLevelReports(workingDir, duration, 0L);
+	}
+
+	/**
+	 * Reads both filtered (app-only) and unfiltered (all methods) Joular Code Java
+	 * results, skipping rows written before {@code startTimestampMs}.
+	 * @param workingDir the working directory where Joular Code Java writes its results
+	 * @param duration measurement duration in seconds
+	 * @param startTimestampMs epoch-millis cut-off; rows with a timestamp strictly before
+	 * this value are excluded (0 = no filtering)
+	 * @return a {@link MethodLevelReports}, or {@code null} if no results directory
+	 * exists
+	 */
+	public MethodLevelReports readJoularCodeJavaMethodLevelReports(Path workingDir, int duration,
+			long startTimestampMs) {
 		Path resultsDir = workingDir.resolve("joular-code-java-results");
 		if (!Files.isDirectory(resultsDir)) {
 			logger.accept("[greener] Joular Code Java results directory not found: " + resultsDir);
 			return null;
 		}
 		JoularCodeJavaResultReader reader = new JoularCodeJavaResultReader();
-		MethodLevelReports reports = reader.readAllResults(resultsDir, PluginDefaults.buildRunId(), duration);
+		MethodLevelReports reports = reader.readAllResults(resultsDir, PluginDefaults.buildRunId(), duration,
+				startTimestampMs);
 		if (!reports.hasData()) {
 			logger.accept("[greener] Joular Code Java produced no method-level data");
 			return null;
@@ -502,8 +518,10 @@ public class MeasurementOrchestrator {
 		ComparisonResult comparison = processBaselineComparison(report, config.baselinePath(), config.runDir(),
 				config.threshold(), config.autoUpdate(), config.commitSha(), config.branch(), config.regressionMetric(),
 				workloadStats);
-		MethodLevelReports methodLevelReports = config.hasJoularCodeJava() ? readJoularCodeJavaMethodLevelReports(
-				config.joularCodeJavaWorkingDir(), config.measureDurationSeconds()) : null;
+		MethodLevelReports methodLevelReports = config.hasJoularCodeJava()
+				? readJoularCodeJavaMethodLevelReports(config.joularCodeJavaWorkingDir(),
+						config.measureDurationSeconds(), config.methodLevelStartTimestampMs())
+				: null;
 		Path htmlReport = generateFinalReports(report, comparison, workloadStats, config.toolName(), config.reportDir(),
 				config.runDir(), config.vmMode(), methodLevelReports,
 				updateTrendHistory(config, report, workloadStats));
