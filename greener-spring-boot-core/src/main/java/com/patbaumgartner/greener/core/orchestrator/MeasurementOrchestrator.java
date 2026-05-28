@@ -120,7 +120,7 @@ public class MeasurementOrchestrator {
 	 * t-test instead of falling back to a raw percentage threshold. Cohen (1988)
 	 * recommends {@code n >= 5} per group for stable effect-size estimates; values lower
 	 * than that are still emitted but treated more conservatively by the comparator
-	 * (effect-size gate of |d| < 0.5).
+	 * (effect-size gate of |d| &lt; 0.5).
 	 *
 	 * <p>
 	 * The "representative" report is the iteration whose total energy is closest to the
