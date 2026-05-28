@@ -19,9 +19,8 @@
 
 ## Quickstart
 
-> [!WARNING]
-> The examples below use `0.2.0-SNAPSHOT` (current development version). To use a stable release,
-> replace it with `0.1.0` — available on Maven Central and ready to use without building locally.
+> [!NOTE]
+> The examples below use `0.2.0` — the current stable release, available on Maven Central.
 
 ### Maven
 
@@ -30,7 +29,7 @@
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0</version>
   <configuration>
     <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
   </configuration>
@@ -46,7 +45,7 @@ mvn package greener:measure
 ```kotlin
 // Add to build.gradle.kts
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
 }
 
 greener {
@@ -195,7 +194,7 @@ plugin will fail at runtime.
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0</version>
   <configuration>
     <!-- REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile -->
     <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
@@ -209,7 +208,7 @@ plugin will fail at runtime.
 <plugin>
   <groupId>com.patbaumgartner</groupId>
   <artifactId>greener-spring-boot-maven-plugin</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0</version>
   <configuration>
     <!-- springBootJar is auto-detected from target/ - set only if needed -->
     <!-- <springBootJar>${project.build.directory}/myapp.jar</springBootJar> -->
@@ -355,7 +354,7 @@ or `externalTrainingScriptFile` (path to a shell script).
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
 }
 
 greener {
@@ -368,7 +367,7 @@ greener {
 
 ```kotlin
 plugins {
-    id("com.patbaumgartner.greener-spring-boot") version "0.2.0-SNAPSHOT"
+    id("com.patbaumgartner.greener-spring-boot") version "0.2.0"
 }
 
 greener {
