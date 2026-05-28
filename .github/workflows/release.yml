@@ -120,6 +120,7 @@ jobs:
           git add pom.xml greener-spring-boot-core/pom.xml greener-spring-boot-maven-plugin/pom.xml \
             greener-spring-boot-gradle-plugin/gradle.properties
           git commit -m "chore(release): bump version to ${NEXT_VERSION} [skip ci]"
+          git pull --rebase
           git push
 
       # ── 7. Logs ─────────────────────────────────────────────────────────────
