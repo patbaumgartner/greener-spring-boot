@@ -157,7 +157,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 
 ## Dependencies
 
-- **Jackson** for JSON serialization of baselines.
+- **Jackson 3** (`tools.jackson.core:jackson-databind`) for JSON serialization of baselines. Note: annotation imports stay under `com.fasterxml.jackson.annotation.*` (unchanged in Jackson 3).
 - **JUnit Jupiter** for testing.
 - Dependency updates are managed via **Renovate** (`renovate.json5`) and **Dependabot** (`.github/dependabot.yml`).
 
