@@ -1,9 +1,9 @@
 package com.patbaumgartner.greener.core.baseline;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.patbaumgartner.greener.core.model.EnergyBaseline;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
@@ -29,10 +29,10 @@ public class BaselineManager {
 	private final ObjectMapper objectMapper;
 
 	public BaselineManager() {
-		this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
-			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+		this.objectMapper = JsonMapper.builder()
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-			.enable(SerializationFeature.INDENT_OUTPUT);
+			.enable(SerializationFeature.INDENT_OUTPUT)
+			.build();
 	}
 
 	/**
