@@ -570,7 +570,7 @@ public class MeasurementOrchestrator {
 		try {
 			return manager.loadBaseline(baselinePath);
 		}
-		catch (IOException e) {
+		catch (Exception e) {
 			logger.accept("[greener] Could not load baseline: " + e.getMessage());
 			return Optional.empty();
 		}
