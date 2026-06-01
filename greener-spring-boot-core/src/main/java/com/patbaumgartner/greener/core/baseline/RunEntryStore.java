@@ -1,9 +1,9 @@
 package com.patbaumgartner.greener.core.baseline;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.patbaumgartner.greener.core.model.AggregatedRunEntry;
 
 import java.io.IOException;
@@ -34,10 +34,10 @@ public class RunEntryStore {
 	private final ObjectMapper objectMapper;
 
 	public RunEntryStore() {
-		this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
-			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+		this.objectMapper = JsonMapper.builder()
 			.enable(SerializationFeature.INDENT_OUTPUT)
-			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+			.build();
 	}
 
 	/**
@@ -84,7 +84,7 @@ public class RunEntryStore {
 					try {
 						entries.add(load(entryFile));
 					}
-					catch (IOException e) {
+					catch (Exception e) {
 						LOG.warning(() -> "Failed to load run entry from " + entryFile + ": " + e.getMessage());
 					}
 				}

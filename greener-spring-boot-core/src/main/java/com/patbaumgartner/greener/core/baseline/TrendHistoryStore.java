@@ -1,10 +1,10 @@
 package com.patbaumgartner.greener.core.baseline;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.patbaumgartner.greener.core.model.TrendEntry;
 
 import java.io.IOException;
@@ -27,11 +27,11 @@ import java.util.logging.Logger;
  * <p>
  * The file format is a small, forward-compatible JSON object: <pre>{@code
  * {
- *   "version": 1,
- *   "entries": [
- *     { "timestamp": "...", "runId": "...", "totalEnergyJoules": 12.34, ... },
- *     ...
- *   ]
+ * "version": 1,
+ * "entries": [
+ * { "timestamp": "...", "runId": "...", "totalEnergyJoules": 12.34, ... },
+ * ...
+ * ]
  * }
  * }</pre>
  *
@@ -75,10 +75,10 @@ public class TrendHistoryStore {
 	private final ObjectMapper objectMapper;
 
 	public TrendHistoryStore() {
-		this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
-			.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+		this.objectMapper = JsonMapper.builder()
 			.enable(SerializationFeature.INDENT_OUTPUT)
-			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+			.build();
 	}
 
 	/**
@@ -102,7 +102,7 @@ public class TrendHistoryStore {
 			});
 			return entries == null ? Collections.emptyList() : Collections.unmodifiableList(entries);
 		}
-		catch (IOException | IllegalArgumentException e) {
+		catch (Exception e) {
 			LOG.log(Level.WARNING, e, () -> "Failed to load trend history from " + file + "; treating as empty");
 			return Collections.emptyList();
 		}
