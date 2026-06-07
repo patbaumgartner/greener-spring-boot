@@ -214,9 +214,8 @@ public class TrainingRunner {
 		// 1. Check PATH first using absolute path to 'where.exe' — handles Scoop,
 		// Chocolatey, MSYS2, and custom Git installations without hardcoded sh.exe paths.
 		try {
-			Process where = new ProcessBuilder("C:\\Windows\\System32\\where.exe", "sh.exe")
-					.redirectErrorStream(true)
-					.start();
+			Process where = new ProcessBuilder("C:\\Windows\\System32\\where.exe", "sh.exe").redirectErrorStream(true)
+				.start();
 			try (BufferedReader reader = new BufferedReader(
 					new InputStreamReader(where.getInputStream(), StandardCharsets.UTF_8))) {
 				String line = reader.readLine();
