@@ -54,7 +54,7 @@
     <rewrite-maven-plugin.version>6.41.0</rewrite-maven-plugin.version>
     <rewrite-static-analysis.version>2.36.0</rewrite-static-analysis.version>
     <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
-    <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
+    <cyclonedx-maven-plugin.version>2.9.2</cyclonedx-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
