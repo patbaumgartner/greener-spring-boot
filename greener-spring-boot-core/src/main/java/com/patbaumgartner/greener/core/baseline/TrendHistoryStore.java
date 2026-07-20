@@ -25,11 +25,8 @@ import java.util.logging.Logger;
  * {@link #DEFAULT_MAX_ENTRIES} runs to prevent unbounded growth.
  *
  * <p>
- * The file format is a small, forward-compatible JSON object: <pre>{@code
- * {
- * "version": 1,
- * "entries": [
- * { "timestamp": "...", "runId": "...", "totalEnergyJoules": 12.34, ... },
+ * The file format is a small, forward-compatible JSON object:
+ * <pre>{@code { "version": 1, "entries": [ { "timestamp": "...", "runId": "...", "totalEnergyJoules": 12.34, ... },
  * ...
  * ]
  * }

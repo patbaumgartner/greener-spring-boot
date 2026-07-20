@@ -11,12 +11,7 @@ import org.gradle.api.provider.Property;
  *
  * <h2>All available options</h2>
  *
- * <pre>{@code
- * greener {
- *     // Optional - auto-detected from build/libs/ when omitted
- *     springBootJar.set(file("build/libs/myapp.jar"))
- *     jvmArgs.set(listOf("-Xmx512m"))
- *     appArgs.set(listOf("--server.port=8080"))
+ * <pre>{@code greener { // Optional - auto-detected from build/libs/ when omitted springBootJar.set(file("build/libs/myapp.jar")) jvmArgs.set(listOf("-Xmx512m")) appArgs.set(listOf("--server.port=8080"))
  *
  *     // Joular Core
  *     joularCoreBinaryPath.set(file("/usr/local/bin/joularcore"))  // optional, auto-downloaded if absent
