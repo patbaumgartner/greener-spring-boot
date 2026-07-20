@@ -26,9 +26,7 @@ import java.util.logging.Logger;
  * <h2>Expected directory structure</h2>
  *
  * <pre>
- * joular-code-java-results/   ← configurable via {@code
- * results - path
- * } in joularcodejava.properties
+ * joular-code-java-results/   ← configurable via {@code results - path } in joularcodejava.properties
  *   methods-power-app.csv     ← power and energy for application-filtered call branches
  *   methods-power-all.csv     ← power and energy for all observed call branches
  * </pre>

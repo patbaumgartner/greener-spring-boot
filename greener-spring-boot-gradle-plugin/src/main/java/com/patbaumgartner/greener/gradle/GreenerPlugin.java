@@ -29,10 +29,7 @@ import org.gradle.api.provider.ProviderFactory;
  * a shell script). The plugin will fail at runtime if neither is configured.
  * </p>
  *
- * <pre>{@code
- * plugins {
- *     id("com.patbaumgartner.greener-spring-boot") version "<version>"
- * }
+ * <pre>{@code plugins { id("com.patbaumgartner.greener-spring-boot") version "<version>" }
  *
  * greener {
  *     // REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile

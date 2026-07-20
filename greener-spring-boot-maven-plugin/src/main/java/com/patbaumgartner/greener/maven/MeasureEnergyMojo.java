@@ -57,14 +57,7 @@ import java.util.function.Supplier;
  * a shell script). The plugin will fail at runtime if neither is configured.
  * </p>
  *
- * <pre>{@code
- * <plugin>
- *   <groupId>com.patbaumgartner</groupId>
- *   <artifactId>greener-spring-boot-maven-plugin</artifactId>
- *   <version>0.2.0-SNAPSHOT</version>
- *   <configuration>
- *     <!-- REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile -->
- *     <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
+ * <pre>{@code <plugin> <groupId>com.patbaumgartner</groupId> <artifactId>greener-spring-boot-maven-plugin</artifactId> <version>0.2.0-SNAPSHOT</version> <configuration> <!-- REQUIRED – one of externalTrainingCommand / externalTrainingScriptFile --> <externalTrainingCommand>oha -n 500 -c 10 ${APP_URL}/actuator/health</externalTrainingCommand>
  *   </configuration>
  * </plugin>
  * }</pre>
@@ -92,12 +85,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	 * <p>
 	 * Example:
 	 *
-	 * <pre>{@code
-	 * <jvmArgs>
-	 *   <jvmArg>-Xmx512m</jvmArg>
-	 *   <jvmArg>-Duser.timezone=UTC</jvmArg>
-	 * </jvmArgs>
-	 * }</pre>
+	 * <pre>{@code <jvmArgs> <jvmArg>-Xmx512m</jvmArg> <jvmArg>-Duser.timezone=UTC</jvmArg> </jvmArgs> }</pre>
 	 */
 	@Parameter
 	private List<String> jvmArgs;
@@ -108,12 +96,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	 * <p>
 	 * Example:
 	 *
-	 * <pre>{@code
-	 * <appArgs>
-	 *   <appArg>--server.port=8081</appArg>
-	 *   <appArg>--spring.profiles.active=perf</appArg>
-	 * </appArgs>
-	 * }</pre>
+	 * <pre>{@code <appArgs> <appArg>--server.port=8081</appArg> <appArg>--spring.profiles.active=perf</appArg> </appArgs> }</pre>
 	 *
 	 * <p>
 	 * The plugin always appends {@code --management.endpoint.health.probes.enabled=true}
