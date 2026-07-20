@@ -63,11 +63,11 @@ jobs:
 
       # ── 1. Source checkout ──────────────────────────────────────────────────
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # ── 2. Java (needed for Petclinic and Gatling) ──────────────────────────
       - name: Set up Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
@@ -105,7 +105,7 @@ jobs:
       - name: Restore cached wrk2 binary
         if: matrix.tool == 'wrk2'
         id: cache-wrk2
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/wrk2-bin
           key: wrk2-build-${{ runner.os }}-v1
@@ -167,7 +167,7 @@ jobs:
       # Gatling is auto-downloaded by run.sh on first use; cache the bundle.
       - name: Restore cached Gatling bundle
         if: matrix.tool == 'gatling'
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.greener/cache/gatling
           key: gatling-bundle-${{ env.GATLING_VERSION }}-v2
@@ -294,7 +294,7 @@ jobs:
 
       - name: Upload report artifact
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workload-report-${{ matrix.tool }}
           path: /tmp/workload-report-${{ matrix.tool }}.md
@@ -305,7 +305,7 @@ jobs:
       # "did not start within 120 s" failures.
       - name: Upload Petclinic startup log (failure only)
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: petclinic-log-${{ matrix.tool }}
           path: /tmp/petclinic-${{ matrix.tool }}.log
@@ -324,7 +324,7 @@ jobs:
 
     steps:
       - name: Download all workload reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: workload-report-*
           merge-multiple: true
