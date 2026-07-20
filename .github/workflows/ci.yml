@@ -29,11 +29,11 @@ jobs:
     steps:
       # ── 1. Checkout ─────────────────────────────────────────────────────────
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # ── 2. Java & Maven cache ───────────────────────────────────────────────
       - name: Set up Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
@@ -59,7 +59,7 @@ jobs:
       # ── 5. Publish Maven test results ───────────────────────────────────────
       - name: Publish test results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: maven-test-results
           path: |
@@ -68,7 +68,7 @@ jobs:
 
       # ── 6. Build Gradle plugin ──────────────────────────────────────────────
       - name: Set up Gradle cache
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
@@ -81,7 +81,7 @@ jobs:
       # ── 7. Publish Gradle test results ──────────────────────────────────────
       - name: Upload Gradle plugin test results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gradle-test-results
           path: greener-spring-boot-gradle-plugin/build/reports/tests/
