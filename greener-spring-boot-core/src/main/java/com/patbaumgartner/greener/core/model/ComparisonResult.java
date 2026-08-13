@@ -57,6 +57,37 @@ public record ComparisonResult(ComparisonStatus overallStatus, double baselineTo
 		return thresholdBreached && overallStatus == ComparisonStatus.REGRESSED;
 	}
 
+	/**
+	 * {@code true} when {@link #totalDeltaPercent()} was computed on energy-per-request
+	 * (mJ/req) rather than on raw total energy (J).
+	 *
+	 * <p>
+	 * When this holds, the delta is <em>not</em> derivable from
+	 * {@link #baselineTotalJoules()} and {@link #currentTotalJoules()} — a throughput
+	 * change moves the two independently. Reporters must therefore label the delta with
+	 * {@link #comparisonUnit()} and print {@link #baselineComparisonValue()} /
+	 * {@link #currentComparisonValue()} alongside it.
+	 */
+	public boolean comparedOnEnergyPerRequest() {
+		return metricUsed == RegressionMetric.ENERGY_PER_REQUEST && baselineEnergyPerRequestMillijoules != null
+				&& currentEnergyPerRequestMillijoules != null;
+	}
+
+	/** Unit of the values the delta was computed on: {@code mJ/req} or {@code J}. */
+	public String comparisonUnit() {
+		return comparedOnEnergyPerRequest() ? "mJ/req" : "J";
+	}
+
+	/** The baseline value {@link #totalDeltaPercent()} was actually computed from. */
+	public double baselineComparisonValue() {
+		return comparedOnEnergyPerRequest() ? baselineEnergyPerRequestMillijoules : baselineTotalJoules;
+	}
+
+	/** The current value {@link #totalDeltaPercent()} was actually computed from. */
+	public double currentComparisonValue() {
+		return comparedOnEnergyPerRequest() ? currentEnergyPerRequestMillijoules : currentTotalJoules;
+	}
+
 	public enum ComparisonStatus {
 
 		/** Energy consumption decreased compared to baseline. */

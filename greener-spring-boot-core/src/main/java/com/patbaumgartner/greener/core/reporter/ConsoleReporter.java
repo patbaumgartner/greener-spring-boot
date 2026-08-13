@@ -166,9 +166,14 @@ public class ConsoleReporter {
 		out.printf(" Baseline comparison:%n");
 		out.printf("   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
 		out.printf("   Current Total  : %.2f J%n", comparison.currentTotalJoules());
-		out.printf("   Delta          : %+.2f%%%n", comparison.totalDeltaPercent());
+		if (comparison.comparedOnEnergyPerRequest()) {
+			out.printf("   Energy/Request : %.3f -> %.3f mJ/req%n", comparison.baselineComparisonValue(),
+					comparison.currentComparisonValue());
+		}
+		out.printf("   Delta (%-6s) : %+.2f%%%n", comparison.comparisonUnit(), comparison.totalDeltaPercent());
 		out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
 		out.printf("   Status         : %s%n", arrow);
+		printStatisticalEvidence(comparison);
 
 		if (comparison.isFailed()) {
 			out.printf("%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
@@ -184,7 +189,7 @@ public class ConsoleReporter {
 
 		if (!regressions.isEmpty()) {
 			out.println();
-			out.printf("   Top regressed entries (delta > %.1f%%):%n", comparison.threshold());
+			out.printf("   Top regressed components by total energy (delta > %.1f%%):%n", comparison.threshold());
 			out.printf("   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
 			out.println("   " + "-".repeat(80));
 			regressions.forEach(mc -> out.printf("   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
@@ -194,10 +199,31 @@ public class ConsoleReporter {
 		out.println(THIN_LINE);
 	}
 
+	private void printStatisticalEvidence(ComparisonResult comparison) {
+		if (!comparison.statisticalDecision()) {
+			return;
+		}
+		Double p = comparison.pValue();
+		Double d = comparison.cohenD();
+		out.printf("   Significance   : p=%s, Cohen's d=%s (Welch's t-test)%n", formatStatistic(p, "%.4f"),
+				formatStatistic(d, "%.2f"));
+	}
+
+	private static String formatStatistic(Double value, String format) {
+		if (value == null || value.isNaN()) {
+			return "n/a";
+		}
+		if (value.isInfinite()) {
+			return value > 0 ? "+inf" : "-inf";
+		}
+		return String.format(format, value);
+	}
+
 	private String truncate(String s, int maxLen) {
-		if (s.length() <= maxLen)
+		if (s.length() <= maxLen) {
 			return s;
-		return ".." + s.substring(s.length() - (maxLen - 1));
+		}
+		return ".." + s.substring(s.length() - (maxLen - 2));
 	}
 
 }
