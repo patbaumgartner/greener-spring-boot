@@ -5,6 +5,7 @@ import com.patbaumgartner.greener.core.model.ComparisonResult.ComparisonStatus;
 import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import org.junit.jupiter.api.Test;
 
@@ -204,6 +205,92 @@ class ConsoleReporterTest {
 		String output = capture.toString();
 
 		assertThat(output).doesNotContain("Power Source");
+	}
+
+	@Test
+	void report_perRequestComparison_labelsDeltaAndShowsItsBasis() {
+		EnergyReport report = EnergyReport.of("run-per-req", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 200.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.IMPROVED, 100.0, 200.0, -50.0, List.of(),
+				false, 10.0, null, null, false, RegressionMetric.ENERGY_PER_REQUEST, 100.0, 50.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("Delta (mJ/req)");
+		assertThat(output).contains("100.000 -> 50.000 mJ/req");
+	}
+
+	@Test
+	void report_totalEnergyComparison_labelsDeltaAsJoules() {
+		EnergyReport report = EnergyReport.of("run-total", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("Delta (J     )");
+		assertThat(output).doesNotContain("mJ/req");
+	}
+
+	@Test
+	void report_statisticalDecision_printsPValueAndEffectSize() {
+		EnergyReport report = EnergyReport.of("run-stat", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0, 0.0123, 1.45, true);
+
+		reporter.report(report, comparison);
+		String output = capture.toString();
+
+		assertThat(output).contains("p=0.0123");
+		assertThat(output).contains("Cohen's d=1.45");
+	}
+
+	@Test
+	void report_thresholdDecision_omitsStatistics() {
+		EnergyReport report = EnergyReport.of("run-nostat", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0);
+
+		reporter.report(report, comparison);
+
+		assertThat(capture.toString()).doesNotContain("Significance");
+	}
+
+	@Test
+	void report_infiniteEffectSize_rendersReadableMarker() {
+		EnergyReport report = EnergyReport.of("run-inf", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0, 0.0, Double.POSITIVE_INFINITY, true);
+
+		reporter.report(report, comparison);
+
+		assertThat(capture.toString()).contains("Cohen's d=+inf");
+	}
+
+	@Test
+	void report_longMethodName_truncatesToExactColumnWidth() {
+		String longName = "com.example.very.long.package.name.WithAClass.andAMethodThatIsWayTooLongToFit";
+		EnergyReport report = EnergyReport.of("run-trunc", Instant.now(), 60,
+				List.of(new EnergyMeasurement(longName, 10.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 10.0, 0, List.of(), false,
+				10.0);
+
+		reporter.report(report, comparison);
+
+		String truncated = capture.toString()
+			.lines()
+			.filter(l -> l.contains(".."))
+			.map(String::strip)
+			.findFirst()
+			.orElseThrow();
+		assertThat(truncated).startsWith("..");
+		assertThat(truncated.substring(0, truncated.indexOf("  "))).hasSize(55);
 	}
 
 	@Test

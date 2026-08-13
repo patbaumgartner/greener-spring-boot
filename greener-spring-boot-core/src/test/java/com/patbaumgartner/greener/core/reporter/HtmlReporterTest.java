@@ -7,6 +7,7 @@ import com.patbaumgartner.greener.core.model.EnergyMeasurement;
 import com.patbaumgartner.greener.core.model.EnergyReport;
 import com.patbaumgartner.greener.core.model.MethodLevelReports;
 import com.patbaumgartner.greener.core.model.PowerSource;
+import com.patbaumgartner.greener.core.model.RegressionMetric;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -256,6 +257,59 @@ class HtmlReporterTest {
 		assertThat(content).contains("var(--cyan)").contains("var(--magenta)");
 		// Tooltips include each runId.
 		assertThat(content).contains("r1").contains("r2").contains("r3");
+	}
+
+	@Test
+	void generateReport_perRequestComparison_labelsChangeWithItsUnit(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-per-req", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 200.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.IMPROVED, 100.0, 200.0, -50.0, List.of(),
+				false, 10.0, null, null, false, RegressionMetric.ENERGY_PER_REQUEST, 100.0, 50.0);
+
+		String content = Files.readString(reporter.generateReport(report, comparison, tmp));
+
+		assertThat(content).contains("Change (mJ/req)");
+		assertThat(content).contains("Baseline / Request");
+		assertThat(content).contains("100.000 mJ");
+		assertThat(content).contains("50.000 mJ");
+	}
+
+	@Test
+	void generateReport_totalEnergyComparison_labelsChangeAsJoules(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-total", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0);
+
+		String content = Files.readString(reporter.generateReport(report, comparison, tmp));
+
+		assertThat(content).contains("Change (J)");
+		assertThat(content).doesNotContain("Baseline / Request");
+	}
+
+	@Test
+	void generateReport_statisticalDecision_rendersPValueAndEffectSize(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-stat", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0, 0.0123, 1.45, true);
+
+		String content = Files.readString(reporter.generateReport(report, comparison, tmp));
+
+		assertThat(content).contains("p=0.0123");
+		assertThat(content).contains("Cohen's d=1.45");
+	}
+
+	@Test
+	void generateReport_thresholdDecision_omitsStatisticalNote(@TempDir Path tmp) throws IOException {
+		EnergyReport report = EnergyReport.of("run-nostat", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 120.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.REGRESSED, 100.0, 120.0, 20.0, List.of(),
+				true, 10.0);
+
+		String content = Files.readString(reporter.generateReport(report, comparison, tmp));
+
+		assertThat(content).doesNotContain("Welch");
 	}
 
 }
