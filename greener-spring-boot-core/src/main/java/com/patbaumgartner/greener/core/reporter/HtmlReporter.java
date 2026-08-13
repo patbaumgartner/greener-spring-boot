@@ -749,7 +749,11 @@ public class HtmlReporter {
 		sb.append("  <div class=\"card\">\n    <h2>Baseline vs Current</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Baseline", String.format(FMT_ENERGY_JOULES, c.baselineTotalJoules())));
 		sb.append(metric("Current", String.format(FMT_ENERGY_JOULES, c.currentTotalJoules())));
-		sb.append(metric("Change", String.format("%+.2f%%", c.totalDeltaPercent())));
+		if (c.comparedOnEnergyPerRequest()) {
+			sb.append(metric("Baseline / Request", String.format("%.3f mJ", c.baselineComparisonValue())));
+			sb.append(metric("Current / Request", String.format("%.3f mJ", c.currentComparisonValue())));
+		}
+		sb.append(metric("Change (" + c.comparisonUnit() + ")", String.format("%+.2f%%", c.totalDeltaPercent())));
 		sb.append(metric("Threshold", String.format("±%.1f%%", c.threshold())));
 		sb.append("    <div class=\"metric\"><div class=\"label\">Status</div>")
 			.append("<div class=\"value ")
@@ -758,10 +762,14 @@ public class HtmlReporter {
 			.append(label)
 			.append("</div></div>\n    </div>\n");
 
+		sb.append(buildStatisticalNote(c));
+
 		if (c.isFailed()) {
 			sb.append("    <div class=\"alert alert-danger\">Energy consumption increased by ")
 				.append(String.format("%.2f%%", c.totalDeltaPercent()))
-				.append(", exceeding the ±")
+				.append(" (measured in ")
+				.append(escHtml(c.comparisonUnit()))
+				.append("), exceeding the ±")
 				.append(String.format(FMT_PERCENT_1, c.threshold()))
 				.append(" threshold.</div>\n");
 		}
@@ -796,6 +804,26 @@ public class HtmlReporter {
 		}
 		sb.append(DIV_CLOSE);
 		return sb.toString();
+	}
+
+	private String buildStatisticalNote(ComparisonResult c) {
+		if (!c.statisticalDecision()) {
+			return "";
+		}
+		return "    <div class=\"note\">Decision made by Welch's two-sample t-test: p=" + formatStatistic(c.pValue(), 4)
+				+ ", Cohen's d=" + formatStatistic(c.cohenD(), 2)
+				+ ". A regression is flagged only when |d| &ge; 0.5, p &lt; 0.05, and the percent delta exceeds the threshold."
+				+ "</div>\n";
+	}
+
+	private static String formatStatistic(Double value, int decimals) {
+		if (value == null || value.isNaN()) {
+			return "n/a";
+		}
+		if (value.isInfinite()) {
+			return value > 0 ? "+&infin;" : "-&infin;";
+		}
+		return String.format(Locale.ROOT, "%." + decimals + "f", value);
 	}
 
 	private String metric(String label, String value) {
