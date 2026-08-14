@@ -354,7 +354,12 @@ public class MeasureEnergyMojo extends AbstractMojo {
 		catch (MojoFailureException | MojoExecutionException e) {
 			throw e;
 		}
-		catch (IOException | InterruptedException | RuntimeException e) {
+		catch (InterruptedException e) {
+			// Restore the flag so the surrounding build can observe the interruption.
+			Thread.currentThread().interrupt();
+			throw new MojoExecutionException("Energy measurement interrupted: " + e.getMessage(), e);
+		}
+		catch (IOException | RuntimeException e) {
 			throw new MojoExecutionException("Energy measurement failed: " + e.getMessage(), e);
 		}
 	}
