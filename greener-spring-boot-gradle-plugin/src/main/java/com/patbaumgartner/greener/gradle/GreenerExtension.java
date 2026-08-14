@@ -150,6 +150,17 @@ public abstract class GreenerExtension {
 	public abstract RegularFileProperty getExternalTrainingScriptFile();
 
 	/**
+	 * Maximum number of seconds the external workload may run before it is force-killed
+	 * and the build fails. {@code 0} (the default) waits indefinitely.
+	 *
+	 * <p>
+	 * Set this whenever the workload tool can hang (an unreachable host, a saturated
+	 * connection pool); without it a stuck load generator blocks the build forever.
+	 * @return the external training timeout property
+	 */
+	public abstract Property<Integer> getExternalTrainingTimeoutSeconds();
+
+	/**
 	 * Enable Joular Core VM mode - for virtualised environments where RAPL counters are
 	 * not directly accessible. The host must write the VM's instantaneous power in Watts
 	 * to {@link #getVmPowerFilePath()} every second.
