@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -300,7 +301,8 @@ public class MeasurementOrchestrator {
 				Files.copy(outputCsv, idleSavePath, StandardCopyOption.REPLACE_EXISTING);
 			}
 		}
-		logger.accept(String.format("[greener] Idle baseline: %.3f W average over %d s", idlePowerW, idleSeconds));
+		logger.accept(String.format(Locale.ROOT, "[greener] Idle baseline: %.3f W average over %d s", idlePowerW,
+				idleSeconds));
 		// Restart for the upcoming workload phase.
 		Files.deleteIfExists(outputCsv);
 		runner.start(config);
@@ -319,8 +321,8 @@ public class MeasurementOrchestrator {
 		}
 		double idleJoules = idlePowerW * report.durationSeconds();
 		double adjusted = Math.max(0.0, report.totalEnergyJoules() - idleJoules);
-		logger
-			.accept(String.format("[greener] Idle subtraction: -%.3f J (workload net = %.3f J)", idleJoules, adjusted));
+		logger.accept(String.format(Locale.ROOT, "[greener] Idle subtraction: -%.3f J (workload net = %.3f J)",
+				idleJoules, adjusted));
 		return new EnergyReport(report.runId(), report.timestamp() == null ? Instant.now() : report.timestamp(),
 				report.durationSeconds(), report.measurements(), adjusted, report.totalEnergyStats());
 	}
@@ -378,11 +380,13 @@ public class MeasurementOrchestrator {
 		}
 		if (reports.hasAppData()) {
 			logger.accept("[greener] Joular Code Java app methods: " + reports.appReport().measurements().size()
-					+ " methods, " + String.format("%.2f J total", reports.appReport().totalEnergyJoules()));
+					+ " methods, "
+					+ String.format(Locale.ROOT, "%.2f J total", reports.appReport().totalEnergyJoules()));
 		}
 		if (reports.hasAllData()) {
 			logger.accept("[greener] Joular Code Java all methods: " + reports.allReport().measurements().size()
-					+ " methods, " + String.format("%.2f J total", reports.allReport().totalEnergyJoules()));
+					+ " methods, "
+					+ String.format(Locale.ROOT, "%.2f J total", reports.allReport().totalEnergyJoules()));
 		}
 		return reports;
 	}
