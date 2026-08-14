@@ -1,0 +1,80 @@
+name: Dependency Scan
+
+# OWASP dependency-check (CVE gate) + CycloneDX SBOM for the published artifacts.
+#
+# Both plugins are configured in the root pom but bound to no lifecycle phase, so
+# `mvn verify` never runs them. This workflow is what actually executes them.
+#
+# ── Trigger ───────────────────────────────────────────────────────────────────
+# Weekly (Monday 03:00 UTC) so newly published CVEs against unchanged dependencies
+# are caught, plus manual dispatch and any change to the build files themselves.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"   # Monday 03:00 UTC
+  push:
+    branches: [main]
+    paths:
+      - "**/pom.xml"
+      - "greener-spring-boot-gradle-plugin/gradle.properties"
+      - ".github/workflows/dependency-scan.yml"
+
+concurrency:
+  group: dependency-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+
+jobs:
+  scan:
+    name: CVE scan and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      # The NVD feed is rate-limited without an API key. The scan still works
+      # without one, it is just slower; cache the local DB to keep it bearable.
+      - name: Cache NVD database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: nvd-${{ runner.os }}-
+
+      # Fails the build on any dependency with CVSS >= 7 (configured in the root pom).
+      - name: OWASP dependency-check
+        run: >
+          mvn --batch-mode --no-transfer-progress
+          org.owasp:dependency-check-maven:check
+          -DnvdApiKey="${{ secrets.NVD_API_KEY }}"
+
+      - name: Generate CycloneDX SBOM
+        if: always()
+        run: mvn --batch-mode --no-transfer-progress org.cyclonedx:cyclonedx-maven-plugin:makeBom
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dependency-scan-reports
+          path: |
+            **/target/dependency-check-report.html
+            **/target/dependency-check-report.json
+            **/target/bom.json
+          if-no-files-found: warn
+          retention-days: 30
