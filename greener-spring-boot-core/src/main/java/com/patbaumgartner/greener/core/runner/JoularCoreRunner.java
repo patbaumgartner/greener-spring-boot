@@ -1,6 +1,8 @@
 package com.patbaumgartner.greener.core.runner;
 
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -59,8 +61,8 @@ public class JoularCoreRunner implements AutoCloseable {
 	 */
 	public void start(JoularCoreConfig config) throws IOException {
 		if (config.getBinaryPath() == null || !Files.exists(config.getBinaryPath())) {
-			throw new IOException("Joular Core binary not found at: " + config.getBinaryPath()
-					+ " - please set joularCoreBinaryPath or enable auto-download.");
+			throw new EnergyMeasurementException(Hint.JOULAR_CORE_BINARY_MISSING,
+					"Joular Core binary not found at: " + config.getBinaryPath());
 		}
 
 		if (config.getOutputCsvPath() == null) {
