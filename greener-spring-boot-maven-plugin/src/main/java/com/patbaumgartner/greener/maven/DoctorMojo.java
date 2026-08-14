@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.maven;
 
+import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.doctor.EnvironmentDoctor;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoFailureException;
@@ -36,11 +37,19 @@ public class DoctorMojo extends AbstractMojo {
 	private File joularCodeJavaAgentPath;
 
 	/**
-	 * Optional first token of the workload command (e.g. {@code oha}). When set, the
-	 * doctor verifies it is on {@code PATH}.
+	 * Optional first token of the workload command (e.g. {@code oha}). When unset, the
+	 * doctor falls back to {@link #externalTrainingCommand} so the tool configured for
+	 * {@code greener:measure} is verified without repeating it here.
 	 */
 	@Parameter(property = "greener.workloadCommand")
 	private String workloadCommand;
+
+	/**
+	 * External training command configured for {@code greener:measure}. Used only to
+	 * derive the workload tool when {@link #workloadCommand} is not set.
+	 */
+	@Parameter(property = "greener.externalTrainingCommand")
+	private String externalTrainingCommand;
 
 	/** Fail the build when any check is FAIL. Default {@code true}. */
 	@Parameter(property = "greener.doctor.failOnError", defaultValue = "true")
@@ -51,8 +60,9 @@ public class DoctorMojo extends AbstractMojo {
 		Path projectDir = (projectBasedir != null) ? projectBasedir.toPath() : Paths.get("").toAbsolutePath();
 		Path binary = (joularCoreBinaryPath != null) ? joularCoreBinaryPath.toPath() : null;
 		Path agent = (joularCodeJavaAgentPath != null) ? joularCodeJavaAgentPath.toPath() : null;
+		String workloadTool = PluginDefaults.resolveWorkloadTool(workloadCommand, externalTrainingCommand);
 
-		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, workloadCommand, projectDir);
+		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, workloadTool, projectDir);
 		EnvironmentDoctor.format(report).lines().forEach(getLog()::info);
 		if (failOnError && report.hasFailures()) {
 			throw new MojoFailureException("greener:doctor reported failures (see log above)");

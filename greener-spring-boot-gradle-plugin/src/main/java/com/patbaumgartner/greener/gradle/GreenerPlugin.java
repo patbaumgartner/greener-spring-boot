@@ -97,6 +97,7 @@ public class GreenerPlugin implements Plugin<Project> {
 					+ "workload tool, jar auto-detect) and reports actionable diagnostics.");
 			task.getJoularCoreBinaryPath().convention(extension.getJoularCoreBinaryPath());
 			task.getJoularCodeJavaAgentPath().convention(extension.getJoularCodeJavaAgentPath());
+			task.getExternalTrainingCommand().convention(extension.getExternalTrainingCommand());
 			task.getFailOnError().convention(true);
 			task.getProjectDir().convention(project.getProjectDir());
 		});
