@@ -325,6 +325,13 @@ your workload tool on `PATH`, and Spring Boot fat-jar auto-detection &mdash; eac
 failure includes an actionable hint. The build fails if any check is FAIL by default;
 pass `-Dgreener.doctor.failOnError=false` for advisory-only mode.
 
+The workload tool to probe is taken from the first token of your configured
+`externalTrainingCommand`, so no extra setup is needed. Override it with
+`-Dgreener.workloadCommand=<tool>` (Maven) or `workloadCommand.set("<tool>")` on the
+`energyDoctor` task (Gradle) &mdash; useful when the command starts with a wrapper such
+as `sh -c`. The check is skipped when only `externalTrainingScriptFile` is configured,
+since a script path is not resolved through `PATH`.
+
 ### Recommended setup for trustworthy measurements
 
 ```xml
