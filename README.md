@@ -279,6 +279,7 @@ mvn greener:update-baseline
 | `requestsPerSecond` | `5` | Requests per second passed to external scripts as `RPS` env var |
 | `externalTrainingCommand` | *(none)* | **Required\*** - External load test command (e.g. `oha -n 500 -c 10 ${APP_URL}/actuator/health`) |
 | `externalTrainingScriptFile` | *(none)* | **Required\*** - Path to an external shell script (e.g. `examples/workloads/oha/run.sh`) |
+| `externalTrainingTimeoutSeconds` | `0` | Force-kill the workload (and its whole process tree) after N seconds and fail the build. `0` waits indefinitely — set this whenever the tool can hang |
 | `vmMode` | `false` | Enable Joular Core VM mode (no direct RAPL; reads power from `vmPowerFilePath`) |
 | `vmPowerFilePath` | *(none)* | File that provides VM power in Watts; updated every second by the host or the estimator script |
 | `warmupDurationSeconds` | `30` | Warmup before recording (discarded) |
@@ -341,7 +342,27 @@ With `iterations >= 2` the comparator switches from a fixed-percent rule to
 **Welch's two-sample t-test + Cohen's d** and only flags a regression when
 `|d| >= 0.5` (medium effect), `p < 0.05`, and the percent delta exceeds
 `threshold`. This eliminates false positives from tiny-effect significance and
-false negatives from noise.
+false negatives from noise. Both reports print the resulting `p` and `d` so you
+can see *why* a run was classified the way it was.
+
+### Reading the delta
+
+The reported delta is always labelled with the metric it was computed on:
+
+```
+Baseline Total : 100.00 J
+Current Total  : 200.00 J
+Energy/Request : 100.000 -> 50.000 mJ/req
+Delta (mJ/req) : -50.00%
+Status         : IMPROVED
+```
+
+With the default `regressionMetric=ENERGY_PER_REQUEST` the delta is **not**
+derivable from the two Joule figures — doubling throughput doubles total energy
+while halving energy per request, and that is an improvement, not a regression.
+The two `mJ/req` values the percentage came from are printed alongside it. Switch
+to `regressionMetric=TOTAL_ENERGY` to compare raw Joules instead, in which case
+the delta is labelled `Delta (J)`.
 
 ---
 
@@ -376,6 +397,7 @@ greener {
     externalTrainingCommand.set("oha -n 500 -c 10 \${APP_URL}/actuator/health")
     // Option B: external script (takes precedence over command if both set)
     // externalTrainingScriptFile.set(file("examples/workloads/oha/run.sh"))
+    externalTrainingTimeoutSeconds.set(300)   // 0 = wait indefinitely
 
     springBootJar.set(file("build/libs/myapp.jar"))
     jvmArgs.set(listOf("-Xmx512m"))
@@ -477,7 +499,7 @@ All CI pipelines detect the best available power source automatically:
 
 | Source | Condition | Accuracy |
 |---|---|---|
-| **RAPL** (hardware) | `/sys/class/powercap/intel-rapl/.../energy_uj` readable | ★★★ highest |
+| **RAPL** (hardware) | `/sys/class/powercap/intel-rapl*/energy_uj` readable — *probed at runtime, not assumed* | ★★★ highest |
 | **Scaphandre VM file** | `VM_POWER_FILE` env var set + file exists | ★★★ high |
 | **CPU-time × TDP** ← CI default | `/proc/stat` readable (any Linux) | ★★ estimated |
 
