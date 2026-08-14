@@ -176,6 +176,14 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	public abstract RegularFileProperty getExternalTrainingScriptFile();
 
 	/**
+	 * Maximum number of seconds the external workload may run before it is force-killed
+	 * and the build fails. {@code 0} (the default) waits indefinitely.
+	 * @return the external training timeout property
+	 */
+	@Input
+	public abstract Property<Integer> getExternalTrainingTimeoutSeconds();
+
+	/**
 	 * Enable Joular Core VM mode.
 	 *
 	 * <p>
@@ -551,7 +559,9 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 	}
 
 	private TrainingConfig buildTrainingConfig(String baseUrl) {
-		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl).requestsPerSecond(getRequestsPerSecond().get());
+		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl)
+			.requestsPerSecond(getRequestsPerSecond().get())
+			.timeoutSeconds(getExternalTrainingTimeoutSeconds().get());
 
 		if (getExternalTrainingScriptFile().isPresent()) {
 			File scriptFile = getExternalTrainingScriptFile().get().getAsFile();

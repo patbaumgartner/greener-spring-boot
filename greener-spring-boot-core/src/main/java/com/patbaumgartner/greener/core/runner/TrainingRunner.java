@@ -1,6 +1,8 @@
 package com.patbaumgartner.greener.core.runner;
 
 import com.patbaumgartner.greener.core.config.TrainingConfig;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
 import com.patbaumgartner.greener.core.model.WorkloadStats;
 
 import java.io.BufferedReader;
@@ -12,7 +14,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -52,6 +53,10 @@ public class TrainingRunner {
 	/** Maximum number of characters to capture from process output (10 MB). */
 	private static final int OUTPUT_BUFFER_CAP = 10 * 1024 * 1024;
 
+	private static final int FORCED_EXIT_GRACE_SECONDS = 5;
+
+	private static final long OUTPUT_DRAIN_GRACE_MILLIS = 2_000L;
+
 	/**
 	 * Runs the full training cycle and returns statistics about the workload.
 	 *
@@ -89,7 +94,8 @@ public class TrainingRunner {
 
 		Path script = Path.of(scriptFile);
 		if (!Files.exists(script)) {
-			throw new IOException("External training script not found: " + script.toAbsolutePath());
+			throw new EnergyMeasurementException(Hint.WORKLOAD_TOOL_MISSING,
+					"External training script not found: " + script.toAbsolutePath());
 		}
 
 		// Ensure the script is executable
@@ -110,29 +116,9 @@ public class TrainingRunner {
 		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
-		long start = System.currentTimeMillis();
-		Process process = pb.start();
-		String output = captureAndForwardOutput(process);
-		int exitCode;
-		int timeout = config.getTimeoutSeconds();
-		if (timeout > 0) {
-			boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
-			if (!finished) {
-				process.destroyForcibly();
-				throw new IOException("Training script timed out after " + timeout + " seconds: " + script);
-			}
-			exitCode = process.exitValue();
-		}
-		else {
-			exitCode = process.waitFor();
-		}
-		long elapsed = (System.currentTimeMillis() - start) / 1_000;
-
-		if (exitCode != 0) {
-			throw new IOException("Training script exited with code " + exitCode + ": " + script);
-		}
-		LOG.fine(() -> "Training script [" + toolName + "] completed in " + elapsed + " s");
-		return buildExternalStats(toolName, output, elapsed);
+		Execution execution = execute(pb, config.getTimeoutSeconds(), "Training script " + script);
+		LOG.fine(() -> "Training script [" + toolName + "] completed in " + execution.elapsedSeconds() + " s");
+		return buildExternalStats(toolName, execution.output(), execution.elapsedSeconds());
 	}
 
 	private WorkloadStats runExternalCommand(TrainingConfig config, String command)
@@ -145,30 +131,66 @@ public class TrainingRunner {
 		pb.redirectErrorStream(true);
 		populateEnvironment(pb, config);
 
+		Execution execution = execute(pb, config.getTimeoutSeconds(), "External training command " + command);
+		LOG.fine(() -> "External training command completed in " + execution.elapsedSeconds() + " s");
+		return buildExternalStats(deriveToolName(command, null), execution.output(), execution.elapsedSeconds());
+	}
+
+	/**
+	 * Starts the workload process, captures its merged stdout/stderr, and enforces
+	 * {@code timeoutSeconds}.
+	 *
+	 * <p>
+	 * Output is drained on a separate daemon thread. Reading the child's output inline
+	 * would block until the child closes the stream — i.e. until it exits — so the
+	 * timeout could never fire for exactly the workload that needs it most: one that
+	 * hangs without terminating.
+	 * @param timeoutSeconds maximum runtime; {@code 0} or less waits indefinitely
+	 */
+	private Execution execute(ProcessBuilder pb, int timeoutSeconds, String description)
+			throws IOException, InterruptedException {
 		long start = System.currentTimeMillis();
 		Process process = pb.start();
-		String output = captureAndForwardOutput(process);
-		int exitCode;
-		int timeout = config.getTimeoutSeconds();
-		if (timeout > 0) {
-			boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
-			if (!finished) {
-				process.destroyForcibly();
-				throw new IOException("External training command timed out after " + timeout + " seconds: " + command);
+		OutputDrainer drainer = OutputDrainer.start(process);
+		try {
+			if (timeoutSeconds > 0 && !process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+				destroyTree(process);
+				throw new EnergyMeasurementException(Hint.WORKLOAD_TIMEOUT,
+						description + " timed out after " + timeoutSeconds + " seconds.");
 			}
-			exitCode = process.exitValue();
+			if (timeoutSeconds <= 0) {
+				process.waitFor();
+			}
 		}
-		else {
-			exitCode = process.waitFor();
+		finally {
+			drainer.join();
 		}
-		long elapsed = (System.currentTimeMillis() - start) / 1_000;
 
+		long elapsed = (System.currentTimeMillis() - start) / 1_000;
+		int exitCode = process.exitValue();
 		if (exitCode != 0) {
-			throw new IOException("External training command exited with code " + exitCode + ": " + command);
+			throw new EnergyMeasurementException(Hint.WORKLOAD_FAILED,
+					description + " exited with code " + exitCode + ".");
 		}
-		LOG.fine(() -> "External training command completed in " + elapsed + " s");
-		String toolName = deriveToolName(command, null);
-		return buildExternalStats(toolName, output, elapsed);
+		return new Execution(drainer.output(), elapsed);
+	}
+
+	/**
+	 * Force-kills the workload process <em>and its descendants</em>.
+	 *
+	 * <p>
+	 * Workloads run through {@code sh -c}, so {@link Process#destroyForcibly()} alone
+	 * only kills the shell and leaves the actual load generator running. A surviving
+	 * generator keeps hammering the application and corrupts every subsequent measurement
+	 * window in the same build.
+	 */
+	private static void destroyTree(Process process) throws InterruptedException {
+		process.descendants().forEach(ProcessHandle::destroyForcibly);
+		process.destroyForcibly();
+		process.waitFor(FORCED_EXIT_GRACE_SECONDS, TimeUnit.SECONDS);
+	}
+
+	private record Execution(String output, long elapsedSeconds) {
 	}
 
 	// -------------------------------------------------------------------------
@@ -268,28 +290,67 @@ public class TrainingRunner {
 	 * are logged at {@code FINE} level to avoid flooding the console with external tool
 	 * output.
 	 */
-	private String captureAndForwardOutput(Process process) throws IOException {
-		StringBuilder sb = new StringBuilder();
-		boolean capped = false;
-		try (BufferedReader reader = new BufferedReader(
-				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-			String line = reader.readLine();
-			while (line != null) {
-				LOG.fine(line);
-				if (!capped) {
-					if (sb.length() + line.length() + 1 <= OUTPUT_BUFFER_CAP) {
-						sb.append(line).append('\n');
-					}
-					else {
+	// Suppressed PMD rule: the accumulator must be a field because the drainer thread
+	// fills it while the caller waits on the process. It is explicitly capped at
+	// OUTPUT_BUFFER_CAP and the instance lives only for one workload execution.
+	@SuppressWarnings("PMD.AvoidStringBufferField")
+	private static final class OutputDrainer implements Runnable {
+
+		private final Process process;
+
+		private final StringBuilder sink = new StringBuilder();
+
+		private final Thread thread;
+
+		private OutputDrainer(Process process) {
+			this.process = process;
+			this.thread = new Thread(this, "greener-workload-output");
+			this.thread.setDaemon(true);
+		}
+
+		static OutputDrainer start(Process process) {
+			OutputDrainer drainer = new OutputDrainer(process);
+			drainer.thread.start();
+			return drainer;
+		}
+
+		@Override
+		public void run() {
+			boolean capped = false;
+			try (BufferedReader reader = new BufferedReader(
+					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+				String line = reader.readLine();
+				while (line != null) {
+					LOG.fine(line);
+					if (!capped && sink.length() + line.length() + 1 > OUTPUT_BUFFER_CAP) {
 						capped = true;
 						LOG.warning("Output capture buffer cap reached (" + OUTPUT_BUFFER_CAP
 								+ " chars); further output will not be captured.");
 					}
+					else if (!capped) {
+						sink.append(line).append('\n');
+					}
+					line = reader.readLine();
 				}
-				line = reader.readLine();
+			}
+			catch (IOException ex) {
+				LOG.fine(() -> "Stopped reading workload output: " + ex.getMessage());
 			}
 		}
-		return sb.toString();
+
+		/**
+		 * Waits for the drain to finish so {@link #output()} is safely publishable, then
+		 * gives up: a force-killed child may leave the stream held open by a surviving
+		 * grandchild, and the build must not hang on that.
+		 */
+		void join() throws InterruptedException {
+			thread.join(OUTPUT_DRAIN_GRACE_MILLIS);
+		}
+
+		String output() {
+			return sink.toString();
+		}
+
 	}
 
 	private WorkloadStats buildExternalStats(String toolName, String output, long elapsed) {

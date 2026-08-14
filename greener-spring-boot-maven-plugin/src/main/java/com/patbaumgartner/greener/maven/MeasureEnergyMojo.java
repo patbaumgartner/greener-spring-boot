@@ -181,6 +181,17 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	@Parameter(property = "greener.externalTrainingScriptFile")
 	private File externalTrainingScriptFile;
 
+	/**
+	 * Maximum number of seconds the external workload may run before it is force-killed
+	 * and the build fails. {@code 0} (the default) waits indefinitely.
+	 *
+	 * <p>
+	 * Set this whenever the workload tool can hang (an unreachable host, a saturated
+	 * connection pool); without it a stuck load generator blocks the build forever.
+	 */
+	@Parameter(property = "greener.externalTrainingTimeoutSeconds", defaultValue = "0")
+	private int externalTrainingTimeoutSeconds;
+
 	// ---- VM mode (for virtualised environments) ----
 
 	/**
@@ -569,7 +580,9 @@ public class MeasureEnergyMojo extends AbstractMojo {
 	}
 
 	private TrainingConfig buildTrainingConfig() {
-		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl).requestsPerSecond(requestsPerSecond);
+		TrainingConfig config = new TrainingConfig().baseUrl(baseUrl)
+			.requestsPerSecond(requestsPerSecond)
+			.timeoutSeconds(externalTrainingTimeoutSeconds);
 
 		if (externalTrainingScriptFile != null && externalTrainingScriptFile.exists()) {
 			config.externalScriptFile(externalTrainingScriptFile.getAbsolutePath());
