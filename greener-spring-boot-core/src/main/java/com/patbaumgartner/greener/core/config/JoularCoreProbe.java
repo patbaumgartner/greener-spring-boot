@@ -61,16 +61,14 @@ public final class JoularCoreProbe {
 						if (line == null) {
 							break;
 						}
-						try {
-							double value = Double.parseDouble(line.trim());
-							if (value > 0) {
-								hasPower = true;
-								break;
-							}
+						if (reportsPower(line)) {
+							hasPower = true;
+							break;
 						}
-						catch (NumberFormatException ignored) {
-							// Skip non-numeric lines (e.g. warnings)
-						}
+					}
+					else if (!process.isAlive()) {
+						hasPower = drainRemaining(reader);
+						break;
 					}
 					else {
 						Thread.sleep(100);
@@ -89,6 +87,24 @@ public final class JoularCoreProbe {
 		}
 		catch (IOException e) {
 			LOG.fine(() -> "Joular Core power probe failed for component '" + component + "': " + e.getMessage());
+			return false;
+		}
+	}
+
+	private static boolean drainRemaining(BufferedReader reader) throws IOException {
+		for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+			if (reportsPower(line)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean reportsPower(String line) {
+		try {
+			return Double.parseDouble(line.trim()) > 0;
+		}
+		catch (NumberFormatException ignored) {
 			return false;
 		}
 	}
