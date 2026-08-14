@@ -1,5 +1,8 @@
 package com.patbaumgartner.greener.core.runner;
 
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
+
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
@@ -34,6 +37,12 @@ public class ApplicationRunner {
 	private static final Logger LOG = Logger.getLogger(ApplicationRunner.class.getName());
 
 	private static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 3;
+
+	private static final int HTTP_OK_MIN = 200;
+
+	private static final int HTTP_OK_MAX = 300;
+
+	private static final long HEALTH_POLL_INTERVAL_MILLIS = 2_000L;
 
 	private final HttpClient httpClient;
 
@@ -117,8 +126,8 @@ public class ApplicationRunner {
 	 * Blocks until the application's health-check endpoint returns HTTP 2xx, or until
 	 * {@code timeoutSeconds} elapses.
 	 * @param process the application process to monitor for early exit
-	 * @throws RuntimeException if the application does not become healthy in time or
-	 * exits prematurely
+	 * @throws EnergyMeasurementException carrying {@link Hint#APPLICATION_NOT_READY} if
+	 * the application does not become healthy in time or exits prematurely
 	 */
 	public void waitForStartup(Process process, String baseUrl, String healthPath, int timeoutSeconds)
 			throws IOException, InterruptedException {
@@ -130,33 +139,48 @@ public class ApplicationRunner {
 
 		while (System.currentTimeMillis() < deadline) {
 			if (!process.isAlive()) {
-				throw new RuntimeException(
+				throw new EnergyMeasurementException(Hint.APPLICATION_NOT_READY,
 						"Application process (PID " + process.pid() + ") exited prematurely with code "
 								+ process.exitValue() + ". Check app-stdout.log and app-stderr.log for details.");
 			}
-			try {
-				HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(healthUrl))
-					.timeout(Duration.ofSeconds(requestTimeoutSeconds))
-					.GET()
-					.build();
-
-				HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-				if (response.statusCode() >= 200 && response.statusCode() < 300) {
-					LOG.fine(() -> "Health check passed (HTTP " + response.statusCode() + ")");
-					return;
-				}
+			if (isHealthy(healthUrl)) {
+				return;
 			}
-			catch (ConnectException | HttpTimeoutException ignored) {
-				// Expected during startup (connection refused or timed out, e.g. IPv6
-				// probe on Windows) — keep polling
-			}
-			Thread.sleep(2_000);
+			Thread.sleep(HEALTH_POLL_INTERVAL_MILLIS);
 		}
 
-		throw new RuntimeException(
+		throw new EnergyMeasurementException(Hint.APPLICATION_NOT_READY,
 				"Application did not become healthy within " + timeoutSeconds + " seconds at " + healthUrl);
+	}
+
+	/**
+	 * Polls the health endpoint once.
+	 *
+	 * <p>
+	 * Every {@link IOException} is treated as "not ready yet". A starting server produces
+	 * a whole family of transient failures beyond connection-refused — resets while the
+	 * connector binds, truncated responses, EOF mid-handshake — and letting those
+	 * propagate aborted a startup that was merely still in progress.
+	 */
+	private boolean isHealthy(String healthUrl) throws InterruptedException {
+		try {
+			HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(healthUrl))
+				.timeout(Duration.ofSeconds(requestTimeoutSeconds))
+				.GET()
+				.build();
+
+			HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+			if (response.statusCode() >= HTTP_OK_MIN && response.statusCode() < HTTP_OK_MAX) {
+				LOG.fine(() -> "Health check passed (HTTP " + response.statusCode() + ")");
+				return true;
+			}
+			LOG.finest(() -> "Health check returned HTTP " + response.statusCode());
+		}
+		catch (IOException ex) {
+			LOG.finest(() -> "Health endpoint not ready yet: " + ex);
+		}
+		return false;
 	}
 
 	/**
@@ -244,7 +268,7 @@ public class ApplicationRunner {
 
 			HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-			if (response.statusCode() >= 200 && response.statusCode() < 300) {
+			if (response.statusCode() >= HTTP_OK_MIN && response.statusCode() < HTTP_OK_MAX) {
 				LOG.info(() -> "Graceful shutdown requested via Actuator (HTTP " + response.statusCode() + "): "
 						+ response.body());
 				return true;
