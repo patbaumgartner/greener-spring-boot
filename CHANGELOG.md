@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`greener:doctor` / `energyDoctor` now actually check the workload tool.** Both
+  goals advertise a "workload tool on `PATH`" check, but each read a separate
+  `workloadCommand` option that the README never documented — and on the Gradle side
+  the task property was never wired to the extension at all, making the check
+  unreachable through the `greener { }` DSL. With the normal setup (a single
+  `externalTrainingCommand`) the check silently did not run, so the doctor reported a
+  healthy environment for a tool that was not installed. Both front-ends now fall back
+  to the configured `externalTrainingCommand` and probe its first token;
+  `workloadCommand` remains as an explicit override.
+- **A missing Joular Core binary now carries its hint.** `JoularCoreRunner.start()`
+  threw a bare `IOException`, so the `JOULAR_CORE_BINARY_MISSING` hint had no throw
+  site anywhere in the codebase and users never saw its recovery guidance. It now
+  throws `EnergyMeasurementException` with that hint.
 - **Regression delta is now labelled with the metric it was computed on.** With the
   default `regressionMetric=ENERGY_PER_REQUEST` the comparator computes the delta on
   millijoules-per-request, but both reporters printed that percentage next to the
