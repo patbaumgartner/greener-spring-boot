@@ -106,6 +106,8 @@ com.patbaumgartner.greener.core
   enum (`EMPTY_OR_MISSING_CSV`, `WORKLOAD_TOOL_MISSING`, `WORKLOAD_TIMEOUT`,
   `WORKLOAD_FAILED`, `JOULAR_CORE_BINARY_MISSING`, `APPLICATION_NOT_READY`,
   `GENERIC_IO`) so users see an actionable message rather than a raw stack trace.
+  Throw this - never a bare `IOException`/`RuntimeException` - from any failure a
+  user can act on, and keep every `Hint` constant reachable from a real throw site.
 
 ## Build & Test
 
