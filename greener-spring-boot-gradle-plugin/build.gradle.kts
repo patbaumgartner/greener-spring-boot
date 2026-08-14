@@ -14,13 +14,13 @@ plugins {
 group = "com.patbaumgartner"
 // version is read from gradle.properties
 
-val coreVersion: String by project
-val junitBomVersion: String by project
-val assertjVersion: String by project
-val mockitoVersion: String by project
-val rewriteStaticAnalysisVersion: String by project
-val jacocoVersion: String by project
-val pmdVersion: String by project
+val coreVersion = providers.gradleProperty("coreVersion").get()
+val junitBomVersion = providers.gradleProperty("junitBomVersion").get()
+val assertjVersion = providers.gradleProperty("assertjVersion").get()
+val mockitoVersion = providers.gradleProperty("mockitoVersion").get()
+val rewriteStaticAnalysisVersion = providers.gradleProperty("rewriteStaticAnalysisVersion").get()
+val jacocoVersion = providers.gradleProperty("jacocoVersion").get()
+val pmdVersion = providers.gradleProperty("pmdVersion").get()
 
 java {
     toolchain {
@@ -80,7 +80,7 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = "0.35".toBigDecimal()
+                minimum = "0.55".toBigDecimal()
             }
         }
     }

@@ -1,10 +1,10 @@
 pluginManagement {
-    val pluginPublishVersion: String by settings
-    val springJavaformatVersion: String by settings
-    val useLatestVersionsVersion: String by settings
-    val benManesVersionsVersion: String by settings
-    val spotbugsPluginVersion: String by settings
-    val openrewritePluginVersion: String by settings
+    val pluginPublishVersion = providers.gradleProperty("pluginPublishVersion").get()
+    val springJavaformatVersion = providers.gradleProperty("springJavaformatVersion").get()
+    val useLatestVersionsVersion = providers.gradleProperty("useLatestVersionsVersion").get()
+    val benManesVersionsVersion = providers.gradleProperty("benManesVersionsVersion").get()
+    val spotbugsPluginVersion = providers.gradleProperty("spotbugsPluginVersion").get()
+    val openrewritePluginVersion = providers.gradleProperty("openrewritePluginVersion").get()
 
     plugins {
         id("com.gradle.plugin-publish") version pluginPublishVersion
