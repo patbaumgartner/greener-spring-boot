@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -30,7 +31,7 @@ public record IteratedMeasurement(EnergyReport representativeReport, List<Energy
 
 	public IteratedMeasurement {
 		perIterationReports = perIterationReports == null ? Collections.emptyList()
-				: Collections.unmodifiableList(perIterationReports);
+				: Collections.unmodifiableList(new ArrayList<>(perIterationReports));
 		if (methodLevelStartTimestampMs < 0) {
 			methodLevelStartTimestampMs = 0;
 		}
