@@ -15,8 +15,10 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -55,6 +57,8 @@ public class JoularCoreDownloader {
 	private static final int HTTP_NOT_FOUND = 404;
 
 	private static final int MAX_RETRIES = 3;
+
+	private static final int DIGEST_BUFFER_BYTES = 8192;
 
 	private final HttpClient httpClient;
 
@@ -113,7 +117,7 @@ public class JoularCoreDownloader {
 
 	private Path downloadZipAndExtract(String version, String zipAssetName, String binaryName, Path binaryFile,
 			Path cacheDir) throws IOException, InterruptedException {
-		Path tmpZip = cacheDir.resolve(zipAssetName + ".tmp");
+		Path tmpZip = Files.createTempFile(cacheDir, zipAssetName, ".tmp");
 		try {
 			downloadAsset(version, zipAssetName, tmpZip);
 			verifyChecksum(tmpZip, version, zipAssetName);
@@ -132,14 +136,23 @@ public class JoularCoreDownloader {
 		}
 	}
 
+	/**
+	 * Downloads a bare binary asset.
+	 *
+	 * <p>
+	 * The binary is verified <em>while still at its temporary path</em> and only then
+	 * moved into the cache under its final name. Publishing first and verifying
+	 * afterwards left a window in which an unverified — and already executable — binary
+	 * sat at the cache path that {@link #download} short-circuits to on the next run.
+	 */
 	private Path downloadBinary(String version, String assetName, Path binaryFile, Path cacheDir)
 			throws IOException, InterruptedException {
-		Path tmpFile = cacheDir.resolve(assetName + ".tmp");
+		Path tmpFile = Files.createTempFile(cacheDir, assetName, ".tmp");
 		try {
 			downloadAsset(version, assetName, tmpFile);
+			verifyChecksum(tmpFile, version, assetName);
 			Files.move(tmpFile, binaryFile, StandardCopyOption.REPLACE_EXISTING);
 			ensureExecutable(binaryFile);
-			verifyChecksum(binaryFile, version, assetName);
 			LOG.fine(() -> "Joular Core " + version + " downloaded to: " + binaryFile);
 			return binaryFile;
 		}
@@ -305,25 +318,35 @@ public class JoularCoreDownloader {
 	}
 
 	/**
-	 * Verifies the SHA-256 checksum of a downloaded binary against the digest published
-	 * in the GitHub Release API. If the API is unreachable or the asset has no digest, a
-	 * warning is logged but the download is not rejected.
+	 * Verifies the SHA-256 checksum of a downloaded asset against the digest published in
+	 * the GitHub Release API.
+	 *
+	 * <p>
+	 * The caller is responsible for the file's lifecycle: this method only reports
+	 * failure, and the asset must not be published to the cache unless it returns
+	 * normally.
+	 *
+	 * <p>
+	 * The API is called with {@code GITHUB_TOKEN} / {@code GH_TOKEN} when present.
+	 * Unauthenticated GitHub API access is limited to 60 requests per hour per IP, which
+	 * shared CI runners exhaust routinely; without a token a rate-limited runner could
+	 * not download Joular Core at all.
 	 */
 	private void verifyChecksum(Path file, String version, String assetName) throws IOException {
 		String apiUrl = String.format("https://api.github.com/repos/joular/joularcore/releases/tags/%s", version);
 		try {
-			HttpRequest request = HttpRequest.newBuilder()
+			HttpRequest.Builder request = HttpRequest.newBuilder()
 				.uri(URI.create(apiUrl))
 				.header("Accept", "application/vnd.github+json")
 				.timeout(Duration.ofSeconds(30))
-				.GET()
-				.build();
+				.GET();
+			githubToken().ifPresent(token -> request.header("Authorization", "Bearer " + token));
 
-			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+			HttpResponse<String> response = httpClient.send(request.build(), HttpResponse.BodyHandlers.ofString());
 			if (response.statusCode() != HTTP_OK) {
-				Files.delete(file);
 				throw new IOException("SHA-256 verification failed: GitHub API returned HTTP " + response.statusCode()
-						+ " for release " + version + ". Cannot verify integrity of downloaded binary.");
+						+ " for release " + version + ". Cannot verify integrity of the downloaded binary."
+						+ rateLimitAdvice(response));
 			}
 
 			String expectedSha = extractDigestForAsset(response.body(), assetName);
@@ -334,7 +357,6 @@ public class JoularCoreDownloader {
 
 			String actualSha = computeSha256(file);
 			if (!actualSha.equalsIgnoreCase(expectedSha)) {
-				Files.delete(file);
 				throw new IOException("SHA-256 checksum mismatch for " + assetName + ": expected " + expectedSha
 						+ " but got " + actualSha);
 			}
@@ -342,9 +364,24 @@ public class JoularCoreDownloader {
 		}
 		catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
-			Files.delete(file);
 			throw new IOException("SHA-256 verification interrupted for " + assetName, ex);
 		}
+	}
+
+	private static Optional<String> githubToken() {
+		return Stream.of("GITHUB_TOKEN", "GH_TOKEN")
+			.map(System::getenv)
+			.filter(token -> token != null && !token.isBlank())
+			.findFirst();
+	}
+
+	private static String rateLimitAdvice(HttpResponse<String> response) {
+		boolean exhausted = "0".equals(response.headers().firstValue("x-ratelimit-remaining").orElse(null));
+		if (!exhausted) {
+			return "";
+		}
+		return " The GitHub API rate limit is exhausted for this IP; set GITHUB_TOKEN to raise it,"
+				+ " or download the binary manually and set joularCoreBinaryPath.";
 	}
 
 	/**
@@ -383,9 +420,15 @@ public class JoularCoreDownloader {
 	static String computeSha256(Path file) throws IOException {
 		try {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] fileBytes = Files.readAllBytes(file);
-			byte[] hash = digest.digest(fileBytes);
-			return HexFormat.of().formatHex(hash);
+			try (InputStream in = Files.newInputStream(file)) {
+				byte[] buffer = new byte[DIGEST_BUFFER_BYTES];
+				int read = in.read(buffer);
+				while (read > 0) {
+					digest.update(buffer, 0, read);
+					read = in.read(buffer);
+				}
+			}
+			return HexFormat.of().formatHex(digest.digest());
 		}
 		catch (NoSuchAlgorithmException ex) {
 			throw new IOException("SHA-256 algorithm not available", ex);
