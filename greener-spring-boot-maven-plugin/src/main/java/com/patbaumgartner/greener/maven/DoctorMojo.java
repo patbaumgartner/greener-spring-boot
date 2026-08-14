@@ -47,14 +47,13 @@ public class DoctorMojo extends AbstractMojo {
 	private boolean failOnError;
 
 	@Override
-	@SuppressWarnings("PMD.SystemPrintln")
 	public void execute() throws MojoFailureException {
 		Path projectDir = (projectBasedir != null) ? projectBasedir.toPath() : Paths.get("").toAbsolutePath();
 		Path binary = (joularCoreBinaryPath != null) ? joularCoreBinaryPath.toPath() : null;
 		Path agent = (joularCodeJavaAgentPath != null) ? joularCodeJavaAgentPath.toPath() : null;
 
 		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, workloadCommand, projectDir);
-		System.out.print(EnvironmentDoctor.format(report));
+		EnvironmentDoctor.format(report).lines().forEach(getLog()::info);
 		if (failOnError && report.hasFailures()) {
 			throw new MojoFailureException("greener:doctor reported failures (see log above)");
 		}
