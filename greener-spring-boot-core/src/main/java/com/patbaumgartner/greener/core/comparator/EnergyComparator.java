@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -205,10 +206,15 @@ public class EnergyComparator {
 			comparisons.add(new MethodComparison(m.methodName(), baselineValue, m.energyJoules(), delta));
 		}
 
-		// Methods present in baseline but absent from current run
+		// Methods present in baseline but absent from current run. A set lookup keeps
+		// this linear; the previous nested stream scan was O(baseline x current) and
+		// method-level reports routinely carry tens of thousands of entries.
+		Set<String> currentMethods = current.measurements()
+			.stream()
+			.map(EnergyMeasurement::methodName)
+			.collect(Collectors.toSet());
 		for (Map.Entry<String, Double> entry : baselineByMethod.entrySet()) {
-			boolean inCurrent = current.measurements().stream().anyMatch(m -> m.methodName().equals(entry.getKey()));
-			if (!inCurrent) {
+			if (!currentMethods.contains(entry.getKey())) {
 				comparisons.add(new MethodComparison(entry.getKey(), entry.getValue(), 0.0,
 						computeDeltaPercent(entry.getValue(), 0.0)));
 			}
