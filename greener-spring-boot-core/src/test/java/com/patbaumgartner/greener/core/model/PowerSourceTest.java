@@ -2,13 +2,32 @@ package com.patbaumgartner.greener.core.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 class PowerSourceTest {
 
 	@Test
-	void detect_nonVmMode_returnsRapl() {
-		assertThat(PowerSource.detect(false)).isEqualTo(PowerSource.RAPL);
+	void detect_nonVmMode_reportsRaplOnlyWhenCountersAreActuallyReadable() {
+		PowerSource detected = PowerSource.detect(false);
+
+		assertThat(detected).isEqualTo(PowerSource.raplCountersReadable() ? PowerSource.RAPL : PowerSource.ESTIMATED);
+	}
+
+	@Test
+	void detect_nonVmMode_neverClaimsRaplWithoutReadableCounters() {
+		assumeThat(PowerSource.raplCountersReadable()).as("host exposes readable RAPL counters").isFalse();
+
+		assertThat(PowerSource.detect(false)).isEqualTo(PowerSource.ESTIMATED);
+	}
+
+	@Test
+	void raplCountersReadable_falseOnNonLinuxPlatforms() {
+		assumeThat(System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH)).doesNotContain("linux");
+
+		assertThat(PowerSource.raplCountersReadable()).isFalse();
 	}
 
 	@Test
