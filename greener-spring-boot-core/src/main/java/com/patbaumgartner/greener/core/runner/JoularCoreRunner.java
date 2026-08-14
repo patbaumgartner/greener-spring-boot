@@ -94,7 +94,13 @@ public class JoularCoreRunner implements AutoCloseable {
 			pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
 		}
 
-		joularCoreProcess = pb.start();
+		try {
+			joularCoreProcess = pb.start();
+		}
+		catch (IOException ex) {
+			throw new EnergyMeasurementException(Hint.GENERIC_IO, "Could not start Joular Core from "
+					+ config.getBinaryPath() + " (check that the file is executable: chmod +x)", ex);
+		}
 		LOG.fine(() -> "Joular Core started (PID " + joularCoreProcess.pid() + ")");
 	}
 
