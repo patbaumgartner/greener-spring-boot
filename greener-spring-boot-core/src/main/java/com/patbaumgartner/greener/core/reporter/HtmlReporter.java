@@ -16,16 +16,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.DoubleUnaryOperator;
 import java.util.function.IntFunction;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Generates a self-contained HTML report showing current energy measurements and
@@ -465,23 +465,20 @@ public class HtmlReporter {
 
 		// Merge app methods that are missing from the all-methods report so they
 		// are always visible and can be tagged with the app-method CSS class.
-		List<EnergyMeasurement> mergedMeasurements = new ArrayList<>(displayReport.measurements());
-		if (hasFilter) {
-			Set<String> allMethodNames = mergedMeasurements.stream()
-				.map(EnergyMeasurement::methodName)
-				.collect(Collectors.toSet());
-			for (EnergyMeasurement am : methodLevelReports.appReport().measurements()) {
-				if (!allMethodNames.contains(am.methodName())) {
-					mergedMeasurements.add(am);
-				}
-			}
+		List<EnergyMeasurement> rows = selectMethodRows(displayReport, methodLevelReports, hasFilter);
+		if (rows.size() < displayReport.measurements().size()) {
+			sb.append("    <div class=\"note\">Showing the ")
+				.append(rows.size())
+				.append(" most energy-consuming of ")
+				.append(displayReport.measurements().size())
+				.append(" methods (topN=")
+				.append(topN)
+				.append(").</div>\n");
 		}
 
 		double total = displayReport.totalEnergyJoules();
 		int rank = 0;
-		for (EnergyMeasurement m : mergedMeasurements.stream()
-			.sorted(Comparator.comparingDouble(EnergyMeasurement::energyJoules).reversed())
-			.toList()) {
+		for (EnergyMeasurement m : rows) {
 			rank++;
 			double pct = total > 0 ? (m.energyJoules() / total) * 100 : 0;
 			boolean isApp = appMethods.contains(m.methodName());
@@ -511,6 +508,34 @@ public class HtmlReporter {
 
 		sb.append(DIV_CLOSE);
 		return sb.toString();
+	}
+
+	/**
+	 * Selects the method rows to render, capped at {@link #topN}.
+	 *
+	 * <p>
+	 * Real applications produce tens of thousands of call branches; rendering all of them
+	 * inline produced a report too large to open. When the app/all filter is available
+	 * the top app methods are added on top of the overall top-N, so the "Show App Only"
+	 * toggle still has rows to show even if no app method cracks the overall ranking.
+	 */
+	private List<EnergyMeasurement> selectMethodRows(EnergyReport displayReport, MethodLevelReports methodLevelReports,
+			boolean hasFilter) {
+		Comparator<EnergyMeasurement> byEnergyDesc = Comparator.comparingDouble(EnergyMeasurement::energyJoules)
+			.reversed();
+		List<EnergyMeasurement> top = displayReport.measurements().stream().sorted(byEnergyDesc).limit(topN).toList();
+		if (!hasFilter) {
+			return top;
+		}
+		Map<String, EnergyMeasurement> byName = new LinkedHashMap<>();
+		top.forEach(m -> byName.put(m.methodName(), m));
+		methodLevelReports.appReport()
+			.measurements()
+			.stream()
+			.sorted(byEnergyDesc)
+			.limit(topN)
+			.forEach(m -> byName.putIfAbsent(m.methodName(), m));
+		return byName.values().stream().sorted(byEnergyDesc).toList();
 	}
 
 	private String buildWorkloadCard(WorkloadStats stats, double totalEnergyJoules) {

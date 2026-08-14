@@ -312,4 +312,58 @@ class HtmlReporterTest {
 		assertThat(content).doesNotContain("Welch");
 	}
 
+	@Test
+	void generateReport_methodLevelWithManyBranches_capsTableAtTopN(@TempDir Path tmp) throws IOException {
+		List<EnergyMeasurement> many = new java.util.ArrayList<>();
+		for (int i = 0; i < 5_000; i++) {
+			many.add(new EnergyMeasurement("com.example.Service.method" + i, i + 1.0));
+		}
+		EnergyReport all = EnergyReport.of("run-many", Instant.now(), 60, many);
+		EnergyReport report = EnergyReport.of("run-many", Instant.now(), 60,
+				List.of(new EnergyMeasurement("app", 10.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 10.0, 0, List.of(), false,
+				10.0);
+
+		String content = Files.readString(new HtmlReporter(20).generateReport(report, comparison, null, null,
+				new MethodLevelReports(null, all), tmp));
+
+		assertThat(countOccurrences(content, "class=\"method-row")).isEqualTo(20);
+		assertThat(content).contains("Showing the 20 most energy-consuming of 5000 methods");
+		assertThat(content).contains("method4999").as("highest-energy branch must be kept");
+		assertThat(content).doesNotContain("method0<");
+	}
+
+	@Test
+	void generateReport_methodLevelWithFilter_keepsTopAppMethodsSoTheToggleStillWorks(@TempDir Path tmp)
+			throws IOException {
+		List<EnergyMeasurement> all = new java.util.ArrayList<>();
+		for (int i = 0; i < 100; i++) {
+			all.add(new EnergyMeasurement("jdk.internal.Frame" + i, 1_000.0 + i));
+		}
+		// A low-energy app method that cannot crack the overall ranking.
+		EnergyMeasurement appMethod = new EnergyMeasurement("com.example.MyService.handle", 1.0);
+		all.add(appMethod);
+		EnergyReport allReport = EnergyReport.of("r", Instant.now(), 60, all);
+		EnergyReport appReport = EnergyReport.of("r", Instant.now(), 60, List.of(appMethod));
+		EnergyReport report = EnergyReport.of("r", Instant.now(), 60, List.of(new EnergyMeasurement("app", 10.0)));
+		ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 10.0, 0, List.of(), false,
+				10.0);
+
+		String content = Files.readString(new HtmlReporter(5).generateReport(report, comparison, null, null,
+				new MethodLevelReports(appReport, allReport), tmp));
+
+		assertThat(content).contains("com.example.MyService.handle");
+		assertThat(content).contains("app-method");
+	}
+
+	private static int countOccurrences(String haystack, String needle) {
+		int count = 0;
+		int idx = haystack.indexOf(needle);
+		while (idx >= 0) {
+			count++;
+			idx = haystack.indexOf(needle, idx + needle.length());
+		}
+		return count;
+	}
+
 }

@@ -4,10 +4,10 @@ import com.patbaumgartner.greener.core.config.JoularCoreConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -67,8 +67,11 @@ public class JoularCoreRunner implements AutoCloseable {
 			throw new IOException("JoularCoreConfig.outputCsvPath must not be null.");
 		}
 
-		// Ensure the output directory exists
-		Files.createDirectories(config.getOutputCsvPath().getParent());
+		// Ensure the output directory exists (a bare filename has no parent)
+		Path outputParent = config.getOutputCsvPath().toAbsolutePath().getParent();
+		if (outputParent != null) {
+			Files.createDirectories(outputParent);
+		}
 
 		List<String> command = config.buildCommand(config.getBinaryPath());
 		LOG.fine(() -> "Joular Core command: " + String.join(" ", command));

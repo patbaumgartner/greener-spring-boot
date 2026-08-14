@@ -1,5 +1,8 @@
 package com.patbaumgartner.greener.core.runner;
 
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -12,6 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.throwable;
 
 class ApplicationRunnerTest {
 
@@ -152,7 +156,9 @@ class ApplicationRunnerTest {
 		process.waitFor();
 
 		assertThatThrownBy(() -> runner.waitForStartup(process, "http://localhost:19999", "/actuator/health", 5))
-			.isInstanceOf(RuntimeException.class)
+			.isInstanceOf(EnergyMeasurementException.class)
+			.asInstanceOf(throwable(EnergyMeasurementException.class))
+			.returns(Hint.APPLICATION_NOT_READY, EnergyMeasurementException::hint)
 			.hasMessageContaining("exited prematurely")
 			.hasMessageContaining("app-stdout.log");
 	}
@@ -171,7 +177,9 @@ class ApplicationRunnerTest {
 
 		try {
 			assertThatThrownBy(() -> runner.waitForStartup(process, "http://localhost:19999", "/health", 3))
-				.isInstanceOf(RuntimeException.class)
+				.isInstanceOf(EnergyMeasurementException.class)
+				.asInstanceOf(throwable(EnergyMeasurementException.class))
+				.returns(Hint.APPLICATION_NOT_READY, EnergyMeasurementException::hint)
 				.hasMessageContaining("did not become healthy within");
 		}
 		finally {
