@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Weekly dependency scan (`dependency-scan.yml`).** OWASP dependency-check and the
+  CycloneDX SBOM were configured in the root `pom.xml` but bound to no lifecycle
+  phase, so nothing ever ran them and a newly published CVE against an unchanged
+  dependency would go unnoticed. They now run weekly, on demand, and whenever a
+  build file changes; the run fails on CVSS >= 7.
+
+### Changed
+
+- **Report numbers no longer follow the JVM default locale.** Every `String.format`
+  and `printf` in the reporters, orchestrator, downloader and both plugins now formats
+  through `Locale.ROOT`. Previously the SVG trend chart used `Locale.ROOT` while the
+  metric cards did not, so a single HTML report rendered `1234.56 J` in the chart and
+  `1234,56 J` in the cards for anyone on a comma-decimal locale.
+- **JaCoCo line-coverage floors raised** from 50/30/35 % to 80/40/55 % for
+  core / maven-plugin / gradle-plugin, matching measured coverage. The old floors sat
+  so far below actual coverage that they could not have caught a regression.
+- **Gradle build is ready for Gradle 10.** The 13 `by project` / `by settings`
+  property delegates are deprecated and scheduled for removal; they now use
+  `providers.gradleProperty(...)`. The build is warning-free under `--warning-mode all`.
+
 ### Fixed
 
 - **`greener:doctor` / `energyDoctor` now actually check the workload tool.** Both
@@ -21,7 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A missing Joular Core binary now carries its hint.** `JoularCoreRunner.start()`
   threw a bare `IOException`, so the `JOULAR_CORE_BINARY_MISSING` hint had no throw
   site anywhere in the codebase and users never saw its recovery guidance. It now
-  throws `EnergyMeasurementException` with that hint.
+  throws `EnergyMeasurementException` with that hint. A binary that exists but is not
+  executable now reports `GENERIC_IO` rather than escaping as a raw `IOException`, so
+  every `Hint` constant is reachable from a real throw site.
+- **The Joular Core component probe no longer burns its full timeout.** It polled for
+  a power reading until a fixed 3-second deadline even after the probed process had
+  exited, costing up to 6 seconds on every measurement run. It now stops as soon as
+  the process ends and drains whatever output remains.
+- **`IteratedMeasurement` is now immutable.** The compact constructor wrapped the
+  caller's list in an unmodifiable *view* rather than copying it, so mutating the
+  original list afterwards changed the record's contents.
 - **Regression delta is now labelled with the metric it was computed on.** With the
   default `regressionMetric=ENERGY_PER_REQUEST` the comparator computes the delta on
   millijoules-per-request, but both reporters printed that percentage next to the

@@ -9,12 +9,26 @@ This document describes all quality gates enforced in the greener-spring-boot pr
 | Gate | Tool | Scope | Enforcement |
 |---|---|---|---|
 | **Unit tests** | JUnit Jupiter + AssertJ | core, maven-plugin, gradle-plugin | `mvn verify` / `./gradlew build` - build fails on test failure |
-| **Code coverage** | JaCoCo | core, maven-plugin, gradle-plugin | `jacoco:check` - minimum 50% line coverage for core, 30% for maven-plugin, 35% for gradle-plugin |
+| **Code coverage** | JaCoCo | core, maven-plugin, gradle-plugin | `jacoco:check` - minimum 80% line coverage for core, 40% for maven-plugin, 55% for gradle-plugin |
 | **Code formatting** | Spring Java Format | all modules | `spring-javaformat:validate` (Maven) / `checkFormat` (Gradle) - build fails on violations |
 | **SpotBugs** | SpotBugs | core, maven-plugin, gradle-plugin | `spotbugs:check` - high-confidence bugs fail build (effort=Max, threshold=High) |
 | **PMD** | PMD | core, maven-plugin, gradle-plugin | `pmd:check` / `pmdMain` - best practices + error-prone rules |
 | **OpenRewrite** | OpenRewrite | all modules | `rewrite:dryRun` (Maven) / `rewriteDryRun` (Gradle) - prevents code quality drift |
 | **Security scanning** | CodeQL | all modules | `security-and-quality` query suite via GitHub Actions |
+
+---
+
+## Scheduled Gates
+
+| Gate | Tool | Schedule | Enforcement |
+|---|---|---|---|
+| **Dependency vulnerabilities** | OWASP dependency-check | Weekly (Mon 03:00 UTC) + on build-file changes | `dependency-scan.yml` - fails on CVSS >= 7 |
+| **SBOM generation** | CycloneDX | Same run as above | `dependency-scan.yml` - `bom.json` uploaded as an artifact |
+| **Security scanning** | CodeQL | Push/PR to main + weekly (Sun 02:00 UTC) | `security-and-quality` query suite |
+
+The dependency-check and CycloneDX plugins are configured in the root `pom.xml`
+but bound to no lifecycle phase, so `mvn verify` does not run them - keeping the
+inner build loop fast. `dependency-scan.yml` is what actually executes them.
 
 ---
 
@@ -49,6 +63,7 @@ Benchmarks cover: `ExternalToolOutputParser` (oha, wrk, k6 parsing) and `EnergyC
 | `energy-baseline.yml` | after CI success on main | Energy measurement + baseline caching |
 | `energy-comparison.yml` | pull_request | Energy measurement + comparison comment |
 | `validate-workloads.yml` | dispatch, workflow_run, PR | All workload tool smoke tests |
+| `dependency-scan.yml` | weekly, dispatch, build-file changes | OWASP dependency-check (CVSS >= 7) + CycloneDX SBOM |
 | `release.yml` | manual dispatch | Snapshot or release deployment |
 
 ---
