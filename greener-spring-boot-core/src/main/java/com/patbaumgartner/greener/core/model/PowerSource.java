@@ -1,6 +1,10 @@
 package com.patbaumgartner.greener.core.model;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 /**
  * Describes how the energy data was obtained during a measurement run.
@@ -33,6 +37,8 @@ public enum PowerSource {
 	 */
 	UNKNOWN("Unknown", "Power source could not be determined.");
 
+	private static final String RAPL_POWERCAP_DIR = "/sys/class/powercap";
+
 	private final String label;
 
 	private final String description;
@@ -53,18 +59,52 @@ public enum PowerSource {
 	}
 
 	/**
-	 * Determines the power source from the VM mode flag. When {@code vmMode} is
-	 * {@code false}, RAPL is assumed (hardware counters are available). When
-	 * {@code vmMode} is {@code true}, the source is reported as {@link #ESTIMATED}
-	 * because the Java layer cannot distinguish between a Scaphandre host file and the
-	 * CPU×TDP estimation script.
+	 * Determines the power source actually in use.
+	 *
+	 * <p>
+	 * When {@code vmMode} is enabled the reading comes from a host-written power file, so
+	 * the source is {@link #ESTIMATED} — the Java layer cannot distinguish a Scaphandre
+	 * host file from the CPU&times;TDP estimation script.
+	 *
+	 * <p>
+	 * Otherwise the RAPL counters are <em>probed</em> rather than assumed. Claiming
+	 * {@link #RAPL} ("high accuracy") on a host where the counters are absent or
+	 * unreadable — the normal case on CI runners and inside containers — would attach a
+	 * false accuracy claim to every report, so an unreadable counter degrades to
+	 * {@link #ESTIMATED}.
 	 *
 	 * <p>
 	 * Callers that <em>know</em> the distinction (e.g. workflow shells) can override this
-	 * via a system property ({@code greener.powerSource}).
+	 * via the {@code greener.powerSource} system property or the {@code POWER_SOURCE}
+	 * environment variable.
 	 */
 	public static PowerSource detect(boolean vmMode) {
-		return vmMode ? ESTIMATED : RAPL;
+		if (vmMode) {
+			return ESTIMATED;
+		}
+		return raplCountersReadable() ? RAPL : ESTIMATED;
+	}
+
+	/**
+	 * {@code true} when at least one Intel/AMD RAPL energy counter is readable by the
+	 * current user. Only meaningful on Linux; other platforms report {@code false}
+	 * because Joular Core reads power through platform-specific back-ends there.
+	 */
+	static boolean raplCountersReadable() {
+		if (!System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH).contains("linux")) {
+			return false;
+		}
+		Path powercap = Path.of(RAPL_POWERCAP_DIR);
+		if (!Files.isDirectory(powercap)) {
+			return false;
+		}
+		try (Stream<Path> zones = Files.list(powercap)) {
+			return zones.filter(zone -> zone.getFileName().toString().startsWith("intel-rapl"))
+				.anyMatch(zone -> Files.isReadable(zone.resolve("energy_uj")));
+		}
+		catch (IOException ex) {
+			return false;
+		}
 	}
 
 	/**
