@@ -1,7 +1,10 @@
 package com.patbaumgartner.greener.core.runner;
 
 import com.patbaumgartner.greener.core.config.JoularCoreConfig;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -41,8 +44,11 @@ class JoularCoreRunnerTest {
 	void start_nullBinaryPath_throwsIOException() {
 		JoularCoreConfig config = new JoularCoreConfig().outputCsvPath(Path.of("/tmp/out.csv"));
 
-		assertThatThrownBy(() -> runner.start(config)).isInstanceOf(IOException.class)
-			.hasMessageContaining("binary not found");
+		assertThatThrownBy(() -> runner.start(config)).isInstanceOf(EnergyMeasurementException.class)
+			.hasMessageContaining("binary not found")
+			.asInstanceOf(InstanceOfAssertFactories.type(EnergyMeasurementException.class))
+			.extracting(EnergyMeasurementException::hint)
+			.isEqualTo(Hint.JOULAR_CORE_BINARY_MISSING);
 	}
 
 	@Test
@@ -50,8 +56,12 @@ class JoularCoreRunnerTest {
 		JoularCoreConfig config = new JoularCoreConfig().binaryPath(Path.of("/nonexistent/joularcore"))
 			.outputCsvPath(Path.of("/tmp/out.csv"));
 
-		assertThatThrownBy(() -> runner.start(config)).isInstanceOf(IOException.class)
-			.hasMessageContaining("binary not found");
+		assertThatThrownBy(() -> runner.start(config)).isInstanceOf(EnergyMeasurementException.class)
+			.hasMessageContaining("binary not found")
+			.hasMessageContaining("joularCoreBinaryPath")
+			.asInstanceOf(InstanceOfAssertFactories.type(EnergyMeasurementException.class))
+			.extracting(EnergyMeasurementException::hint)
+			.isEqualTo(Hint.JOULAR_CORE_BINARY_MISSING);
 	}
 
 	@Test
