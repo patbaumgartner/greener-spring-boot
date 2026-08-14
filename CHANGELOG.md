@@ -7,7 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Regression delta is now labelled with the metric it was computed on.** With the
+  default `regressionMetric=ENERGY_PER_REQUEST` the comparator computes the delta on
+  millijoules-per-request, but both reporters printed that percentage next to the
+  *total energy in Joules*. A run that doubled total energy while doubling throughput
+  rendered as `Baseline 100.00 J / Current 200.00 J / Delta -50.00% / IMPROVED` —
+  self-contradictory. The delta now carries its unit and, for per-request comparisons,
+  the two mJ/req values it was derived from are shown alongside it.
+- **Statistical evidence is now visible.** `pValue` and `cohenD` were computed for
+  multi-iteration runs but never rendered, so a Welch's t-test decision was
+  indistinguishable from a plain threshold decision. Both reporters now show them.
+- **`PowerSource.detect()` no longer claims RAPL without checking.** Outside `vmMode`
+  it returned `RAPL` unconditionally, stamping "hardware energy counters – high
+  accuracy" on reports produced by CI runners, containers and WSL2 that have no
+  readable counters — while `greener:doctor` on the same host reported RAPL missing.
+  It now probes `/sys/class/powercap/intel-rapl*/energy_uj` and degrades to
+  `ESTIMATED`.
+- **The external-workload timeout now works.** `TrainingRunner` drained the child's
+  output inline before calling `waitFor(timeout)`; since the read returns only at EOF,
+  the timeout could never fire for a workload that hangs. Output is now drained on a
+  separate thread. A timeout also destroys the whole process tree — previously only the
+  `sh -c` wrapper was killed and the load generator kept running, corrupting every
+  later measurement window.
+- **Joular Core is verified before it is cached.** The downloaded binary was moved to
+  its final cache path and marked executable *before* the SHA-256 check, so a failure
+  in between left an unverified executable at the path the next run short-circuits to.
+  Verification now happens at the temporary path. Concurrent builds no longer collide
+  on a shared `<asset>.tmp` file, and `GITHUB_TOKEN`/`GH_TOKEN` is sent to the Release
+  API so rate-limited runners can still download.
+- **Startup failures are actionable.** `ApplicationRunner` threw a bare
+  `RuntimeException`; it now throws `EnergyMeasurementException` with the
+  `APPLICATION_NOT_READY` hint. Health-check polling also tolerates every transient
+  `IOException` rather than only `ConnectException`/`HttpTimeoutException`, so a server
+  still binding its connector no longer aborts startup.
+- **Method-level HTML report is bounded by `topN`.** It previously rendered one row per
+  call branch; a 40 000-branch application produced an 11.8 MB report (now 16 KB).
+- `DoctorMojo` writes through Maven's logger instead of `System.out`, so `-q` and log
+  redirection work.
+- `MeasureEnergyMojo` restores the thread interrupt flag when the build is cancelled.
+- `EnergyComparator` no longer scans current measurements once per baseline method
+  (was O(baseline x current) over reports with tens of thousands of entries).
+- `JoularCoreRunner.start()` no longer throws `NullPointerException` when
+  `outputCsvPath` is a bare filename with no parent directory.
+- Off-by-one in `ConsoleReporter` name truncation made truncated names one character
+  wider than their column.
+
+### Added
+
+- **`externalTrainingTimeoutSeconds`** (Maven + Gradle). `TrainingConfig` already
+  supported a workload timeout but neither plugin ever set it, so it was always
+  unbounded — while the `WORKLOAD_TIMEOUT` hint told users to increase an option that
+  did not exist. Defaults to `0` (wait indefinitely).
+- Workload failures now carry their typed hints (`WORKLOAD_TIMEOUT`, `WORKLOAD_FAILED`,
+  `WORKLOAD_TOOL_MISSING`) instead of a bare `IOException`. Six of the seven
+  `EnergyMeasurementException.Hint` constants were previously never thrown.
+
 ### Changed
+
+- The `pre-commit` hook no longer runs `versions:update-properties` /
+  `useLatestVersions`, and no longer `git add`s the whole worktree. It rewrote
+  `pom.xml` and `gradle.properties` on every commit, so untested dependency bumps rode
+  along inside unrelated commits and version pairs documented as "must match" drifted
+  apart (`pmd` 7.17.0 vs 7.24.0, `jacoco` 0.8.15 vs 0.8.14 — both realigned).
+  Dependency upgrades remain Renovate's and Dependabot's job.
 
 - Upgrade Jackson from 2.21.3 to 3.1.4. The `groupId` for all Jackson Core
   artifacts changes from `com.fasterxml.jackson.core` to `tools.jackson.core`.
