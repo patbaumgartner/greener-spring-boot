@@ -244,6 +244,36 @@ class PluginDefaultsTest {
 		assertThat(result).isEqualTo("wrk");
 	}
 
+	// ---- resolveWorkloadTool ----
+
+	@Test
+	void resolveWorkloadToolPrefersExplicitCommand() {
+		assertThat(PluginDefaults.resolveWorkloadTool("wrk", "oha -n 500 http://localhost:8080")).isEqualTo("wrk");
+	}
+
+	@Test
+	void resolveWorkloadToolFallsBackToTrainingCommand() {
+		assertThat(PluginDefaults.resolveWorkloadTool(null, "oha -n 500 -c 10 http://localhost:8080/actuator/health"))
+			.isEqualTo("oha");
+	}
+
+	@Test
+	void resolveWorkloadToolTreatsBlankExplicitCommandAsUnset() {
+		assertThat(PluginDefaults.resolveWorkloadTool("   ", "k6 run script.js")).isEqualTo("k6");
+	}
+
+	@Test
+	void resolveWorkloadToolTrimsAndSplitsOnAnyWhitespace() {
+		assertThat(PluginDefaults.resolveWorkloadTool(null, "  bombardier\t-c 10 http://localhost:8080"))
+			.isEqualTo("bombardier");
+	}
+
+	@Test
+	void resolveWorkloadToolReturnsNullWhenNothingConfigured() {
+		assertThat(PluginDefaults.resolveWorkloadTool(null, null)).isNull();
+		assertThat(PluginDefaults.resolveWorkloadTool("", "  ")).isNull();
+	}
+
 	// ---- buildTimestampedDir ----
 
 	@Test
