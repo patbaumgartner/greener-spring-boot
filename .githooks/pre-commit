@@ -1,24 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ── Maven ──────────────────────────────────────────────────────────────
-echo "🔧 Running sortpom..."
-mvn --batch-mode --no-transfer-progress sortpom:sort
+# Formats the files you are about to commit and re-stages them.
+#
+# Deliberately NOT done here:
+#   * Dependency upgrades (`versions:update-properties`, `useLatestVersions`).
+#     Upgrades are Renovate's and Dependabot's job. Running them from a hook
+#     rewrote pom.xml and gradle.properties on *every* commit, so unrelated and
+#     untested version bumps rode along inside feature commits, and versions
+#     that must match across the Maven and Gradle builds drifted apart because
+#     each side was bumped independently.
+#   * `git add` of the whole worktree. Only already-staged files are re-staged,
+#     so work in progress you deliberately left unstaged stays out of the commit.
 
-echo "🔧 Running spring-javaformat:apply..."
-mvn --batch-mode --no-transfer-progress spring-javaformat:apply
+staged_files() {
+	git diff --cached --name-only --diff-filter=ACMR
+}
 
-echo "🔄 Updating Maven parent and dependency versions..."
-mvn --batch-mode --no-transfer-progress versions:update-parent versions:update-properties -DgenerateBackupPoms=false -Dmaven.version.ignore=".*[-_\.](alpha|Alpha|ALPHA|b|beta|Beta|BETA|rc|RC|M|EA)[-_\.]?[0-9]*"
+mapfile -t staged_java < <(staged_files | grep -E '\.java$' || true)
+mapfile -t staged_pom < <(staged_files | grep -E '(^|/)pom\.xml$' || true)
 
+if [ ${#staged_pom[@]} -gt 0 ]; then
+	echo "🔧 sortpom ..."
+	./mvnw --batch-mode --no-transfer-progress --quiet sortpom:sort
+fi
 
-# ── Gradle ─────────────────────────────────────────────────────────────
-echo "🔧 Running Gradle spring-javaformat..."
-(cd greener-spring-boot-gradle-plugin && ./gradlew formatMain formatTest --no-daemon -q --no-parallel)
+if [ ${#staged_java[@]} -gt 0 ]; then
+	format_maven=false
+	format_gradle=false
+	for file in "${staged_java[@]}"; do
+		case "$file" in
+		greener-spring-boot-gradle-plugin/*) format_gradle=true ;;
+		*) format_maven=true ;;
+		esac
+	done
 
-echo "🔄 Updating Gradle dependency versions..."
-(cd greener-spring-boot-gradle-plugin && ./gradlew useLatestVersions --no-daemon -q --no-parallel --no-configuration-cache)
+	if [ "$format_maven" = true ]; then
+		echo "🔧 spring-javaformat (Maven modules) ..."
+		./mvnw --batch-mode --no-transfer-progress --quiet spring-javaformat:apply
+	fi
 
-# ── Re-stage ───────────────────────────────────────────────────────────
-# Re-stage any files that were reformatted or updated
-git diff --name-only | xargs -r git add
+	if [ "$format_gradle" = true ]; then
+		echo "🔧 spring-javaformat (Gradle plugin) ..."
+		(cd greener-spring-boot-gradle-plugin && ./gradlew formatMain formatTest --quiet --no-daemon --no-parallel)
+	fi
+fi
+
+# Re-stage only what was already staged, so formatting fixes land in this commit
+# without sweeping in anything else.
+staged_files | tr '\n' '\0' | xargs -0 -r git add --
