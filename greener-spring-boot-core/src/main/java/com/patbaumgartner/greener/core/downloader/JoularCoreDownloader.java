@@ -162,7 +162,7 @@ public class JoularCoreDownloader {
 	}
 
 	private void downloadAsset(String version, String assetName, Path target) throws IOException, InterruptedException {
-		String url = String.format(RELEASE_URL_TEMPLATE, version, assetName);
+		String url = String.format(Locale.ROOT, RELEASE_URL_TEMPLATE, version, assetName);
 		LOG.fine(() -> "Downloading " + assetName + " from: " + url);
 
 		IOException lastException = null;
@@ -333,7 +333,8 @@ public class JoularCoreDownloader {
 	 * not download Joular Core at all.
 	 */
 	private void verifyChecksum(Path file, String version, String assetName) throws IOException {
-		String apiUrl = String.format("https://api.github.com/repos/joular/joularcore/releases/tags/%s", version);
+		String apiUrl = String.format(Locale.ROOT, "https://api.github.com/repos/joular/joularcore/releases/tags/%s",
+				version);
 		try {
 			HttpRequest.Builder request = HttpRequest.newBuilder()
 				.uri(URI.create(apiUrl))

@@ -177,7 +177,8 @@ public class HtmlReporter {
 		sb.append(metric("Run", current.runId()));
 		sb.append(metric("Measured at", FORMATTER.format(current.timestamp())));
 		sb.append(metric(LABEL_DURATION, current.durationSeconds() + " s"));
-		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, current.totalEnergyJoules())));
+		sb.append(
+				metric(LABEL_TOTAL_ENERGY, String.format(Locale.ROOT, FMT_ENERGY_JOULES, current.totalEnergyJoules())));
 		sb.append("    </div>\n  </div>\n");
 
 		// Use-case energy card
@@ -222,10 +223,10 @@ public class HtmlReporter {
 					.append(escHtml(m.methodName()))
 					.append(TD_CODE_CLOSE)
 					.append(TD_NUM_OPEN)
-					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+					.append(String.format(Locale.ROOT, FMT_DECIMAL_2, m.energyJoules()))
 					.append(TD_CLOSE)
 					.append(TD_NUM_OPEN)
-					.append(String.format(FMT_PERCENT_1, pct))
+					.append(String.format(Locale.ROOT, FMT_PERCENT_1, pct))
 					.append(TD_CLOSE);
 				if (hasComparison) {
 					comparison.methodComparisons()
@@ -238,7 +239,7 @@ public class HtmlReporter {
 							sb.append("<td class=\"num\"><span class=\"badge ")
 								.append(cls)
 								.append("\">")
-								.append(String.format("%+.2f%%", mc.deltaPercent()))
+								.append(String.format(Locale.ROOT, "%+.2f%%", mc.deltaPercent()))
 								.append("</span></td>");
 						}, () -> sb.append("<td class=\"num\">—</td>"));
 				}
@@ -298,9 +299,9 @@ public class HtmlReporter {
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Aggregated Summary</h2>\n    <div class=\"metrics\">\n");
 		sb.append(metric("Tool Runs", String.valueOf(runs.size())));
-		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, totalEnergy)));
+		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(Locale.ROOT, FMT_ENERGY_JOULES, totalEnergy)));
 		if (totalRequests > 0) {
-			sb.append(metric("Total Requests", String.format("%,d", totalRequests)));
+			sb.append(metric("Total Requests", String.format(Locale.ROOT, "%,d", totalRequests)));
 		}
 		sb.append("    </div>\n  </div>\n");
 		return sb.toString();
@@ -324,16 +325,21 @@ public class HtmlReporter {
 			sb.append(TD_CODE_OPEN).append(escHtml(run.tool())).append(TD_CODE_CLOSE);
 			sb.append(TD_OPEN).append(escHtml(report.runId())).append(TD_CLOSE);
 			sb.append(TD_NUM_OPEN).append(report.durationSeconds()).append(TD_CLOSE);
-			sb.append(TD_NUM_OPEN).append(String.format(FMT_DECIMAL_2, report.totalEnergyJoules())).append(TD_CLOSE);
+			sb.append(TD_NUM_OPEN)
+				.append(String.format(Locale.ROOT, FMT_DECIMAL_2, report.totalEnergyJoules()))
+				.append(TD_CLOSE);
 
 			if (stats != null && stats.hasRequestCounts()) {
-				sb.append(TD_NUM_OPEN).append(String.format("%,d", stats.totalRequests())).append(TD_CLOSE);
 				sb.append(TD_NUM_OPEN)
-					.append(String.format("%,d", Math.max(0, stats.failedRequests())))
+					.append(String.format(Locale.ROOT, "%,d", stats.totalRequests()))
+					.append(TD_CLOSE);
+				sb.append(TD_NUM_OPEN)
+					.append(String.format(Locale.ROOT, "%,d", Math.max(0, stats.failedRequests())))
 					.append(TD_CLOSE);
 				if (!Double.isNaN(stats.requestsPerSecond())) {
 					sb.append(TD_NUM_OPEN)
-						.append(String.format("%.1f %s", stats.requestsPerSecond(), stats.throughputUnit()))
+						.append(String.format(Locale.ROOT, "%.1f %s", stats.requestsPerSecond(),
+								stats.throughputUnit()))
 						.append(TD_CLOSE);
 				}
 				else {
@@ -341,7 +347,7 @@ public class HtmlReporter {
 				}
 				double mjPerReq = stats.energyPerRequestMillijoules(report.totalEnergyJoules());
 				sb.append(TD_NUM_OPEN)
-					.append(!Double.isNaN(mjPerReq) ? String.format("%.3f", mjPerReq) : "—")
+					.append(!Double.isNaN(mjPerReq) ? String.format(Locale.ROOT, "%.3f", mjPerReq) : "—")
 					.append(TD_CLOSE);
 			}
 			else {
@@ -380,7 +386,8 @@ public class HtmlReporter {
 		sb.append(metric("Run ID", run.report().runId()));
 		sb.append(metric("Measured at", FORMATTER.format(run.report().timestamp())));
 		sb.append(metric(LABEL_DURATION, run.report().durationSeconds() + " s"));
-		sb.append(metric(LABEL_TOTAL_ENERGY, String.format(FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
+		sb.append(metric(LABEL_TOTAL_ENERGY,
+				String.format(Locale.ROOT, FMT_ENERGY_JOULES, run.report().totalEnergyJoules())));
 		sb.append(METRICS_CLOSE);
 
 		if (!run.report().measurements().isEmpty()) {
@@ -395,10 +402,10 @@ public class HtmlReporter {
 					.append(escHtml(m.methodName()))
 					.append(TD_CODE_CLOSE)
 					.append(TD_NUM_OPEN)
-					.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+					.append(String.format(Locale.ROOT, FMT_DECIMAL_2, m.energyJoules()))
 					.append(TD_CLOSE)
 					.append(TD_NUM_OPEN)
-					.append(String.format(FMT_PERCENT_1, pct))
+					.append(String.format(Locale.ROOT, FMT_PERCENT_1, pct))
 					.append(TD_CLOSE)
 					.append(TR_CLOSE);
 			}
@@ -443,14 +450,14 @@ public class HtmlReporter {
 			sb.append(metric("App Methods", String.valueOf(methodLevelReports.appReport().measurements().size())));
 		}
 		sb.append(metric("Total Energy (all threads)",
-				String.format(FMT_ENERGY_JOULES, displayReport.totalEnergyJoules())));
+				String.format(Locale.ROOT, FMT_ENERGY_JOULES, displayReport.totalEnergyJoules())));
 		sb.append(metric(LABEL_DURATION, displayReport.durationSeconds() + " s"));
 		sb.append(METRICS_CLOSE);
 
 		double methodTotal = displayReport.totalEnergyJoules();
 		if (methodTotal > processLevelEnergyJoules && processLevelEnergyJoules > 0) {
 			sb.append("    <div class=\"note\">")
-				.append(String.format(
+				.append(String.format(Locale.ROOT,
 						"Method-level total (%.2f J) is higher than the process-level energy (%.2f J) "
 								+ "because Joular Code Java distributes the full CPU power across all JVM threads. "
 								+ "Joular Core measures only this application's share. "
@@ -497,10 +504,10 @@ public class HtmlReporter {
 				.append(escHtml(leafOf(m.methodName())))
 				.append(TD_CODE_CLOSE)
 				.append(TD_NUM_OPEN)
-				.append(String.format(FMT_DECIMAL_2, m.energyJoules()))
+				.append(String.format(Locale.ROOT, FMT_DECIMAL_2, m.energyJoules()))
 				.append(TD_CLOSE)
 				.append(TD_NUM_OPEN)
-				.append(String.format(FMT_PERCENT_1, pct))
+				.append(String.format(Locale.ROOT, FMT_PERCENT_1, pct))
 				.append(TD_CLOSE)
 				.append(TR_CLOSE);
 		}
@@ -550,7 +557,7 @@ public class HtmlReporter {
 
 			if (!Double.isNaN(stats.requestsPerSecond())) {
 				sb.append(metric("Throughput",
-						String.format("%.1f %s", stats.requestsPerSecond(), stats.throughputUnit())));
+						String.format(Locale.ROOT, "%.1f %s", stats.requestsPerSecond(), stats.throughputUnit())));
 			}
 		}
 		else {
@@ -559,11 +566,11 @@ public class HtmlReporter {
 
 		double mjPerReq = stats.energyPerRequestMillijoules(totalEnergyJoules);
 		if (!Double.isNaN(mjPerReq)) {
-			sb.append(metric("Energy / Request", String.format("%.3f mJ", mjPerReq)));
+			sb.append(metric("Energy / Request", String.format(Locale.ROOT, "%.3f mJ", mjPerReq)));
 		}
 		else if (stats.durationSeconds() > 0) {
 			double avgWatts = totalEnergyJoules / stats.durationSeconds();
-			sb.append(metric("Avg Power", String.format("%.2f W", avgWatts)));
+			sb.append(metric("Avg Power", String.format(Locale.ROOT, "%.2f W", avgWatts)));
 		}
 
 		sb.append(METRICS_CLOSE);
@@ -772,14 +779,15 @@ public class HtmlReporter {
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("  <div class=\"card\">\n    <h2>Baseline vs Current</h2>\n    <div class=\"metrics\">\n");
-		sb.append(metric("Baseline", String.format(FMT_ENERGY_JOULES, c.baselineTotalJoules())));
-		sb.append(metric("Current", String.format(FMT_ENERGY_JOULES, c.currentTotalJoules())));
+		sb.append(metric("Baseline", String.format(Locale.ROOT, FMT_ENERGY_JOULES, c.baselineTotalJoules())));
+		sb.append(metric("Current", String.format(Locale.ROOT, FMT_ENERGY_JOULES, c.currentTotalJoules())));
 		if (c.comparedOnEnergyPerRequest()) {
-			sb.append(metric("Baseline / Request", String.format("%.3f mJ", c.baselineComparisonValue())));
-			sb.append(metric("Current / Request", String.format("%.3f mJ", c.currentComparisonValue())));
+			sb.append(metric("Baseline / Request", String.format(Locale.ROOT, "%.3f mJ", c.baselineComparisonValue())));
+			sb.append(metric("Current / Request", String.format(Locale.ROOT, "%.3f mJ", c.currentComparisonValue())));
 		}
-		sb.append(metric("Change (" + c.comparisonUnit() + ")", String.format("%+.2f%%", c.totalDeltaPercent())));
-		sb.append(metric("Threshold", String.format("±%.1f%%", c.threshold())));
+		sb.append(metric("Change (" + c.comparisonUnit() + ")",
+				String.format(Locale.ROOT, "%+.2f%%", c.totalDeltaPercent())));
+		sb.append(metric("Threshold", String.format(Locale.ROOT, "±%.1f%%", c.threshold())));
 		sb.append("    <div class=\"metric\"><div class=\"label\">Status</div>")
 			.append("<div class=\"value ")
 			.append(cls)
@@ -791,11 +799,11 @@ public class HtmlReporter {
 
 		if (c.isFailed()) {
 			sb.append("    <div class=\"alert alert-danger\">Energy consumption increased by ")
-				.append(String.format("%.2f%%", c.totalDeltaPercent()))
+				.append(String.format(Locale.ROOT, "%.2f%%", c.totalDeltaPercent()))
 				.append(" (measured in ")
 				.append(escHtml(c.comparisonUnit()))
 				.append("), exceeding the ±")
-				.append(String.format(FMT_PERCENT_1, c.threshold()))
+				.append(String.format(Locale.ROOT, FMT_PERCENT_1, c.threshold()))
 				.append(" threshold.</div>\n");
 		}
 
@@ -816,13 +824,13 @@ public class HtmlReporter {
 				.append(escHtml(mc.methodName()))
 				.append(TD_CODE_CLOSE)
 				.append(TD_NUM_OPEN)
-				.append(String.format(FMT_DECIMAL_2, mc.baselineEnergyJoules()))
+				.append(String.format(Locale.ROOT, FMT_DECIMAL_2, mc.baselineEnergyJoules()))
 				.append(TD_CLOSE)
 				.append(TD_NUM_OPEN)
-				.append(String.format(FMT_DECIMAL_2, mc.currentEnergyJoules()))
+				.append(String.format(Locale.ROOT, FMT_DECIMAL_2, mc.currentEnergyJoules()))
 				.append(TD_CLOSE)
 				.append("<td class=\"num\"><span class=\"badge badge-red\">")
-				.append(String.format("%+.2f%%", mc.deltaPercent()))
+				.append(String.format(Locale.ROOT, "%+.2f%%", mc.deltaPercent()))
 				.append("</span></td>")
 				.append(TR_CLOSE));
 			sb.append("    </tbody></table>\n");

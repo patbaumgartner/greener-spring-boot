@@ -10,6 +10,7 @@ import com.patbaumgartner.greener.core.model.WorkloadStats;
 import java.io.PrintStream;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Prints a human-readable energy consumption report to {@link System#out}.
@@ -64,14 +65,14 @@ public class ConsoleReporter {
 		out.println(LINE);
 		out.println(" greener-spring-boot - Energy Consumption Report");
 		out.println(LINE);
-		out.printf(" Run ID      : %s%n", current.runId());
-		out.printf(" Timestamp   : %s%n", current.timestamp());
-		out.printf(" Duration    : %d s%n", current.durationSeconds());
-		out.printf(" Total Energy: %.2f J%n", current.totalEnergyJoules());
+		out.printf(Locale.ROOT, " Run ID      : %s%n", current.runId());
+		out.printf(Locale.ROOT, " Timestamp   : %s%n", current.timestamp());
+		out.printf(Locale.ROOT, " Duration    : %d s%n", current.durationSeconds());
+		out.printf(Locale.ROOT, " Total Energy: %.2f J%n", current.totalEnergyJoules());
 
 		if (powerSource != null && powerSource != PowerSource.UNKNOWN) {
-			out.printf(" Power Source : %s%n", powerSource.label());
-			out.printf("               %s%n", powerSource.description());
+			out.printf(Locale.ROOT, " Power Source : %s%n", powerSource.label());
+			out.printf(Locale.ROOT, "               %s%n", powerSource.description());
 		}
 
 		out.println(THIN_LINE);
@@ -83,11 +84,12 @@ public class ConsoleReporter {
 		}
 
 		if (!current.measurements().isEmpty()) {
-			out.printf(" Top %d measurements by energy consumption:%n", topN);
-			out.printf("   %-55s  %10s%n", "Name", "Joules");
+			out.printf(Locale.ROOT, " Top %d measurements by energy consumption:%n", topN);
+			out.printf(Locale.ROOT, "   %-55s  %10s%n", "Name", "Joules");
 			out.println("   " + "-".repeat(68));
 			current.topMeasurements(topN)
-				.forEach(m -> out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
+				.forEach(m -> out.printf(Locale.ROOT, "   %-55s  %10.2f%n", truncate(m.methodName(), 55),
+						m.energyJoules()));
 		}
 		else {
 			out.println(" No energy data recorded.");
@@ -112,27 +114,28 @@ public class ConsoleReporter {
 
 	private void printMethodLevelData(EnergyReport methodLevelReport) {
 		out.println(" Method-Level Energy (Joular Code Java):");
-		out.printf("   Methods      : %d%n", methodLevelReport.measurements().size());
-		out.printf("   Total Energy : %.2f J%n", methodLevelReport.totalEnergyJoules());
+		out.printf(Locale.ROOT, "   Methods      : %d%n", methodLevelReport.measurements().size());
+		out.printf(Locale.ROOT, "   Total Energy : %.2f J%n", methodLevelReport.totalEnergyJoules());
 		out.println();
-		out.printf("   Top %d methods by energy consumption:%n", topN);
-		out.printf("   %-55s  %10s%n", "Method", "Joules");
+		out.printf(Locale.ROOT, "   Top %d methods by energy consumption:%n", topN);
+		out.printf(Locale.ROOT, "   %-55s  %10s%n", "Method", "Joules");
 		out.println("   " + "-".repeat(68));
 		methodLevelReport.topMeasurements(topN)
-			.forEach(m -> out.printf("   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
+			.forEach(
+					m -> out.printf(Locale.ROOT, "   %-55s  %10.2f%n", truncate(m.methodName(), 55), m.energyJoules()));
 		out.println(THIN_LINE);
 	}
 
 	private void printWorkloadStats(WorkloadStats stats, double totalEnergyJoules) {
 		out.println(" Use-Case Energy:");
-		out.printf("   Tool         : %s%n", stats.tool());
-		out.printf("   Duration     : %d s%n", stats.durationSeconds());
+		out.printf(Locale.ROOT, "   Tool         : %s%n", stats.tool());
+		out.printf(Locale.ROOT, "   Duration     : %d s%n", stats.durationSeconds());
 
 		if (stats.hasRequestCounts()) {
-			out.printf("   Requests     : %d total, %d failed (%.1f%%)%n", stats.totalRequests(),
+			out.printf(Locale.ROOT, "   Requests     : %d total, %d failed (%.1f%%)%n", stats.totalRequests(),
 					Math.max(0, stats.failedRequests()),
 					Double.isNaN(stats.failureRatePercent()) ? 0.0 : stats.failureRatePercent());
-			out.printf("   Throughput   : %.1f %s%n", stats.requestsPerSecond(), stats.throughputUnit());
+			out.printf(Locale.ROOT, "   Throughput   : %.1f %s%n", stats.requestsPerSecond(), stats.throughputUnit());
 		}
 		else {
 			out.println("   Requests     : N/A (external tool - counts not captured)");
@@ -140,11 +143,12 @@ public class ConsoleReporter {
 
 		double mjPerReq = stats.energyPerRequestMillijoules(totalEnergyJoules);
 		if (!Double.isNaN(mjPerReq)) {
-			out.printf("   Energy/Req   : %.3f mJ%n", mjPerReq);
+			out.printf(Locale.ROOT, "   Energy/Req   : %.3f mJ%n", mjPerReq);
 		}
 		else if (stats.durationSeconds() > 0) {
 			double wattsAvg = totalEnergyJoules / stats.durationSeconds();
-			out.printf("   Avg Power    : %.2f W  (energy/req unavailable - no request count)%n", wattsAvg);
+			out.printf(Locale.ROOT, "   Avg Power    : %.2f W  (energy/req unavailable - no request count)%n",
+					wattsAvg);
 		}
 	}
 
@@ -163,20 +167,21 @@ public class ConsoleReporter {
 			default -> "~ UNCHANGED";
 		};
 
-		out.printf(" Baseline comparison:%n");
-		out.printf("   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
-		out.printf("   Current Total  : %.2f J%n", comparison.currentTotalJoules());
+		out.printf(Locale.ROOT, " Baseline comparison:%n");
+		out.printf(Locale.ROOT, "   Baseline Total : %.2f J%n", comparison.baselineTotalJoules());
+		out.printf(Locale.ROOT, "   Current Total  : %.2f J%n", comparison.currentTotalJoules());
 		if (comparison.comparedOnEnergyPerRequest()) {
-			out.printf("   Energy/Request : %.3f -> %.3f mJ/req%n", comparison.baselineComparisonValue(),
+			out.printf(Locale.ROOT, "   Energy/Request : %.3f -> %.3f mJ/req%n", comparison.baselineComparisonValue(),
 					comparison.currentComparisonValue());
 		}
-		out.printf("   Delta (%-6s) : %+.2f%%%n", comparison.comparisonUnit(), comparison.totalDeltaPercent());
-		out.printf("   Threshold      : +/-%.1f%%%n", comparison.threshold());
-		out.printf("   Status         : %s%n", arrow);
+		out.printf(Locale.ROOT, "   Delta (%-6s) : %+.2f%%%n", comparison.comparisonUnit(),
+				comparison.totalDeltaPercent());
+		out.printf(Locale.ROOT, "   Threshold      : +/-%.1f%%%n", comparison.threshold());
+		out.printf(Locale.ROOT, "   Status         : %s%n", arrow);
 		printStatisticalEvidence(comparison);
 
 		if (comparison.isFailed()) {
-			out.printf("%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
+			out.printf(Locale.ROOT, "%n   !!  Energy consumption increased by %.2f%% (threshold: +/-%.1f%%)%n",
 					comparison.totalDeltaPercent(), comparison.threshold());
 		}
 
@@ -189,11 +194,13 @@ public class ConsoleReporter {
 
 		if (!regressions.isEmpty()) {
 			out.println();
-			out.printf("   Top regressed components by total energy (delta > %.1f%%):%n", comparison.threshold());
-			out.printf("   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
+			out.printf(Locale.ROOT, "   Top regressed components by total energy (delta > %.1f%%):%n",
+					comparison.threshold());
+			out.printf(Locale.ROOT, "   %-48s  %8s  %8s  %8s%n", "Name", "Baseline", "Current", "Delta%");
 			out.println("   " + "-".repeat(80));
-			regressions.forEach(mc -> out.printf("   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
-					mc.baselineEnergyJoules(), mc.currentEnergyJoules(), mc.deltaPercent()));
+			regressions.forEach(
+					mc -> out.printf(Locale.ROOT, "   %-48s  %8.2f  %8.2f  %+8.2f%n", truncate(mc.methodName(), 48),
+							mc.baselineEnergyJoules(), mc.currentEnergyJoules(), mc.deltaPercent()));
 		}
 
 		out.println(THIN_LINE);
@@ -205,7 +212,7 @@ public class ConsoleReporter {
 		}
 		Double p = comparison.pValue();
 		Double d = comparison.cohenD();
-		out.printf("   Significance   : p=%s, Cohen's d=%s (Welch's t-test)%n", formatStatistic(p, "%.4f"),
+		out.printf(Locale.ROOT, "   Significance   : p=%s, Cohen's d=%s (Welch's t-test)%n", formatStatistic(p, "%.4f"),
 				formatStatistic(d, "%.2f"));
 	}
 
@@ -216,7 +223,7 @@ public class ConsoleReporter {
 		if (value.isInfinite()) {
 			return value > 0 ? "+inf" : "-inf";
 		}
-		return String.format(format, value);
+		return String.format(Locale.ROOT, format, value);
 	}
 
 	private String truncate(String s, int maxLen) {

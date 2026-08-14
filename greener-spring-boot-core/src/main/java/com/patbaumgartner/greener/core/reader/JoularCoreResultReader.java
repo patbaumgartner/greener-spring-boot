@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.logging.Logger;
 
 /**
@@ -126,8 +127,9 @@ public class JoularCoreResultReader {
 		double avgCpuPowerW = totalCpuEnergyJ / Math.max(samples.size(), 1);
 		double avgAppPowerW = samples.stream().mapToDouble(s -> s.pidOrAppPower).average().orElse(0);
 
-		LOG.info(() -> String.format("Energy summary - total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)",
-				totalCpuEnergyJ, avgCpuPowerW, totalAppEnergyJ, avgAppPowerW));
+		LOG.info(() -> String.format(Locale.ROOT,
+				"Energy summary - total CPU: %.2f J (avg %.2f W), app share: %.2f J (avg %.2f W)", totalCpuEnergyJ,
+				avgCpuPowerW, totalAppEnergyJ, avgAppPowerW));
 
 		List<EnergyMeasurement> measurements = new ArrayList<>();
 
