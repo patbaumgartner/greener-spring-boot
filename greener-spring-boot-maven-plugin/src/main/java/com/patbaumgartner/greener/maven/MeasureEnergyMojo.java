@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -552,7 +553,7 @@ public class MeasureEnergyMojo extends AbstractMojo {
 
 	private void handleRegression(ComparisonResult comparison, Path htmlReport) throws MojoFailureException {
 		if (failOnRegression && comparison.isFailed()) {
-			throw new MojoFailureException(String.format(
+			throw new MojoFailureException(String.format(Locale.ROOT,
 					"Energy regression detected: %.2f%% increase exceeds threshold of %.1f%%. " + "See report at: %s",
 					comparison.totalDeltaPercent(), threshold, htmlReport));
 		}

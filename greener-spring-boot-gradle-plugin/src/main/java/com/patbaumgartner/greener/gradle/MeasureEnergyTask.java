@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -463,7 +464,7 @@ public abstract class MeasureEnergyTask extends DefaultTask {
 
 		// 9. Fail build on regression
 		if (getFailOnRegression().get() && result.comparison().isFailed()) {
-			throw new GradleException(String.format(
+			throw new GradleException(String.format(Locale.ROOT,
 					"Energy regression detected: %.2f%% increase exceeds threshold of %.1f%%. " + "See report at: %s",
 					result.comparison().totalDeltaPercent(), getThreshold().get(), result.htmlReport()));
 		}

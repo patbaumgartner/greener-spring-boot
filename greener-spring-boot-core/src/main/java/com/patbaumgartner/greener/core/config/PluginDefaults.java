@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.function.Consumer;
@@ -133,7 +134,7 @@ public final class PluginDefaults {
 		lines.add("Energy baseline updated: " + baselineFile);
 		lines.add("  commit : " + (commitSha != null ? commitSha : "n/a"));
 		lines.add("  branch : " + (branch != null ? branch : "n/a"));
-		lines.add("  energy : " + String.format("%.2f J", totalEnergyJoules));
+		lines.add("  energy : " + String.format(Locale.ROOT, "%.2f J", totalEnergyJoules));
 		return lines;
 	}
 

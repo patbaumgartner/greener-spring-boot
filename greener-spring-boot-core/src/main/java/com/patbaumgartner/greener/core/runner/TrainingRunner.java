@@ -357,8 +357,8 @@ public class TrainingRunner {
 		ExternalToolOutputParser parser = new ExternalToolOutputParser();
 		parser.parse(toolName, output);
 		if (parser.hasResults()) {
-			LOG.fine(() -> String.format("Parsed %d total requests (%d failed) from %s output", parser.totalRequests(),
-					parser.failedRequests(), toolName));
+			LOG.fine(() -> String.format(Locale.ROOT, "Parsed %d total requests (%d failed) from %s output",
+					parser.totalRequests(), parser.failedRequests(), toolName));
 			return WorkloadStats.external(toolName, parser.totalRequests(), parser.failedRequests(), elapsed);
 		}
 		return WorkloadStats.external(toolName, elapsed);

@@ -17,12 +17,32 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class HtmlReporterTest {
 
 	private final HtmlReporter reporter = new HtmlReporter();
+
+	@Test
+	void generateReport_usesDotDecimalSeparatorUnderACommaLocale(@TempDir Path tmp) throws IOException {
+		Locale original = Locale.getDefault();
+		try {
+			Locale.setDefault(Locale.GERMANY);
+			EnergyReport report = EnergyReport.of("run-locale", Instant.now(), 60,
+					List.of(new EnergyMeasurement("app [app]", 125.5)));
+			ComparisonResult comparison = new ComparisonResult(ComparisonStatus.NO_BASELINE, 0, 125.5, 0, List.of(),
+					false, 10.0);
+
+			String content = Files.readString(reporter.generateReport(report, comparison, tmp));
+
+			assertThat(content).contains("125.50 J").doesNotContain("125,50");
+		}
+		finally {
+			Locale.setDefault(original);
+		}
+	}
 
 	@Test
 	void generateReport_createsHtmlFile(@TempDir Path tmp) throws IOException {
