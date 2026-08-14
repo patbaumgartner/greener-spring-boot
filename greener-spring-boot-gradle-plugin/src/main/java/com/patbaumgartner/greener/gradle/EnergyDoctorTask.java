@@ -1,5 +1,6 @@
 package com.patbaumgartner.greener.gradle;
 
+import com.patbaumgartner.greener.core.config.PluginDefaults;
 import com.patbaumgartner.greener.core.doctor.EnvironmentDoctor;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -43,12 +44,22 @@ public abstract class EnergyDoctorTask extends DefaultTask {
 	public abstract RegularFileProperty getJoularCodeJavaAgentPath();
 
 	/**
-	 * Optional first token of the workload command (e.g. {@code oha}).
+	 * Optional first token of the workload command (e.g. {@code oha}). When unset, the
+	 * doctor falls back to {@link #getExternalTrainingCommand()}.
 	 * @return the property
 	 */
 	@Optional
 	@Input
 	public abstract Property<String> getWorkloadCommand();
+
+	/**
+	 * External training command configured on the {@code greener} extension. Used only to
+	 * derive the workload tool when {@link #getWorkloadCommand()} is not set.
+	 * @return the property
+	 */
+	@Optional
+	@Input
+	public abstract Property<String> getExternalTrainingCommand();
 
 	/**
 	 * When {@code true} (default) the build fails on any FAIL-level check.
@@ -73,10 +84,11 @@ public abstract class EnergyDoctorTask extends DefaultTask {
 				: null;
 		Path agent = getJoularCodeJavaAgentPath().isPresent() ? getJoularCodeJavaAgentPath().get().getAsFile().toPath()
 				: null;
-		String cmd = getWorkloadCommand().getOrNull();
+		String workloadTool = PluginDefaults.resolveWorkloadTool(getWorkloadCommand().getOrNull(),
+				getExternalTrainingCommand().getOrNull());
 		Path projectPath = getProjectDir().isPresent() ? getProjectDir().get().toPath() : null;
 
-		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, cmd, projectPath);
+		EnvironmentDoctor.Report report = EnvironmentDoctor.run(binary, agent, workloadTool, projectPath);
 		String text = EnvironmentDoctor.format(report);
 		for (String line : text.split("\n")) {
 			getLogger().lifecycle(line);

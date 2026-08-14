@@ -194,6 +194,34 @@ public final class PluginDefaults {
 	}
 
 	/**
+	 * Derives the executable that the environment doctor should look for on {@code PATH}.
+	 * Prefers an explicitly configured workload command and otherwise falls back to the
+	 * first token of the configured external training command, so that the common setup
+	 * &mdash; a single {@code externalTrainingCommand} in the plugin configuration
+	 * &mdash; is checked without the user having to repeat the tool name.
+	 *
+	 * <p>
+	 * Returns {@code null} when neither is configured, and also when only an external
+	 * training <em>script file</em> is in use: a script path is not resolved through
+	 * {@code PATH}, and its existence is already validated by
+	 * {@link #validateExternalScript(File)}.
+	 * @param explicitCommand explicitly configured workload command (may be {@code null})
+	 * @param externalTrainingCommand configured external training command (may be
+	 * {@code null})
+	 * @return the executable name to probe on {@code PATH}, or {@code null} when there is
+	 * nothing to check
+	 */
+	public static String resolveWorkloadTool(String explicitCommand, String externalTrainingCommand) {
+		String candidate = (explicitCommand != null && !explicitCommand.isBlank()) ? explicitCommand
+				: externalTrainingCommand;
+		if (candidate == null || candidate.isBlank()) {
+			return null;
+		}
+		String[] tokens = candidate.trim().split("\\s+", 2);
+		return tokens[0];
+	}
+
+	/**
 	 * Appends a {@code yyyyMMdd-HHmmss} timestamp to the given base directory to create a
 	 * unique run-specific report directory.
 	 * @param baseDir the base report output directory
