@@ -59,6 +59,7 @@ public class GreenerPlugin implements Plugin<Project> {
 		extension.getVmMode().convention(false);
 		extension.getBaseUrl().convention("http://localhost:8080");
 		extension.getRequestsPerSecond().convention(5);
+		extension.getExternalTrainingTimeoutSeconds().convention(0);
 		extension.getWarmupDurationSeconds().convention(30);
 		extension.getMeasureDurationSeconds().convention(60);
 		extension.getStartupTimeoutSeconds().convention(120);
@@ -118,6 +119,7 @@ public class GreenerPlugin implements Plugin<Project> {
 			task.getRequestsPerSecond().convention(extension.getRequestsPerSecond());
 			task.getExternalTrainingCommand().convention(extension.getExternalTrainingCommand());
 			task.getExternalTrainingScriptFile().convention(extension.getExternalTrainingScriptFile());
+			task.getExternalTrainingTimeoutSeconds().convention(extension.getExternalTrainingTimeoutSeconds());
 			task.getVmMode().convention(extension.getVmMode());
 			task.getVmPowerFilePath().convention(extension.getVmPowerFilePath());
 			task.getWarmupDurationSeconds().convention(extension.getWarmupDurationSeconds());

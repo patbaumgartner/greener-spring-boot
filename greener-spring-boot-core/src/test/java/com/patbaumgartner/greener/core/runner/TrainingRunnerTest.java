@@ -1,8 +1,13 @@
 package com.patbaumgartner.greener.core.runner;
 
 import com.patbaumgartner.greener.core.config.TrainingConfig;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException;
+import com.patbaumgartner.greener.core.exception.EnergyMeasurementException.Hint;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -13,6 +18,7 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class TrainingRunnerTest {
 
@@ -105,6 +111,83 @@ class TrainingRunnerTest {
 
 		assertThatThrownBy(() -> runner.run(config)).isInstanceOf(IOException.class)
 			.hasMessageContaining("exited with code");
+	}
+
+	// ---- workload timeout ----
+
+	@Test
+	@DisabledOnOs(OS.WINDOWS)
+	@Timeout(30)
+	void run_workloadThatHangsHoldingStdoutOpen_isKilledAtTheTimeout() {
+		// The workload keeps stdout open forever. Draining it inline would block until
+		// the child exits, so the timeout could never fire - the bug this guards.
+		TrainingConfig config = new TrainingConfig().externalCommand("echo working; sleep 600").timeoutSeconds(2);
+
+		EnergyMeasurementException thrown = catchThrowableOfType(EnergyMeasurementException.class,
+				() -> runner.run(config));
+
+		assertThat(thrown).isNotNull();
+		assertThat(thrown.hint()).isEqualTo(Hint.WORKLOAD_TIMEOUT);
+		assertThat(thrown).hasMessageContaining("timed out after 2 seconds");
+	}
+
+	@Test
+	@DisabledOnOs(OS.WINDOWS)
+	@Timeout(30)
+	void run_workloadTimeout_killsDescendantsNotJustTheShell() throws Exception {
+		Path marker = Files.createTempDirectory("greener-descendant").resolve("alive.txt");
+		// The grandchild keeps touching a marker file. If only the `sh -c` wrapper were
+		// killed it would survive the timeout and keep writing.
+		TrainingConfig config = new TrainingConfig()
+			.externalCommand("sh -c 'while true; do touch " + marker + "; sleep 0.2; done'")
+			.timeoutSeconds(2);
+
+		assertThatThrownBy(() -> runner.run(config)).isInstanceOf(EnergyMeasurementException.class);
+
+		Files.deleteIfExists(marker);
+		Thread.sleep(1_500);
+		assertThat(Files.exists(marker)).as("descendant still running after timeout").isFalse();
+	}
+
+	@Test
+	@DisabledOnOs(OS.WINDOWS)
+	@Timeout(30)
+	void run_workloadFinishingBeforeTimeout_succeeds() throws Exception {
+		TrainingConfig config = new TrainingConfig().externalCommand("echo quick").timeoutSeconds(20);
+
+		assertThat(runner.run(config)).isNotNull();
+	}
+
+	@Test
+	void run_failingCommand_carriesWorkloadFailedHint() {
+		TrainingConfig config = new TrainingConfig().externalCommand("exit 3");
+
+		EnergyMeasurementException thrown = catchThrowableOfType(EnergyMeasurementException.class,
+				() -> runner.run(config));
+
+		assertThat(thrown.hint()).isEqualTo(Hint.WORKLOAD_FAILED);
+		assertThat(thrown).hasMessageContaining("exited with code 3");
+	}
+
+	@Test
+	void run_missingScript_carriesWorkloadToolMissingHint() {
+		TrainingConfig config = new TrainingConfig().externalScriptFile("/nonexistent/script.sh");
+
+		EnergyMeasurementException thrown = catchThrowableOfType(EnergyMeasurementException.class,
+				() -> runner.run(config));
+
+		assertThat(thrown.hint()).isEqualTo(Hint.WORKLOAD_TOOL_MISSING);
+	}
+
+	@Test
+	@DisabledOnOs(OS.WINDOWS)
+	@Timeout(30)
+	void run_capturesOutputProducedBeforeCompletion() throws Exception {
+		TrainingConfig config = new TrainingConfig()
+			.externalCommand("echo 'Summary:'; echo '  Success rate: 100.00%'; echo '  Total: 500 responses'")
+			.timeoutSeconds(20);
+
+		assertThat(runner.run(config).tool()).isNotBlank();
 	}
 
 }
