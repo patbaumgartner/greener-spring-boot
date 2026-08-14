@@ -187,6 +187,44 @@ class JoularCoreDownloaderTest {
 			.hasMessageContaining("Failed to download");
 	}
 
+	@Test
+	void download_failedDownload_leavesNoBinaryBehindInTheCache(@TempDir Path tempDir) {
+		JoularCoreDownloader downloader = new JoularCoreDownloader();
+
+		assertThatThrownBy(() -> downloader.download("99.99.99-nonexistent", tempDir)).isInstanceOf(IOException.class);
+
+		// A binary left at its final cache path would be short-circuited to - and
+		// executed - by the next run without ever having been checksum-verified.
+		assertThat(tempDir.resolve(JoularCoreDownloader.resolveAssetName())).doesNotExist();
+	}
+
+	@Test
+	void download_failedDownload_leavesNoTemporaryFilesBehind(@TempDir Path tempDir) throws IOException {
+		JoularCoreDownloader downloader = new JoularCoreDownloader();
+
+		assertThatThrownBy(() -> downloader.download("99.99.99-nonexistent", tempDir)).isInstanceOf(IOException.class);
+
+		try (var entries = Files.list(tempDir)) {
+			assertThat(entries).isEmpty();
+		}
+	}
+
+	@Test
+	void computeSha256_largeFileSpanningManyBufferReads_matchesSingleShotDigest(@TempDir Path tempDir)
+			throws Exception {
+		byte[] payload = new byte[8192 * 4 + 137];
+		for (int i = 0; i < payload.length; i++) {
+			payload[i] = (byte) (i % 251);
+		}
+		Path file = tempDir.resolve("large.bin");
+		Files.write(file, payload);
+
+		String expected = java.util.HexFormat.of()
+			.formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(payload));
+
+		assertThat(JoularCoreDownloader.computeSha256(file)).isEqualTo(expected);
+	}
+
 	// ---- resolveZipAssetName ----
 
 	@Test
