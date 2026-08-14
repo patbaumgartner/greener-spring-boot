@@ -134,8 +134,8 @@ class TrainingRunnerTest {
 	@Test
 	@DisabledOnOs(OS.WINDOWS)
 	@Timeout(30)
-	void run_workloadTimeout_killsDescendantsNotJustTheShell() throws Exception {
-		Path marker = Files.createTempDirectory("greener-descendant").resolve("alive.txt");
+	void run_workloadTimeout_killsDescendantsNotJustTheShell(@TempDir Path tempDir) throws Exception {
+		Path marker = tempDir.resolve("alive.txt");
 		// The grandchild keeps touching a marker file. If only the `sh -c` wrapper were
 		// killed it would survive the timeout and keep writing.
 		TrainingConfig config = new TrainingConfig()
