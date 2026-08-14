@@ -111,6 +111,25 @@ class JoularCoreRunnerTest {
 
 	@Test
 	@EnabledOnOs({ OS.LINUX, OS.MAC })
+	void start_nonExecutableBinary_throwsWithGenericIoHint(@TempDir Path tempDir) throws Exception {
+		Path notExecutable = tempDir.resolve("joularcore");
+		Files.writeString(notExecutable, "#!/bin/sh\nsleep 60\n");
+		Path outputCsv = tempDir.resolve("output.csv");
+
+		JoularCoreConfig config = new JoularCoreConfig().binaryPath(notExecutable)
+			.outputCsvPath(outputCsv)
+			.pid(1L)
+			.silent(true);
+
+		assertThatThrownBy(() -> runner.start(config)).isInstanceOf(EnergyMeasurementException.class)
+			.hasMessageContaining("Could not start Joular Core")
+			.asInstanceOf(InstanceOfAssertFactories.type(EnergyMeasurementException.class))
+			.extracting(EnergyMeasurementException::hint)
+			.isEqualTo(Hint.GENERIC_IO);
+	}
+
+	@Test
+	@EnabledOnOs({ OS.LINUX, OS.MAC })
 	void start_createsOutputDirectory(@TempDir Path tempDir) throws Exception {
 		Path script = createExecutableScript(tempDir, "#!/bin/sh\nsleep 60\n");
 		Path nested = tempDir.resolve("sub").resolve("dir").resolve("output.csv");
