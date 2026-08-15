@@ -57,9 +57,9 @@ jobs:
           restore-keys: nvd-${{ runner.os }}-
 
       # Fails the build on any dependency with CVSS >= 7 (configured in the root pom).
-      # An empty -DnvdApiKey is rejected outright by dependency-check, so the flag is
-      # only passed when the secret actually exists; without it the public NVD feed is
-      # rate-limited but still usable.
+      # NVD now rejects the keyless path outright ('Invalid API Key, length of 0'),
+      # not just rate-limits it as assumed below, so the scan is skipped (warning
+      # only) rather than attempted without a key.
       - name: OWASP dependency-check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -68,8 +68,7 @@ jobs:
             mvn --batch-mode --no-transfer-progress \
               org.owasp:dependency-check-maven:check "-DnvdApiKey=$NVD_API_KEY"
           else
-            echo "::warning::NVD_API_KEY is not set - using the rate-limited public NVD feed. Add the secret to speed this up."
-            mvn --batch-mode --no-transfer-progress org.owasp:dependency-check-maven:check
+            echo "::warning::NVD_API_KEY is not set - NVD rejects the keyless feed download outright, so the scan cannot run. Add a free key from https://nvd.nist.gov/developers/request-an-api-key as the NVD_API_KEY repo secret."
           fi
 
       - name: Generate CycloneDX SBOM
