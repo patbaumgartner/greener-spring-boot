@@ -140,7 +140,7 @@ jobs:
       # ── 11. Upload artifacts ────────────────────────────────────────────────
       - name: Upload baseline as artifact
         if: steps.energy-setup.outputs.power-source != 'none'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: energy-baseline-${{ github.sha }}
           path: |
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload energy reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: greener-reports-baseline-${{ github.sha }}
           path: /tmp/greener-reports/
