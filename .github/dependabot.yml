@@ -53,6 +53,10 @@ updates:
     codeql-action:
       patterns:
       - github/codeql-action*
+    multi-step-actions:
+      patterns:
+      - actions/cache/*
+      - github/codeql-action/*
   directory: /
   schedule:
     interval: weekly
@@ -66,8 +70,3 @@ updates:
   commit-message:
     prefix: ci(deps)
     include: scope
-groups:
-  multi-step-actions:
-    patterns:
-    - actions/cache/*
-    - github/codeql-action/*
